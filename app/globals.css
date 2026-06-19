@@ -1,0 +1,24 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  @apply bg-slate-100 text-slate-900 antialiased;
+}
+
+/* Smooth movement for characters and hands across the scene. */
+.actor-move {
+  transition:
+    left 0.55s ease-in-out,
+    top 0.55s ease-in-out,
+    transform 0.3s ease-out;
+}

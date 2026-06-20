@@ -324,6 +324,14 @@ export default function RoomScene() {
         ) : null}
       </div>
 
+      {/* Gentle nudge once the manual repetition has made its point. */}
+      {mode === "manual" && manualActions >= 3 && remaining > 0 ? (
+        <div className="animate-fade-in rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm text-emerald-800">
+          💡 Getting repetitive? That&rsquo;s the point. Switch to{" "}
+          <strong>Agent</strong> mode and give the same goal just once.
+        </div>
+      ) : null}
+
       {/* Progress bar */}
       <div className="flex items-center gap-3">
         <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-200">

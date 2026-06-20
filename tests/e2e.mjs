@@ -101,6 +101,14 @@ async function run() {
   await page.waitForTimeout(300);
   check("Manual: Reset restocks the room", (await itemsLeft(page)) === startCount);
 
+  // Repetition nudge appears after a few manual submits.
+  for (let i = 0; i < 3; i++) {
+    await page.getByRole("button", { name: "Submit" }).click();
+    await waitIdleOrClean(page);
+  }
+  check("Manual: nudge to try Agent mode appears after repeated submits",
+    (await page.getByText(/Getting repetitive/i).count()) > 0);
+
   // ---------- Scene 1: Agent ----------
   await page.getByRole("button", { name: "agent" }).click();
   await page.waitForTimeout(500);

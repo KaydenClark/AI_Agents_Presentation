@@ -56,3 +56,16 @@ body {
   white-space: nowrap;
   border: 0;
 }
+
+/* Respect users who prefer reduced motion: keep position transitions short
+   (the scenes still need to move actors) but drop looping decorative ones. */
+@media (prefers-reduced-motion: reduce) {
+  .actor-move {
+    transition-duration: 0.15s;
+  }
+  .animate-bob,
+  .animate-pulse-soft,
+  .animate-poof {
+    animation: none !important;
+  }
+}

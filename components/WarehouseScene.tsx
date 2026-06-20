@@ -280,6 +280,7 @@ export default function WarehouseScene() {
     // ---- The one real AI moment: Boss decomposes the job ----
     setPhase("deciding");
     setBossNote("Boss is deciding…");
+    const decideStart = Date.now();
 
     const zonesState = zonesRef.current.map((z) => ({
       id: z.id,
@@ -309,6 +310,11 @@ export default function WarehouseScene() {
       }
       setDecompSource("fallback");
     }
+
+    // Keep the "deciding" beat on screen long enough for a live audience to
+    // register it, even when the fast fallback returns instantly.
+    const decideElapsed = Date.now() - decideStart;
+    if (decideElapsed < 900) await sleep(900 - decideElapsed);
 
     setBossNote("Boss dispatched a plan to each Manager.");
     setPhase("dispatched");

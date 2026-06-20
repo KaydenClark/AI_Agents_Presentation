@@ -1,5 +1,10 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import WarehouseScene from "@/components/WarehouseScene";
+
+export const metadata: Metadata = {
+  title: "Swarm Warehouse · AI Agent Swarm Demo",
+};
 
 export default function WarehousePage() {
   return (
@@ -32,6 +37,23 @@ export default function WarehousePage() {
           chain. If something gets truly stuck, it surfaces to a human &mdash;
           the real exit point.
         </p>
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
+          <span className="rounded-full bg-indigo-100 px-3 py-1 font-semibold text-indigo-700">
+            🧑‍💼 1 Boss
+          </span>
+          <span aria-hidden className="text-slate-400">
+            →
+          </span>
+          <span className="rounded-full bg-sky-100 px-3 py-1 font-semibold text-sky-700">
+            🧑‍🔧 3 Managers
+          </span>
+          <span aria-hidden className="text-slate-400">
+            →
+          </span>
+          <span className="rounded-full bg-emerald-100 px-3 py-1 font-semibold text-emerald-700">
+            🤖 6 Agents
+          </span>
+        </div>
       </header>
 
       <WarehouseScene />

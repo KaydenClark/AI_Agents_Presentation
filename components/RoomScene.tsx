@@ -294,22 +294,31 @@ export default function RoomScene() {
       </form>
 
       {/* Mode explainer */}
-      <div className="rounded-lg bg-slate-50 px-4 py-2 text-sm text-slate-600">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg bg-slate-50 px-4 py-2 text-sm text-slate-600">
+        <span
+          className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${
+            mode === "manual"
+              ? "bg-amber-100 text-amber-700"
+              : "bg-emerald-100 text-emerald-700"
+          }`}
+        >
+          {mode === "manual" ? "1 input → 1 action" : "1 input → N actions"}
+        </span>
         {mode === "manual" ? (
-          <>
+          <span>
             <strong className="text-slate-800">Manual:</strong> one Submit = one
             item moved. You must resubmit for every remaining item. Submits so
             far: <strong>{manualActions}</strong>.
-          </>
+          </span>
         ) : (
-          <>
+          <span>
             <strong className="text-slate-800">Agent:</strong> one Submit gives
             the worker a goal. It loops on its own until the room is empty, then
             stops itself.
-          </>
+          </span>
         )}
         {lastCommand ? (
-          <span className="ml-1 text-slate-400">
+          <span className="text-slate-400">
             Last command: &ldquo;{lastCommand}&rdquo;.
           </span>
         ) : null}
@@ -343,8 +352,21 @@ export default function RoomScene() {
 
       {/* Scene */}
       <div className="relative aspect-[16/9] w-full overflow-hidden rounded-2xl border border-slate-300 bg-gradient-to-b from-sky-50 via-amber-50 to-orange-100 shadow-inner">
-        {/* Floor strip */}
-        <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-b from-transparent to-amber-200/50" />
+        {/* Floor strip + baseboard */}
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-b from-transparent to-amber-200/50" />
+        <div className="pointer-events-none absolute inset-x-0 bottom-[33%] h-px bg-amber-300/60" />
+
+        {/* Ambient décor (purely decorative) */}
+        <div
+          className="pointer-events-none absolute left-[30%] top-[10%] -translate-x-1/2 text-4xl opacity-70"
+          aria-hidden
+        >
+          🪟
+        </div>
+        <div
+          className="pointer-events-none absolute left-[50%] top-[88%] h-10 w-40 -translate-x-1/2 -translate-y-1/2 rounded-[50%] bg-rose-200/40"
+          aria-hidden
+        />
 
         {/* Fixed targets */}
         <Target x={TRASH.x} y={TRASH.y} glyph="🗑️" label="Trash can" tone="rose" />

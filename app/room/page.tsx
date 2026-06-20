@@ -1,5 +1,10 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import RoomScene from "@/components/RoomScene";
+
+export const metadata: Metadata = {
+  title: "Single Room · AI Agent Swarm Demo",
+};
 
 export default function RoomPage() {
   return (

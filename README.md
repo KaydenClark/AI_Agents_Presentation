@@ -64,6 +64,23 @@ Open <http://localhost:3000>.
 
 Both scenes are fully functional locally via `npm run dev`.
 
+## Testing
+
+A real-browser end-to-end smoke test drives both scenes and checks the core
+behaviors (Manual = one item per submit, Agent self-terminates, mode lock while
+busy, the warehouse produces a final report, and the jam → human-escalation exit
+point). It uses Playwright.
+
+```bash
+npm run dev                       # terminal 1 — serves on :3000
+npx playwright install chromium   # one-time, downloads the browser
+npm run test:e2e                  # terminal 2
+```
+
+Point it at a different origin with `E2E_BASE`, e.g.
+`E2E_BASE=http://localhost:3100 npm run test:e2e`. A clean `npm run lint` and
+`npm run build` should also pass with no warnings.
+
 ## Deploy to Vercel
 
 1. Install the CLI and log in (one time):

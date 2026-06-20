@@ -23,10 +23,20 @@ interface ZoneInstruction {
   instruction: string;
 }
 
+function pluralize(kind: string, count: number): string {
+  if (count === 1) return kind;
+  // "box" -> "boxes"; "dishes" is already plural; default add "s".
+  if (kind.endsWith("s") || kind.endsWith("sh") || kind.endsWith("ch")) {
+    return kind.endsWith("s") ? kind : `${kind}es`;
+  }
+  if (kind.endsWith("x")) return `${kind}es`;
+  return `${kind}s`;
+}
+
 function describeZone(zone: ZoneState): string {
   const parts = zone.items
     .filter((i) => i.count > 0)
-    .map((i) => `${i.count} ${i.kind}${i.count === 1 ? "" : "s"}`);
+    .map((i) => `${i.count} ${pluralize(i.kind, i.count)}`);
   return parts.length ? parts.join(", ") : "nothing notable";
 }
 

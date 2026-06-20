@@ -161,12 +161,18 @@ export default function WarehouseScene() {
     );
   }, []);
 
-  const getZone = (id: string) =>
-    zonesRef.current.find((z) => z.id === id)!;
+  // Stable helpers — they only read/write the mutable ref, so empty deps.
+  const getZone = useCallback(
+    (id: string) => zonesRef.current.find((z) => z.id === id)!,
+    [],
+  );
 
-  const addLine = (zoneId: string, line: Omit<ReportLine, "id">) => {
-    getZone(zoneId).report.push({ id: nextId(), ...line });
-  };
+  const addLine = useCallback(
+    (zoneId: string, line: Omit<ReportLine, "id">) => {
+      getZone(zoneId).report.push({ id: nextId(), ...line });
+    },
+    [getZone],
+  );
 
   // ---- One agent's act-loop within its zone ----
   const runAgent = useCallback(
@@ -231,7 +237,7 @@ export default function WarehouseScene() {
       agent.state = "done";
       commit();
     },
-    [commit],
+    [commit, addLine, getZone],
   );
 
   // ---- One zone: run both agents, then the Manager delivers the report ----
@@ -254,7 +260,7 @@ export default function WarehouseScene() {
       commit();
       await sleep(STEP);
     },
-    [commit, runAgent],
+    [commit, runAgent, addLine, getZone],
   );
 
   const run = useCallback(async () => {
@@ -383,7 +389,7 @@ export default function WarehouseScene() {
         message: `${zone.name}: a stuck item reached the Boss and needs a person to step in.`,
       });
     },
-    [commit],
+    [commit, addLine, getZone],
   );
 
   const resolveHuman = useCallback(() => {
@@ -397,7 +403,7 @@ export default function WarehouseScene() {
     });
     commit();
     setHumanNeeded(null);
-  }, [humanNeeded, commit]);
+  }, [humanNeeded, commit, addLine, getZone]);
 
   const busy =
     phase === "deciding" ||

@@ -37,12 +37,18 @@ function nearest(items: Clutter[], to: { x: number; y: number }): Clutter {
   }, items[0]);
 }
 
+function destinationLabel(kind: Clutter["kind"]): string {
+  return targetFor(kind) === "trash" ? "trash can" : "drawer";
+}
+
 export default function RoomScene() {
   const [items, setItems] = useState<Clutter[]>(initialClutter);
   const [mode, setMode] = useState<Mode>("manual");
   const [command, setCommand] = useState("");
+  const [lastCommand, setLastCommand] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [manualActions, setManualActions] = useState(0);
+  const [announcement, setAnnouncement] = useState("");
 
   // Agent character
   const [charPos, setCharPos] = useState(DESK);
@@ -58,15 +64,27 @@ export default function RoomScene() {
     carrying: null as string | null,
   });
   const [removingId, setRemovingId] = useState<string | null>(null);
+  // A short-lived sparkle shown where an item was just deposited.
+  const [poof, setPoof] = useState<{ x: number; y: number; key: number } | null>(
+    null,
+  );
 
   const itemsRef = useRef(items);
   itemsRef.current = items;
   const busyRef = useRef(false);
+  const charPosRef = useRef(charPos);
+  charPosRef.current = charPos;
 
+  const startCount = 7;
   const roomClean = items.length === 0;
+  const cleared = startCount - items.length;
 
   const removeItem = useCallback((id: string) => {
     setItems((prev) => prev.filter((i) => i.id !== id));
+  }, []);
+
+  const showPoof = useCallback((x: number, y: number) => {
+    setPoof({ x, y, key: Date.now() });
   }, []);
 
   // ---- Manual mode: one input -> one action ----
@@ -84,7 +102,7 @@ export default function RoomScene() {
 
     // Hand drops in from the top of the screen.
     setHand({ x: item.xPercent, y: -15, visible: true, carrying: null });
-    await sleep(60);
+    await sleep(80);
     setHand({ x: item.xPercent, y: item.yPercent, visible: true, carrying: null });
     await sleep(650);
 
@@ -99,6 +117,8 @@ export default function RoomScene() {
     setHand({ x: target.x, y: target.y, visible: true, carrying: glyph });
     await sleep(720);
     setHand((h) => ({ ...h, carrying: null }));
+    showPoof(target.x, target.y);
+    setAnnouncement(`Moved ${item.kind} to the ${destinationLabel(item.kind)}.`);
     await sleep(320);
 
     // Retract.
@@ -108,7 +128,10 @@ export default function RoomScene() {
     setManualActions((n) => n + 1);
     busyRef.current = false;
     setBusy(false);
-  }, [removeItem]);
+    if (itemsRef.current.length === 0) {
+      setAnnouncement("Room clean. That took several separate submits.");
+    }
+  }, [removeItem, showPoof]);
 
   // ---- Agent mode: one input -> N actions, self-terminating ----
   const runAgentLoop = useCallback(async () => {
@@ -144,6 +167,10 @@ export default function RoomScene() {
       setCharState("working");
       await sleep(300);
       setCharCarry(null);
+      showPoof(target.x, target.y);
+      setAnnouncement(
+        `Agent moved ${item.kind} to the ${destinationLabel(item.kind)}.`,
+      );
 
       // Walk back to the desk and sit.
       setCharState("walking");
@@ -162,25 +189,24 @@ export default function RoomScene() {
     // Goal state reached — the loop stops itself.
     setCharState("sitting");
     setCharPos(DESK);
+    setThought(undefined);
+    setAnnouncement("Room clean. The agent reached the goal and stopped itself.");
     busyRef.current = false;
     setBusy(false);
-  }, [removeItem]);
-
-  // Keep a ref of the character position for the agent loop's nearest() calc.
-  const charPosRef = useRef(charPos);
-  charPosRef.current = charPos;
+  }, [removeItem, showPoof]);
 
   const handleSubmit = useCallback(
     (e: React.FormEvent) => {
       e.preventDefault();
       if (busy || roomClean) return;
+      setLastCommand(command.trim() || "clean the room");
       if (mode === "manual") {
         runManualStep();
       } else {
         runAgentLoop();
       }
     },
-    [busy, roomClean, mode, runManualStep, runAgentLoop],
+    [busy, roomClean, mode, command, runManualStep, runAgentLoop],
   );
 
   const reset = useCallback(() => {
@@ -193,6 +219,8 @@ export default function RoomScene() {
     setThought(undefined);
     setHand({ x: 50, y: -15, visible: false, carrying: null });
     setRemovingId(null);
+    setPoof(null);
+    setAnnouncement("Room reset.");
   }, []);
 
   // Switching mode mid-demo resets the room so each lesson starts clean.
@@ -202,29 +230,36 @@ export default function RoomScene() {
   }, [mode]);
 
   const remaining = items.length;
-
-  const placeholder = useMemo(
-    () => "Type a command, e.g. clean the room",
-    [],
-  );
+  const placeholder = useMemo(() => "Type a command, e.g. clean the room", []);
 
   return (
     <div className="flex flex-col gap-4">
+      {/* Screen-reader live region */}
+      <div aria-live="polite" className="sr-only" role="status">
+        {announcement}
+      </div>
+
       {/* Controls */}
       <form
         onSubmit={handleSubmit}
         className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm"
       >
-        <div className="inline-flex overflow-hidden rounded-lg border border-slate-300">
+        <div
+          className="inline-flex overflow-hidden rounded-lg border border-slate-300"
+          role="group"
+          aria-label="Mode"
+        >
           {(["manual", "agent"] as Mode[]).map((m) => (
             <button
               key={m}
               type="button"
               onClick={() => setMode(m)}
-              className={`px-4 py-2 text-sm font-semibold capitalize transition ${
+              disabled={busy}
+              aria-pressed={mode === m}
+              className={`px-4 py-2 text-sm font-semibold capitalize transition disabled:cursor-not-allowed ${
                 mode === m
                   ? "bg-indigo-600 text-white"
-                  : "bg-white text-slate-600 hover:bg-slate-50"
+                  : "bg-white text-slate-600 enabled:hover:bg-slate-50 disabled:opacity-50"
               }`}
             >
               {m}
@@ -236,6 +271,7 @@ export default function RoomScene() {
           value={command}
           onChange={(e) => setCommand(e.target.value)}
           placeholder={placeholder}
+          aria-label="Command"
           className="min-w-[200px] flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
         />
 
@@ -272,14 +308,48 @@ export default function RoomScene() {
             stops itself.
           </>
         )}
+        {lastCommand ? (
+          <span className="ml-1 text-slate-400">
+            Last command: &ldquo;{lastCommand}&rdquo;.
+          </span>
+        ) : null}
+      </div>
+
+      {/* Progress bar */}
+      <div className="flex items-center gap-3">
+        <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-200">
+          <div
+            className="h-full rounded-full bg-emerald-500 transition-all duration-300"
+            style={{ width: `${(cleared / startCount) * 100}%` }}
+          />
+        </div>
+        <span className="w-16 text-right text-xs font-semibold text-slate-500">
+          {cleared}/{startCount} done
+        </span>
+      </div>
+
+      {/* Destination legend (kept out of the canvas to avoid overlap) */}
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-xs font-medium text-slate-500">
+        <span className="text-slate-400">Where things go:</span>
+        <span className="flex items-center gap-1.5">
+          <span className="h-2.5 w-2.5 rounded-full bg-rose-400" /> 🗑️ 💧 →
+          trash can
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="h-2.5 w-2.5 rounded-full bg-sky-400" /> 📚 🧦 🍽️ →
+          drawer
+        </span>
       </div>
 
       {/* Scene */}
-      <div className="relative aspect-[16/9] w-full overflow-hidden rounded-2xl border border-slate-300 bg-gradient-to-b from-amber-50 to-orange-50 shadow-inner">
+      <div className="relative aspect-[16/9] w-full overflow-hidden rounded-2xl border border-slate-300 bg-gradient-to-b from-sky-50 via-amber-50 to-orange-100 shadow-inner">
+        {/* Floor strip */}
+        <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-b from-transparent to-amber-200/50" />
+
         {/* Fixed targets */}
-        <Target x={TRASH.x} y={TRASH.y} glyph="🗑️" label="Trash can" />
-        <Target x={DRAWER.x} y={DRAWER.y} glyph="🗄️" label="Drawer" />
-        <Target x={DESK.x} y={DESK.y} glyph="🪑" label="Desk" />
+        <Target x={TRASH.x} y={TRASH.y} glyph="🗑️" label="Trash can" tone="rose" />
+        <Target x={DRAWER.x} y={DRAWER.y} glyph="🗄️" label="Drawer" tone="sky" />
+        <Target x={DESK.x} y={DESK.y} glyph="🪑" label="Desk" tone="slate" />
 
         {/* Clutter */}
         {items.map((item) => (
@@ -289,6 +359,18 @@ export default function RoomScene() {
             removing={removingId === item.id}
           />
         ))}
+
+        {/* Deposit sparkle */}
+        {poof ? (
+          <div
+            key={poof.key}
+            className="pointer-events-none absolute z-30 -translate-x-1/2 -translate-y-1/2 animate-poof text-2xl"
+            style={{ left: `${poof.x}%`, top: `${poof.y}%` }}
+            aria-hidden
+          >
+            ✨
+          </div>
+        ) : null}
 
         {/* Agent character (only in agent mode) */}
         {mode === "agent" ? (
@@ -303,21 +385,30 @@ export default function RoomScene() {
           />
         ) : null}
 
-        {/* Manual hand from the top */}
+        {/* Manual hand from the top, with an arm reaching down from off-screen */}
         {mode === "manual" && hand.visible ? (
-          <div
-            className="actor-move absolute z-30 flex -translate-x-1/2 flex-col items-center"
-            style={{ left: `${hand.x}%`, top: `${hand.y}%` }}
-          >
-            <span className="text-4xl" aria-hidden>
-              🖐️
-            </span>
-            {hand.carrying ? (
-              <span className="text-2xl" aria-hidden>
-                {hand.carrying}
-              </span>
+          <>
+            {hand.y > 0 ? (
+              <div
+                className="actor-move absolute z-20 w-[3px] -translate-x-1/2 bg-gradient-to-b from-slate-400/0 to-slate-400/70"
+                style={{ left: `${hand.x}%`, top: 0, height: `${hand.y}%` }}
+                aria-hidden
+              />
             ) : null}
-          </div>
+            <div
+              className="actor-move absolute z-30 flex -translate-x-1/2 flex-col items-center"
+              style={{ left: `${hand.x}%`, top: `${hand.y}%` }}
+            >
+              <span className="text-4xl drop-shadow" aria-hidden>
+                🖐️
+              </span>
+              {hand.carrying ? (
+                <span className="-mt-1 text-2xl" aria-hidden>
+                  {hand.carrying}
+                </span>
+              ) : null}
+            </div>
+          </>
         ) : null}
 
         {/* Room clean indicator */}
@@ -343,23 +434,33 @@ export default function RoomScene() {
   );
 }
 
+const TONE: Record<string, string> = {
+  rose: "border-rose-300 bg-rose-50",
+  sky: "border-sky-300 bg-sky-50",
+  slate: "border-slate-300 bg-white/70",
+};
+
 function Target({
   x,
   y,
   glyph,
   label,
+  tone,
 }: {
   x: number;
   y: number;
   glyph: string;
   label: string;
+  tone: "rose" | "sky" | "slate";
 }) {
   return (
     <div
       className="absolute z-0 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center"
       style={{ left: `${x}%`, top: `${y}%` }}
     >
-      <div className="flex h-14 w-14 items-center justify-center rounded-xl border-2 border-dashed border-slate-300 bg-white/70 text-3xl">
+      <div
+        className={`flex h-14 w-14 items-center justify-center rounded-xl border-2 border-dashed text-3xl shadow-sm ${TONE[tone]}`}
+      >
         <span aria-hidden>{glyph}</span>
       </div>
       <span className="mt-1 text-[11px] font-semibold text-slate-500">

@@ -20,5 +20,39 @@ body {
   transition:
     left 0.55s ease-in-out,
     top 0.55s ease-in-out,
+    height 0.55s ease-in-out,
     transform 0.3s ease-out;
+}
+
+/* Sparkle that pops when an item is deposited in its target. */
+@keyframes poof {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.4);
+  }
+  35% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.2);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -90%) scale(0.9);
+  }
+}
+
+.animate-poof {
+  animation: poof 0.8s ease-out forwards;
+}
+
+/* Visually hidden but available to screen readers. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }

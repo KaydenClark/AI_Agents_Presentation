@@ -160,8 +160,8 @@ async function run() {
     await sleep(400);
   }
   check("Warehouse: produces a final report", finalReport);
-  check("Warehouse: all 6 rooms report complete",
-    (await page.getByText(/Reported ✓/).count()) === 6,
+  check("Warehouse: all 3 manager rooms report complete",
+    (await page.getByText(/Reported ✓/).count()) === 3,
     `${await page.getByText(/Reported ✓/).count()} rooms`);
 
   await page.getByRole("button", { name: "Reset" }).click();

@@ -30,12 +30,14 @@ export default function WarehousePage() {
         </p>
         <h1 className="text-3xl font-bold tracking-tight">Swarm Warehouse</h1>
         <p className="mt-2 max-w-3xl text-slate-600">
-          One big job, a whole team. The <strong>Boss</strong> reads your
-          instruction and uses real AI to break it into a different plan for
-          each zone. Each <strong>Manager</strong> assigns two{" "}
-          <strong>Agents</strong>, reviews their work, and reports back up the
-          chain. If something gets truly stuck, it surfaces to a human &mdash;
-          the real exit point.
+          One big mess, a whole team. The living room is buried in piles of
+          clothes, dishes, books, and trash. The <strong>Boss</strong> reads
+          your instruction and uses real AI to break it into a plan for each
+          room. The Laundry, Kitchen, and Office <strong>Managers</strong> each
+          run two <strong>Agents</strong> that carry items out of the living
+          room, clean or sort them, and put them away &mdash; while trash gets
+          sorted and taken outside. If something gets truly stuck, it surfaces
+          to a human &mdash; the real exit point.
         </p>
         <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
           <span className="rounded-full bg-indigo-100 px-3 py-1 font-semibold text-indigo-700">

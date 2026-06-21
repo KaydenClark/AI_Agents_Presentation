@@ -87,13 +87,13 @@ Front-end metaphor rule: this scene stays a household-cleaning story. Do not rei
 
 The swarm scene (`/warehouse`) is a top-down house being tidied by a team, laid out around a vertical central hallway:
 
-- a Boss office at the top holds the unsorted pile and splits the job across rooms;
-- six rooms flank the hallway — Living room + Laundry + Bedroom on the left, Kitchen + Office + Bathroom on the right — each a walled box with a doorway to the hallway;
-- chores are multi-step and some cross rooms: dishes are washed at the sink then put in the cupboard; laundry is washed then carried to the bedroom dresser; books are shelved sorted by color; trash appears in every room and is carried out to the "outside" recycle/landfill bins at the bottom;
-- ~10 agents across the rooms (2 per main room, 1 in bedroom/bathroom), each Manager runs its agents in parallel; agents within a room split the queue so they don't double-handle an item;
+- a Boss office at the top splits the job across the three worker rooms;
+- four rooms: one large **Living room** on the left is the mess source — several endless piles of clothes, dishes, books, and trash (no pile is a single object); stacked on the right are the three rooms where work actually gets done — **Kitchen**, **Laundry room**, and **Office** — each a walled box with a doorway to the hallway;
+- the org chart is a strict **1 Boss · 3 Managers · 6 Agents** (10 total). Each of the three worker rooms has one Manager running two Agents in parallel; agents within a room split the queue so they don't double-handle an item;
+- chores are multi-step and cross rooms: the Kitchen crew carries dishes (plates, forks, cups) from the living room, washes them at the sink, and puts them in the cupboard; the Laundry crew carries clothes (shirts, socks, towels) to the washer then folds them into the matching basket by type (a tangled load escalates to the Manager, who resolves it); the Office crew shelves books sorted by color; trash that can vs. cannot be recycled appears in every room and is sorted and carried out to the "outside" recycle/landfill bins at the bottom;
 - report paths carry the flow up (Agent -> Manager -> Boss -> Human), with a human-exit marker that lights up on escalation.
 
-The Boss -> rooms -> agents hierarchy, the two-call OpenAI boundary, and the human-escalation exit are unchanged; rooms expanded from 3 to 6 and items/routes are richer. Agent movement follows per-item waypoint routes. The route/scene is still branded "Swarm Warehouse". The previous 3-room version is preserved at `components/templates/ManagerFewAgentsHouse.template.tsx` as a small-swarm starting point.
+The Boss -> rooms -> agents hierarchy, the two-call OpenAI boundary, and the human-escalation exit are unchanged. Agent movement follows per-item waypoint routes. The route/scene is still branded "Swarm Warehouse". A previous small-swarm 3-room version is preserved at `components/templates/ManagerFewAgentsHouse.template.tsx`.
 
 Warehouse layout contract:
 

@@ -19,9 +19,20 @@ export type FurnitureKind =
   | "toilet"
   | "cupboard"
   | "dresser"
-  | "couch";
+  | "couch"
+  | "basket";
 
-export type ItemKind = "trash" | "cup" | "can" | "book" | "sock" | "toy";
+export type ItemKind =
+  | "trash"
+  | "cup"
+  | "can"
+  | "book"
+  | "sock"
+  | "toy"
+  | "plate"
+  | "fork"
+  | "shirt"
+  | "towel";
 
 const WOOD = "#2f271d";
 const METAL = "#3b4045";
@@ -168,9 +179,12 @@ export function Rug({ x, y }: { x: number; y: number }) {
 export function ItemSprite({
   item,
   size = 30,
+  tint,
 }: {
   item: ItemKind;
   size?: number;
+  /** Cover/fabric color override — used so books can be sorted by color. */
+  tint?: string;
 }) {
   const s = { width: size, height: size, display: "block" } as const;
   switch (item) {
@@ -219,16 +233,18 @@ export function ItemSprite({
           <circle cx="16" cy="16" r="1.4" fill="#5d6166" />
         </svg>
       );
-    case "book":
+    case "book": {
+      const cover = tint ?? "#2f6db0";
       return (
         <svg viewBox="0 0 32 32" style={s} aria-hidden>
           <ellipse cx="16" cy="25" rx="11" ry="3" fill="rgba(0,0,0,0.18)" />
-          <rect x="7" y="9" width="18" height="14" rx="1.5" fill="#2f6db0" stroke={WOOD} strokeWidth="1.6" />
-          <rect x="7" y="9" width="4" height="14" fill="#234f80" />
+          <rect x="7" y="9" width="18" height="14" rx="1.5" fill={cover} stroke={WOOD} strokeWidth="1.6" />
+          <rect x="7" y="9" width="4" height="14" fill="rgba(0,0,0,0.22)" />
           <rect x="12" y="12" width="10" height="1.6" fill="rgba(255,255,255,0.6)" />
           <rect x="12" y="15.5" width="8" height="1.4" fill="rgba(255,255,255,0.45)" />
         </svg>
       );
+    }
     case "sock":
       return (
         <svg viewBox="0 0 32 32" style={s} aria-hidden>
@@ -251,6 +267,60 @@ export function ItemSprite({
           <path d="M16 5 a10 10 0 0 1 8.6 5 L7.4 10 A10 10 0 0 1 16 5" fill="#e0463c" />
           <path d="M6.4 18 a10 10 0 0 0 19.2 0 Z" fill="#2f8fd0" opacity="0.85" />
           <circle cx="12" cy="12" r="2" fill="rgba(255,255,255,0.6)" />
+        </svg>
+      );
+    case "plate":
+      return (
+        <svg viewBox="0 0 32 32" style={s} aria-hidden>
+          <ellipse cx="16" cy="25" rx="11" ry="3" fill="rgba(0,0,0,0.18)" />
+          <circle cx="16" cy="16" r="11" fill="#eef1f3" stroke={METAL} strokeWidth="1.6" />
+          <circle cx="16" cy="16" r="7" fill="#dde3e8" stroke="#c4ccd2" strokeWidth="1" />
+          <circle cx="16" cy="16" r="3.2" fill="#cdd5db" />
+          <ellipse cx="12.5" cy="12.5" rx="2.2" ry="1.3" fill="rgba(255,255,255,0.6)" />
+        </svg>
+      );
+    case "fork":
+      return (
+        <svg viewBox="0 0 32 32" style={s} aria-hidden>
+          <ellipse cx="16" cy="27" rx="7" ry="2.4" fill="rgba(0,0,0,0.18)" />
+          <path
+            d="M11 5 v7 M14 5 v7 M18 5 v7 M21 5 v7"
+            stroke="#aeb6bd"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+          />
+          <path
+            d="M11 12 q0 4 5 4 q5 0 5 -4 Z"
+            fill="#cfd4d8"
+            stroke={METAL}
+            strokeWidth="1.2"
+            strokeLinejoin="round"
+          />
+          <rect x="14.2" y="15" width="3.6" height="12" rx="1.8" fill="#cfd4d8" stroke={METAL} strokeWidth="1.2" />
+        </svg>
+      );
+    case "shirt":
+      return (
+        <svg viewBox="0 0 32 32" style={s} aria-hidden>
+          <ellipse cx="16" cy="27" rx="11" ry="2.6" fill="rgba(0,0,0,0.18)" />
+          <path
+            d="M12 6 L8 8 L4 14 L8.5 17 L10 15.5 L10 26 L22 26 L22 15.5 L23.5 17 L28 14 L24 8 L20 6
+               Q16 10.5 12 6 Z"
+            fill={tint ?? "#4a90c2"}
+            stroke={WOOD}
+            strokeWidth="1.5"
+            strokeLinejoin="round"
+          />
+          <path d="M12 6 Q16 10.5 20 6" fill="none" stroke="rgba(255,255,255,0.5)" strokeWidth="1.2" />
+        </svg>
+      );
+    case "towel":
+      return (
+        <svg viewBox="0 0 32 32" style={s} aria-hidden>
+          <ellipse cx="16" cy="26" rx="11" ry="2.6" fill="rgba(0,0,0,0.18)" />
+          <rect x="7" y="8" width="18" height="16" rx="2" fill={tint ?? "#7ec8b1"} stroke={WOOD} strokeWidth="1.5" />
+          <rect x="7" y="8" width="18" height="4" rx="2" fill="rgba(0,0,0,0.14)" />
+          <path d="M10 16 h12 M10 19 h12" stroke="rgba(255,255,255,0.65)" strokeWidth="1" />
         </svg>
       );
   }
@@ -441,6 +511,17 @@ function FurnitureSprite({ kind }: { kind: FurnitureKind }) {
           <rect x="31" y="26" width="10" height="14" rx="3" fill="#c4634d" />
         </svg>
       );
+    case "basket":
+      return (
+        <svg viewBox="0 0 60 64" style={s} aria-hidden>
+          <ellipse cx="30" cy="52" rx="19" ry="4.5" fill="rgba(0,0,0,0.18)" />
+          <path d="M15 28 L19 50 L41 50 L45 28 Z" fill="#d8b277" stroke="#7c5a2e" strokeWidth="2" strokeLinejoin="round" />
+          <path d="M18 34 L42 34 M18.5 41 L41.5 41 M19 47 L41 47" stroke="#9c7740" strokeWidth="1.5" />
+          <path d="M23 28 L25 50 M30 28 L30 50 M37 28 L35 50" stroke="rgba(124,90,46,0.45)" strokeWidth="1.3" />
+          <ellipse cx="30" cy="28" rx="15" ry="5" fill="#e7cb9a" stroke="#7c5a2e" strokeWidth="2" />
+          <ellipse cx="30" cy="28" rx="10" ry="3" fill="#b98f52" />
+        </svg>
+      );
   }
 }
 
@@ -504,6 +585,7 @@ export function RoomWorker({
   y,
   state,
   carrying,
+  carryingTint,
   thought,
   label,
 }: {
@@ -511,6 +593,7 @@ export function RoomWorker({
   y: number;
   state: "sitting" | "walking" | "working" | "idle" | "done";
   carrying?: ItemKind | null;
+  carryingTint?: string;
   thought?: string;
   label: string;
 }) {
@@ -556,7 +639,7 @@ export function RoomWorker({
         </svg>
         {carrying ? (
           <span className="absolute -right-3 -top-2 rounded-full bg-white/85 p-0.5 shadow">
-            <ItemSprite item={carrying} size={18} />
+            <ItemSprite item={carrying} size={18} tint={carryingTint} />
           </span>
         ) : null}
       </div>

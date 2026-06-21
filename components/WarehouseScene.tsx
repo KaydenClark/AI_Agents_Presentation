@@ -26,7 +26,11 @@ type Waypoint = { x: number; y: number; label: string };
 interface Job {
   id: string;
   sprite: ItemKind;
-  /** Multi-step route: pick up at [0], process at the middle, place at [last]. */
+  /** Color override so books (and clothes) can be sorted by color/type. */
+  tint?: string;
+  /** Living-room (or in-room) pile this item visually starts from. */
+  pile: string;
+  /** Multi-step route: pick up at [0], process in the middle, place at [last]. */
   route: Waypoint[];
   jammed?: boolean;
 }
@@ -42,6 +46,7 @@ interface AgentRuntime {
   cleared: number;
   state: AgentState;
   carrying: ItemKind | null;
+  carryingTint?: string;
 }
 
 interface ZoneRuntime {
@@ -73,176 +78,245 @@ const nextId = () => `l${lineSeq++}`;
 let jobSeq = 0;
 const jobId = () => `j${jobSeq++}`;
 
-// Outside sorting spots for trash (recyclable vs not).
+// Outside sorting spots: trash that can vs. cannot be recycled.
 const OUT_RECYCLE: Waypoint = { x: 46, y: 94, label: "the recycling outside" };
 const OUT_LANDFILL: Waypoint = { x: 54, y: 94, label: "the trash outside" };
 const hallway = (y: number): Waypoint => ({ x: 50, y, label: "the hallway" });
+
+// Book colors -> which shelf they get sorted onto in the Office.
+const BOOK_COLORS: { tint: string; shelf: string }[] = [
+  { tint: "#c0413b", shelf: "the red shelf" },
+  { tint: "#2f6db0", shelf: "the blue shelf" },
+  { tint: "#3b8f4e", shelf: "the green shelf" },
+  { tint: "#d99a2a", shelf: "the yellow shelf" },
+];
+
+// Laundry folding baskets, one per clothing type.
+const BASKETS: Record<string, { x: number; label: string }> = {
+  shirt: { x: 61, label: "the shirts basket" },
+  sock: { x: 71, label: "the socks basket" },
+  towel: { x: 81, label: "the towels basket" },
+};
+
+type FurnDef = {
+  kind: FurnitureKind;
+  x: number;
+  y: number;
+  label?: string;
+  scale?: number;
+};
 
 type RoomDef = {
   id: string;
   name: string;
   rect: { x: number; y: number; w: number; h: number };
-  door: "left" | "right" | "bottom";
+  door: "left" | "right";
   tint: string;
   label: { x: number; y: number };
-  manager: { x: number; y: number };
-  pickup: { x: number; y: number };
-  furniture: { kind: FurnitureKind; x: number; y: number }[];
+  /** Manager spot + agent home spots — only set for the three worker rooms. */
+  manager?: { x: number; y: number };
+  agentHomes?: { x: number; y: number }[];
+  furniture: FurnDef[];
 };
 
+// Four rooms: one big Living room (the mess source) on the left, and the
+// three rooms where work actually gets done stacked on the right.
 const ROOMS: Record<string, RoomDef> = {
   LIVING: {
     id: "LIVING",
     name: "Living room",
-    rect: { x: 4, y: 18, w: 40, h: 25 },
+    rect: { x: 4, y: 18, w: 42, h: 72 },
     door: "right",
     tint: "rgba(205,170,135,0.18)",
     label: { x: 7, y: 21 },
-    manager: { x: 40, y: 31 },
-    pickup: { x: 26, y: 31 },
     furniture: [
-      { kind: "couch", x: 33, y: 24 },
-      { kind: "toybox", x: 11, y: 38 },
+      { kind: "couch", x: 17, y: 82, scale: 0.7 },
+      { kind: "couch", x: 35, y: 84, scale: 0.55 },
     ],
   },
   KITCHEN: {
     id: "KITCHEN",
     name: "Kitchen",
-    rect: { x: 56, y: 18, w: 40, h: 25 },
+    rect: { x: 54, y: 18, w: 42, h: 24 },
     door: "left",
     tint: "rgba(150,180,200,0.16)",
-    label: { x: 59, y: 21 },
-    manager: { x: 59, y: 31 },
-    pickup: { x: 67, y: 27 },
+    label: { x: 57, y: 20.5 },
+    manager: { x: 58, y: 30 },
+    agentHomes: [
+      { x: 70, y: 27 },
+      { x: 80, y: 27 },
+    ],
     furniture: [
-      { kind: "stove", x: 62, y: 25 },
-      { kind: "cupboard", x: 75, y: 38 },
-      { kind: "sink", x: 90, y: 38 },
+      { kind: "sink", x: 87, y: 32, label: "Sink", scale: 0.55 },
+      { kind: "cupboard", x: 67, y: 37, label: "Cupboard", scale: 0.55 },
     ],
   },
   LAUNDRY: {
     id: "LAUNDRY",
     name: "Laundry room",
-    rect: { x: 4, y: 45, w: 40, h: 23 },
-    door: "right",
+    rect: { x: 54, y: 42, w: 42, h: 24 },
+    door: "left",
     tint: "rgba(150,165,225,0.16)",
-    label: { x: 7, y: 48 },
-    manager: { x: 40, y: 56 },
-    pickup: { x: 28, y: 52 },
-    furniture: [{ kind: "washer", x: 11, y: 61 }],
+    label: { x: 57, y: 44.5 },
+    manager: { x: 58, y: 54 },
+    agentHomes: [
+      { x: 69, y: 51 },
+      { x: 79, y: 51 },
+    ],
+    furniture: [
+      { kind: "washer", x: 88, y: 52, label: "Washer", scale: 0.55 },
+      { kind: "basket", x: 61, y: 61, label: "Shirts", scale: 0.5 },
+      { kind: "basket", x: 71, y: 61, label: "Socks", scale: 0.5 },
+      { kind: "basket", x: 81, y: 61, label: "Towels", scale: 0.5 },
+    ],
   },
   OFFICE: {
     id: "OFFICE",
     name: "Office",
-    rect: { x: 56, y: 45, w: 40, h: 23 },
+    rect: { x: 54, y: 66, w: 42, h: 24 },
     door: "left",
     tint: "rgba(170,160,205,0.16)",
-    label: { x: 59, y: 48 },
-    manager: { x: 59, y: 56 },
-    pickup: { x: 67, y: 52 },
-    furniture: [{ kind: "bookshelf", x: 90, y: 61 }],
-  },
-  BEDROOM: {
-    id: "BEDROOM",
-    name: "Bedroom",
-    rect: { x: 4, y: 70, w: 40, h: 20 },
-    door: "right",
-    tint: "rgba(200,180,205,0.16)",
-    label: { x: 7, y: 73 },
-    manager: { x: 40, y: 80 },
-    pickup: { x: 26, y: 76 },
-    furniture: [
-      { kind: "bed", x: 12, y: 83 },
-      { kind: "dresser", x: 35, y: 83 },
+    label: { x: 57, y: 68.5 },
+    manager: { x: 58, y: 78 },
+    agentHomes: [
+      { x: 70, y: 75 },
+      { x: 80, y: 75 },
     ],
-  },
-  BATHROOM: {
-    id: "BATHROOM",
-    name: "Bathroom",
-    rect: { x: 56, y: 70, w: 40, h: 20 },
-    door: "left",
-    tint: "rgba(150,200,200,0.16)",
-    label: { x: 59, y: 73 },
-    manager: { x: 59, y: 80 },
-    pickup: { x: 74, y: 76 },
     furniture: [
-      { kind: "toilet", x: 62, y: 83 },
-      { kind: "hamper", x: 90, y: 83 },
+      { kind: "bookshelf", x: 87, y: 80, label: "Shelves (by color)", scale: 0.55 },
     ],
   },
 };
+
+// Piles of clutter the agents work down. Living-room piles are the main mess;
+// every room also has a trash pile (recyclable + landfill) of its own.
+type PileDef = { id: string; x: number; y: number };
+const PILES: PileDef[] = [
+  { id: "lr-clothes", x: 13, y: 30 },
+  { id: "lr-dishes", x: 32, y: 31 },
+  { id: "lr-books", x: 13, y: 58 },
+  { id: "lr-trash", x: 31, y: 64 },
+  { id: "kitchen-trash", x: 66, y: 26 },
+  { id: "laundry-trash", x: 62, y: 47 },
+  { id: "office-trash", x: 63, y: 72 },
+];
 
 function wp(x: number, y: number, label: string): Waypoint {
   return { x, y, label };
 }
 
-function job(sprite: ItemKind, route: Waypoint[], jammed = false): Job {
-  return { id: jobId(), sprite, route, jammed };
+function job(
+  sprite: ItemKind,
+  pile: string,
+  route: Waypoint[],
+  extra: { tint?: string; jammed?: boolean } = {},
+): Job {
+  return { id: jobId(), sprite, pile, route, ...extra };
+}
+
+/* Route builders for the three workflows + the shared trash flow. */
+
+// Dishes: living-room pile -> kitchen sink (wash) -> cupboard (put away).
+function dishRoute(): Waypoint[] {
+  const P = PILES.find((p) => p.id === "lr-dishes")!;
+  return [
+    wp(P.x, P.y, "the living-room pile"),
+    wp(87, 32, "the sink"),
+    wp(67, 37, "the cupboard"),
+  ];
+}
+
+// Clothes: living-room pile -> washer (wash) -> folding basket (by type).
+function clothesRoute(type: string): Waypoint[] {
+  const P = PILES.find((p) => p.id === "lr-clothes")!;
+  const basket = BASKETS[type] ?? BASKETS.shirt;
+  return [
+    wp(P.x, P.y, "the living-room pile"),
+    wp(88, 52, "the washer"),
+    wp(basket.x, 61, basket.label),
+  ];
+}
+
+// Books: living-room pile -> bookshelf, shelved by color.
+function bookRoute(shelf: string): Waypoint[] {
+  const P = PILES.find((p) => p.id === "lr-books")!;
+  return [wp(P.x, P.y, "the living-room pile"), wp(87, 80, shelf)];
+}
+
+// Trash: a pile -> hallway -> the right outside spot (recycle vs. landfill).
+function trashRoute(
+  from: { x: number; y: number; label: string },
+  hallY: number,
+  out: Waypoint,
+): Waypoint[] {
+  return [wp(from.x, from.y, from.label), hallway(hallY), out];
 }
 
 /**
- * One messy house. Each room owns its chores; several are multi-step and some
- * cross rooms (laundry ends in the bedroom; trash from every room goes
- * outside). The Boss splits the whole job across the rooms.
+ * One messy house, three crews. The Living room is buried in piles; the
+ * Kitchen, Laundry, and Office crews each carry their kind of item out of the
+ * living room, clean or sort it, and put it away. Trash from every room is
+ * sorted and taken outside. The Boss splits the whole job across the crews.
  */
 function buildZones(): ZoneRuntime[] {
   jobSeq = 0;
-  const L = ROOMS;
 
-  const livingJobs: Job[] = [
-    ...[0, 1, 2].map(() =>
-      job("toy", [wp(L.LIVING.pickup.x, L.LIVING.pickup.y, "the floor"), wp(11, 38, "the toy box")]),
-    ),
-    job("trash", [wp(26, 31, "the floor"), hallway(46), OUT_RECYCLE]),
-    job("trash", [wp(26, 31, "the floor"), hallway(46), OUT_LANDFILL]),
-  ];
+  const lrTrash = { x: 31, y: 64, label: "the living-room floor" };
 
+  // ---- Kitchen crew: dishes + trash ----
   const kitchenJobs: Job[] = [
-    ...[0, 1, 2, 3].map(() =>
-      job("cup", [
-        wp(67, 27, "the counter"),
-        wp(90, 38, "the sink"),
-        wp(75, 38, "the cupboard"),
-      ]),
-    ),
-    job("trash", [wp(67, 27, "the counter"), hallway(46), OUT_LANDFILL]),
-  ];
-
-  const laundryJobs: Job[] = [
+    job("plate", "lr-dishes", dishRoute()),
+    job("fork", "lr-dishes", dishRoute()),
+    job("cup", "lr-dishes", dishRoute()),
+    job("plate", "lr-dishes", dishRoute()),
+    job("can", "lr-trash", trashRoute(lrTrash, 62, OUT_RECYCLE)),
     job(
-      "sock",
-      [wp(28, 52, "the basket"), wp(11, 61, "the washer"), wp(35, 83, "the bedroom dresser")],
-      true, // a tangled load -> manager sorts it out
+      "can",
+      "kitchen-trash",
+      trashRoute({ x: 66, y: 26, label: "the kitchen bin" }, 30, OUT_RECYCLE),
     ),
-    ...[0, 1, 2].map(() =>
-      job("sock", [
-        wp(28, 52, "the basket"),
-        wp(11, 61, "the washer"),
-        wp(35, 83, "the bedroom dresser"),
-      ]),
+    job(
+      "trash",
+      "kitchen-trash",
+      trashRoute({ x: 66, y: 26, label: "the kitchen bin" }, 30, OUT_LANDFILL),
     ),
-    job("trash", [wp(28, 52, "the basket"), hallway(58), OUT_RECYCLE]),
   ];
 
+  // ---- Laundry crew: clothes (sorted into baskets by type) + trash ----
+  const laundryJobs: Job[] = [
+    job("shirt", "lr-clothes", clothesRoute("shirt")),
+    job("sock", "lr-clothes", clothesRoute("sock")),
+    job("towel", "lr-clothes", clothesRoute("towel")),
+    job("shirt", "lr-clothes", clothesRoute("shirt")),
+    job("towel", "lr-clothes", clothesRoute("towel"), { jammed: true }), // tangled load
+    job(
+      "can",
+      "laundry-trash",
+      trashRoute({ x: 62, y: 47, label: "the laundry bin" }, 54, OUT_RECYCLE),
+    ),
+    job(
+      "trash",
+      "laundry-trash",
+      trashRoute({ x: 62, y: 47, label: "the laundry bin" }, 54, OUT_LANDFILL),
+    ),
+  ];
+
+  // ---- Office crew: books (shelved by color) + trash ----
   const officeJobs: Job[] = [
-    ...[0, 1, 2, 3].map(() =>
-      job("book", [wp(67, 52, "the desk"), wp(90, 61, "the bookshelf, by color")]),
+    ...BOOK_COLORS.map((c) =>
+      job("book", "lr-books", bookRoute(c.shelf), { tint: c.tint }),
     ),
-    job("trash", [wp(67, 52, "the desk"), hallway(58), OUT_LANDFILL]),
-  ];
-
-  const bedroomJobs: Job[] = [
-    ...[0, 1].map(() =>
-      job("sock", [wp(26, 76, "the floor"), wp(35, 83, "the dresser")]),
+    job("trash", "lr-trash", trashRoute(lrTrash, 62, OUT_LANDFILL)),
+    job(
+      "can",
+      "office-trash",
+      trashRoute({ x: 63, y: 72, label: "the office bin" }, 78, OUT_RECYCLE),
     ),
-    job("trash", [wp(26, 76, "the floor"), hallway(80), OUT_RECYCLE]),
-  ];
-
-  const bathroomJobs: Job[] = [
-    ...[0, 1].map(() =>
-      job("sock", [wp(74, 76, "the floor"), wp(90, 83, "the hamper")]),
+    job(
+      "trash",
+      "office-trash",
+      trashRoute({ x: 63, y: 72, label: "the office bin" }, 78, OUT_LANDFILL),
     ),
-    job("trash", [wp(74, 76, "the floor"), hallway(80), OUT_LANDFILL]),
   ];
 
   const split = (items: Job[]): [Job[], Job[]] => {
@@ -269,24 +343,18 @@ function buildZones(): ZoneRuntime[] {
     carrying: null,
   });
 
-  const twoAgentZone = (
-    id: string,
-    name: string,
-    jobs: Job[],
-    labelPrefix: string,
-  ): ZoneRuntime => {
+  const twoAgentZone = (id: string, jobs: Job[]): ZoneRuntime => {
     const room = ROOMS[id];
-    const cx = room.rect.x + room.rect.w / 2;
-    const cy = room.rect.y + room.rect.h / 2;
+    const homes = room.agentHomes!;
     const [q1, q2] = split(jobs);
     return {
       id,
-      name,
+      name: room.name,
       instruction: null,
       managerActive: false,
       agents: [
-        mkAgent(`${id}1`, `${labelPrefix} 1`, 0, { x: cx - 8, y: cy + 3 }, q1),
-        mkAgent(`${id}2`, `${labelPrefix} 2`, 1, { x: cx + 8, y: cy + 3 }, q2),
+        mkAgent(`${id}1`, `${room.name} · Agent 1`, 0, homes[0], q1),
+        mkAgent(`${id}2`, `${room.name} · Agent 2`, 1, homes[1], q2),
       ],
       report: [],
       status: "idle",
@@ -297,37 +365,11 @@ function buildZones(): ZoneRuntime[] {
     };
   };
 
-  const oneAgentZone = (
-    id: string,
-    name: string,
-    jobs: Job[],
-    labelPrefix: string,
-  ): ZoneRuntime => {
-    const room = ROOMS[id];
-    const cx = room.rect.x + room.rect.w / 2;
-    const cy = room.rect.y + room.rect.h / 2;
-    return {
-      id,
-      name,
-      instruction: null,
-      managerActive: false,
-      agents: [mkAgent(`${id}1`, labelPrefix, 0, { x: cx, y: cy + 3 }, jobs)],
-      report: [],
-      status: "idle",
-      itemsCleared: 0,
-      escalationsResolved: 0,
-      neededHuman: false,
-      escalationPaused: false,
-    };
-  };
-
+  // 3 Managers, each running 2 Agents = 6 Agents (+ the Boss = 10 in all).
   return [
-    twoAgentZone("LIVING", "Living room", livingJobs, "Living"),
-    twoAgentZone("KITCHEN", "Kitchen", kitchenJobs, "Kitchen"),
-    twoAgentZone("LAUNDRY", "Laundry room", laundryJobs, "Laundry"),
-    twoAgentZone("OFFICE", "Office", officeJobs, "Office"),
-    oneAgentZone("BEDROOM", "Bedroom", bedroomJobs, "Bedroom"),
-    oneAgentZone("BATHROOM", "Bathroom", bathroomJobs, "Bathroom"),
+    twoAgentZone("KITCHEN", kitchenJobs),
+    twoAgentZone("LAUNDRY", laundryJobs),
+    twoAgentZone("OFFICE", officeJobs),
   ];
 }
 
@@ -339,6 +381,21 @@ function zoneItemSummary(zone: ZoneRuntime) {
     }
   }
   return Array.from(counts.entries()).map(([kind, count]) => ({ kind, count }));
+}
+
+// Remaining items in each pile, across every crew, so piles visibly shrink.
+function remainingByPile(zones: ZoneRuntime[]): Map<string, Job[]> {
+  const map = new Map<string, Job[]>();
+  for (const zone of zones) {
+    for (const agent of zone.agents) {
+      for (const j of agent.queue) {
+        const arr = map.get(j.pile) ?? [];
+        arr.push(j);
+        map.set(j.pile, arr);
+      }
+    }
+  }
+  return map;
 }
 
 export default function WarehouseScene() {
@@ -422,7 +479,10 @@ export default function WarehouseScene() {
           }
 
           agent.state = "working";
-          if (i === 0) agent.carrying = j.sprite; // picked it up
+          if (i === 0) {
+            agent.carrying = j.sprite; // picked it up
+            agent.carryingTint = j.tint;
+          }
           commit();
           await sleep(STEP * 0.75);
         }
@@ -430,6 +490,7 @@ export default function WarehouseScene() {
         // Placed at the final stop.
         const dest = j.route[j.route.length - 1].label;
         agent.carrying = null;
+        agent.carryingTint = undefined;
         agent.queue.shift();
         agent.cleared += 1;
         zone.itemsCleared += 1;
@@ -782,14 +843,42 @@ function StatusBadge({ zone }: { zone: ZoneRuntime }) {
   );
 }
 
-const CLUSTER: [number, number][] = [
-  [-8, -2],
-  [0, 0],
-  [8, -1],
-  [-5, 7],
-  [4, 7],
-  [-1, 14],
+// Tight cluster offsets (px) so each pile reads as a heap, not a single object.
+const PILE_OFFSETS: [number, number][] = [
+  [-9, -3],
+  [1, -6],
+  [10, -2],
+  [-6, 5],
+  [4, 5],
+  [-1, 12],
+  [-12, 7],
+  [12, 7],
 ];
+
+function Pile({ x, y, jobs }: { x: number; y: number; jobs: Job[] }) {
+  if (jobs.length === 0) return null;
+  const shown = jobs.slice(0, PILE_OFFSETS.length);
+  return (
+    <div
+      className="absolute z-20 -translate-x-1/2 -translate-y-1/2"
+      style={{ left: `${x}%`, top: `${y}%` }}
+      aria-hidden
+    >
+      {shown.map((j, i) => (
+        <span
+          key={j.id}
+          className="absolute"
+          style={{ left: PILE_OFFSETS[i][0], top: PILE_OFFSETS[i][1] }}
+        >
+          <ItemSprite item={j.sprite} size={18} tint={j.tint} />
+        </span>
+      ))}
+      <span className="absolute -left-3 -top-5 rounded-full bg-black/55 px-1.5 py-0.5 text-[9px] font-bold text-white shadow">
+        ×{jobs.length}
+      </span>
+    </div>
+  );
+}
 
 function RoomBox({ def }: { def: RoomDef }) {
   const { x, y, w, h } = def.rect;
@@ -862,7 +951,8 @@ function HouseMap({
     phase === "done";
   const reportActive =
     phase === "working" || phase === "summarizing" || phase === "done";
-  const hubPile = phase === "idle" || phase === "deciding";
+
+  const piles = remainingByPile(zones);
 
   return (
     <div className="flex flex-col gap-2">
@@ -916,70 +1006,58 @@ function HouseMap({
         </div>
         <RoomWorker x={50} y={10} state={reportActive ? "working" : "sitting"} label="Boss" />
         <Marker x={62} y={9} tone="rose" label="Human exit" active={!!humanNeeded} />
-        {hubPile ? (
-          <div className="absolute z-20 -translate-x-1/2 -translate-y-1/2" style={{ left: "38%", top: "10%" }} aria-hidden>
-            {(["sock", "cup", "book", "can", "toy", "trash", "sock"] as ItemKind[]).map((it, i) => (
-              <span key={i} className="absolute" style={{ left: CLUSTER[i % CLUSTER.length][0] * 1.4, top: CLUSTER[i % CLUSTER.length][1] * 1.4 }}>
-                <ItemSprite item={it} size={20} />
-              </span>
-            ))}
-          </div>
-        ) : null}
 
         {/* ---- Outside trash spot ---- */}
         <div
-          className="absolute left-1/2 top-[97%] z-30 -translate-x-1/2 rounded bg-black/55 px-1.5 py-0.5 text-[10px] font-semibold text-white shadow-sm"
+          className="absolute top-[91.5%] z-30 rounded bg-black/55 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white shadow-sm"
+          style={{ left: "7%" }}
           aria-hidden
         >
           Outside
         </div>
-        <Furniture x={46} y={94} kind="recycling" scale={0.55} />
-        <Furniture x={54} y={94} kind="trashcan" scale={0.55} />
+        <Furniture x={46} y={94} kind="recycling" label="Recycle" scale={0.45} />
+        <Furniture x={54} y={94} kind="trashcan" label="Landfill" scale={0.45} />
 
-        {/* ---- Rooms: furniture, piles, managers, agents ---- */}
+        {/* ---- Room names + furniture (all four rooms) ---- */}
+        {Object.values(ROOMS).map((def) => (
+          <div key={`room-${def.id}`}>
+            <div
+              className="absolute z-30 rounded bg-black/55 px-1.5 py-0.5 text-[10px] font-semibold text-white shadow-sm"
+              style={{ left: `${def.label.x}%`, top: `${def.label.y}%` }}
+              aria-hidden
+            >
+              {def.name}
+            </div>
+            {def.furniture.map((f, i) => (
+              <Furniture key={i} x={f.x} y={f.y} kind={f.kind} label={f.label} scale={f.scale ?? 0.6} />
+            ))}
+          </div>
+        ))}
+
+        {/* ---- Clutter piles (living room + every room's trash) ---- */}
+        {PILES.map((p) => (
+          <Pile key={p.id} x={p.x} y={p.y} jobs={piles.get(p.id) ?? []} />
+        ))}
+
+        {/* ---- Managers, agents, and report paths (the three crews) ---- */}
         {zones.map((zone) => {
           const def = ROOMS[zone.id];
+          const mgr = def.manager!;
           const managerState = zone.managerActive
             ? zone.status === "delivered"
               ? "done"
               : "working"
             : "idle";
-          const remaining = zone.agents.flatMap((a) => a.queue);
 
           return (
             <div key={zone.id}>
-              <ReportPath x1={def.manager.x} y1={def.manager.y} x2={50} y2={12} active={reportActive && zone.status !== "idle"} />
+              <ReportPath x1={mgr.x} y1={mgr.y} x2={50} y2={12} active={reportActive && zone.status !== "idle"} />
               {humanNeeded?.zoneId === zone.id ? (
-                <ReportPath x1={def.manager.x} y1={def.manager.y} x2={62} y2={9} active />
-              ) : null}
-
-              {/* room name */}
-              <div
-                className="absolute z-30 rounded bg-black/55 px-1.5 py-0.5 text-[10px] font-semibold text-white shadow-sm"
-                style={{ left: `${def.label.x}%`, top: `${def.label.y}%` }}
-                aria-hidden
-              >
-                {zone.name}
-              </div>
-
-              {/* furniture */}
-              {def.furniture.map((f, i) => (
-                <Furniture key={i} x={f.x} y={f.y} kind={f.kind} scale={0.6} />
-              ))}
-
-              {/* the room's remaining mess */}
-              {dispatched && remaining.length > 0 ? (
-                <div className="absolute z-20 -translate-x-1/2 -translate-y-1/2" style={{ left: `${def.pickup.x}%`, top: `${def.pickup.y}%` }} aria-hidden>
-                  {remaining.slice(0, 6).map((j, i) => (
-                    <span key={j.id} className="absolute" style={{ left: CLUSTER[i][0], top: CLUSTER[i][1] }}>
-                      <ItemSprite item={j.sprite} size={18} />
-                    </span>
-                  ))}
-                </div>
+                <ReportPath x1={mgr.x} y1={mgr.y} x2={62} y2={9} active />
               ) : null}
 
               {/* manager near the doorway */}
-              <RoomWorker x={def.manager.x} y={def.manager.y} label={`${zone.name} mgr`} state={managerState} />
+              <RoomWorker x={mgr.x} y={mgr.y} label={`${zone.name} mgr`} state={managerState} />
 
               {/* agents on their routes */}
               {zone.agents.map((agent) => (
@@ -987,14 +1065,15 @@ function HouseMap({
                   key={agent.id}
                   x={agent.pos.x}
                   y={agent.pos.y}
-                  label={agent.name}
-                  state={agent.state}
+                  label={agent.name.replace(`${zone.name} · `, "")}
+                  state={dispatched ? agent.state : "idle"}
                   carrying={agent.carrying}
+                  carryingTint={agent.carryingTint}
                 />
               ))}
 
               {zone.neededHuman ? (
-                <Marker x={def.manager.x} y={def.manager.y - 6} tone="rose" label="Needs human" active />
+                <Marker x={mgr.x} y={mgr.y - 6} tone="rose" label="Needs human" active />
               ) : null}
             </div>
           );
@@ -1046,7 +1125,7 @@ function AgentRow({ agent }: { agent: AgentRuntime }) {
       </div>
       {agent.carrying ? (
         <span aria-hidden>
-          <ItemSprite item={agent.carrying} size={18} />
+          <ItemSprite item={agent.carrying} size={18} tint={agent.carryingTint} />
         </span>
       ) : null}
     </div>

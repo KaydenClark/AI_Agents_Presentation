@@ -5,6 +5,8 @@ export type ClutterKind =
   | "laundry"
   | "books"
   | "dishes"
+  | "toys"
+  | "bottles"
   | "box"
   | "spill"
   | "pallet";
@@ -23,18 +25,12 @@ export const CLUTTER_GLYPH: Record<ClutterKind, string> = {
   laundry: "🧦",
   books: "📚",
   dishes: "🍽️",
+  toys: "🧸",
+  bottles: "♻️",
   box: "📦",
   spill: "💧",
   pallet: "🪵",
 };
-
-/**
- * Which fixed target a clutter kind belongs in. "trash" items go to the
- * trash can; everything else is "stored" in the drawer/closet.
- */
-export function targetFor(kind: ClutterKind): "trash" | "drawer" {
-  return kind === "trash" || kind === "spill" ? "trash" : "drawer";
-}
 
 interface ClutterItemProps {
   item: Clutter;

@@ -1,9 +1,9 @@
-import Anthropic from "@anthropic-ai/sdk";
+import OpenAI from "openai";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 
-const MODEL = process.env.AGENT_DEMO_MODEL || "claude-haiku-4-5-20251001";
+const MODEL = process.env.OPENAI_MODEL || "gpt-5.4-mini";
 const TIMEOUT_MS = 12_000;
 
 interface ZoneResult {
@@ -47,7 +47,7 @@ function buildPrompt(zones: ZoneResult[]): string {
     )
     .join("\n");
 
-  return `You are the Boss of a warehouse cleaning crew reporting results back to the human who gave the original instruction. Here is what each zone reported:
+  return `You are the Boss of a warehouse operations crew reporting results back to the human who gave the original instruction. Here is what each zone reported:
 ${lines}
 
 Write a short, plain-language final report (3-5 lines). One line per zone summarizing what was cleared and any escalations, then a closing line stating whether any items required human input. No markdown, no preamble — just the report text.`;
@@ -65,7 +65,7 @@ export async function POST(req: Request) {
   }
 
   const zones = body.zones ?? [];
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const apiKey = process.env.OPENAI_API_KEY;
 
   if (!apiKey) {
     return NextResponse.json({
@@ -75,25 +75,25 @@ export async function POST(req: Request) {
   }
 
   try {
-    const client = new Anthropic({ apiKey });
+    const client = new OpenAI({ apiKey });
 
-    const message = await Promise.race([
-      client.messages.create({
+    const response = await Promise.race([
+      client.responses.create({
         model: MODEL,
-        max_tokens: 512,
-        messages: [{ role: "user", content: buildPrompt(zones) }],
+        input: buildPrompt(zones),
+        max_output_tokens: 512,
       }),
       new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error("timeout")), TIMEOUT_MS),
       ),
     ]);
 
-    const textBlock = message.content.find((b) => b.type === "text");
-    if (!textBlock || textBlock.type !== "text" || !textBlock.text.trim()) {
+    const text = response.output_text.trim();
+    if (!text) {
       throw new Error("no text content");
     }
 
-    return NextResponse.json({ summary: textBlock.text.trim(), source: "ai" });
+    return NextResponse.json({ summary: text, source: "ai" });
   } catch (err) {
     console.error("[boss-summary] falling back:", err);
     return NextResponse.json({

@@ -21,7 +21,7 @@ function check(name, cond, detail = "") {
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function itemsLeft(page) {
-  const txt = await page.getByText(/item(s)? left/).first().innerText();
+  const txt = await page.getByText(/item(s)? left/i).first().innerText();
   const m = txt.match(/(\d+)/);
   return m ? parseInt(m[1], 10) : NaN;
 }
@@ -40,7 +40,7 @@ async function waitSubmitEnabled(page, timeout = 45000) {
 }
 
 // After a manual step, Submit re-enables UNLESS that step cleared the last
-// item (room clean -> Submit stays disabled by design).
+// task (all done -> Submit stays disabled by design).
 async function waitIdleOrClean(page, timeout = 15000) {
   const start = Date.now();
   while (Date.now() - start < timeout) {
@@ -73,9 +73,13 @@ async function run() {
   await page.waitForTimeout(400);
 
   const startCount = await itemsLeft(page);
-  check("Room starts with 6-8 items", startCount >= 6 && startCount <= 8, `got ${startCount}`);
-  check("Manual mode: no agent character present",
-    (await page.getByText("🧹").count()) === 0);
+  check("Room starts with 6-8 messes", startCount >= 6 && startCount <= 8, `got ${startCount}`);
+  check("Room shows top-down cleaning room",
+    (await page.getByLabel(/Top-down cleaning room/i).count()) > 0 &&
+    (await page.getByText(/Trash can/i).count()) > 0 &&
+    (await page.getByText(/Laundry hamper/i).count()) > 0);
+  check("Manual mode: no agent worker present",
+    (await page.getByText(/Agent worker/i).count()) === 0);
 
   let prev = startCount;
   let stepBugs = 0;
@@ -94,7 +98,7 @@ async function run() {
     (await page.getByText(/Room clean/i).count()) > 0);
   check("Manual: progress bar reads done",
     (await page.getByText(new RegExp(`${startCount}/${startCount} done`)).count()) > 0);
-  check("Manual: submit disabled when room clean",
+  check("Manual: submit disabled when all tasks are done",
     await page.getByRole("button", { name: "Submit" }).isDisabled());
 
   await page.getByRole("button", { name: /Reset room/i }).click();
@@ -113,8 +117,8 @@ async function run() {
   await page.getByRole("button", { name: "agent" }).click();
   await page.waitForTimeout(500);
   check("Agent: switching mode resets to full room", (await itemsLeft(page)) === startCount);
-  check("Agent: agent character is present",
-    (await page.getByText("🧹").count()) > 0);
+  check("Agent: agent worker is present",
+    (await page.getByText(/Agent worker/i).count()) > 0);
 
   await page.getByRole("button", { name: "Submit" }).click();
   const agentStart = Date.now();
@@ -125,7 +129,7 @@ async function run() {
     }
     await sleep(300);
   }
-  check("Agent: one submit clears the entire room on its own", agentCleared);
+  check("Agent: one submit cleans the whole room on its own", agentCleared);
   check("Agent: loop self-terminates (submit disabled at end)",
     await page.getByRole("button", { name: "Submit" }).isDisabled());
 
@@ -143,6 +147,10 @@ async function run() {
   // ---------- Scene 2: Warehouse ----------
   await page.goto(`${BASE}/warehouse`, { waitUntil: "networkidle" });
   await page.waitForTimeout(400);
+  check("Warehouse shows top-down facility map",
+    (await page.getByLabel(/Top-down swarm facility/i).count()) > 0 &&
+    (await page.getByText(/Boss office/i).count()) > 0 &&
+    (await page.getByText(/Report paths/i).count()) > 0);
   await page.getByRole("button", { name: "Submit" }).click();
 
   const whStart = Date.now();
@@ -152,9 +160,9 @@ async function run() {
     await sleep(400);
   }
   check("Warehouse: produces a final report", finalReport);
-  check("Warehouse: all 3 zones report complete",
-    (await page.getByText(/Reported ✓/).count()) === 3,
-    `${await page.getByText(/Reported ✓/).count()} zones`);
+  check("Warehouse: all 6 rooms report complete",
+    (await page.getByText(/Reported ✓/).count()) === 6,
+    `${await page.getByText(/Reported ✓/).count()} rooms`);
 
   await page.getByRole("button", { name: "Reset" }).click();
   await page.waitForTimeout(300);

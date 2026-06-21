@@ -2,7 +2,7 @@
   "name": "ai-agent-swarm-demo",
   "version": "1.0.0",
   "private": true,
-  "description": "Internal presentation tool that teaches non-technical coworkers what an AI agent and an agent swarm are, using a room-cleaning metaphor.",
+  "description": "Internal presentation tool that teaches non-technical coworkers what an AI agent and an agent swarm are.",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -11,8 +11,8 @@
     "test:e2e": "node tests/e2e.mjs"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.68.0",
     "next": "^14.2.35",
+    "openai": "^6.44.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },

@@ -1,47 +1,53 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
-import ReportPanel, { ReportLine } from "./ReportPanel";
-import EscalationBanner from "./EscalationBanner";
-import { Marker, ReportPath } from "./ScenePrimitives";
+import { Clutter, ClutterKind } from "../ClutterItem";
+import ReportPanel, { ReportLine } from "../ReportPanel";
+import EscalationBanner from "../EscalationBanner";
+import { Marker, ReportPath } from "../ScenePrimitives";
 import {
   Furniture,
   FurnitureKind,
   ItemKind,
   ItemSprite,
   RoomWorker,
-} from "./RoomSprites";
+} from "../RoomSprites";
 
-type Phase =
-  | "idle"
-  | "deciding"
-  | "dispatched"
-  | "working"
-  | "summarizing"
-  | "done";
+type Phase = "idle" | "deciding" | "dispatched" | "working" | "summarizing" | "done";
 type AgentState = "idle" | "walking" | "working" | "done";
-
-type Waypoint = { x: number; y: number; label: string };
-
-interface Job {
-  id: string;
-  sprite: ItemKind;
-  /** Multi-step route: pick up at [0], process at the middle, place at [last]. */
-  route: Waypoint[];
-  jammed?: boolean;
-}
 
 interface AgentRuntime {
   id: string;
   name: string;
-  lane: number;
-  pos: { x: number; y: number };
-  home: { x: number; y: number };
-  queue: Job[];
+  queue: Clutter[];
   total: number;
   cleared: number;
   state: AgentState;
   carrying: ItemKind | null;
+}
+
+// Friendly singular names + matching sprites for the household clutter kinds.
+const FRIENDLY: Record<ClutterKind, string> = {
+  dishes: "cup",
+  bottles: "can",
+  laundry: "sock",
+  books: "book",
+  toys: "toy",
+  trash: "trash",
+  box: "box",
+  spill: "spill",
+  pallet: "pallet",
+};
+const ITEM_SPRITE: Partial<Record<ClutterKind, ItemKind>> = {
+  dishes: "cup",
+  bottles: "can",
+  laundry: "sock",
+  books: "book",
+  toys: "toy",
+  trash: "trash",
+};
+function spriteFor(kind: ClutterKind): ItemKind {
+  return ITEM_SPRITE[kind] ?? "trash";
 }
 
 interface ZoneRuntime {
@@ -59,209 +65,61 @@ interface ZoneRuntime {
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-const STEP = 360;
-
-const WALL = "#8d8a82";
-const FLOOR = "#c69b63";
-const seamH =
-  "repeating-linear-gradient(90deg, rgba(47,45,40,0.5) 0 1.5px, transparent 1.5px 40px)";
-const seamV =
-  "repeating-linear-gradient(0deg, rgba(47,45,40,0.5) 0 1.5px, transparent 1.5px 40px)";
+const STEP = 480;
 
 let lineSeq = 0;
 const nextId = () => `l${lineSeq++}`;
-let jobSeq = 0;
-const jobId = () => `j${jobSeq++}`;
 
-// Outside sorting spots for trash (recyclable vs not).
-const OUT_RECYCLE: Waypoint = { x: 46, y: 94, label: "the recycling outside" };
-const OUT_LANDFILL: Waypoint = { x: 54, y: 94, label: "the trash outside" };
-const hallway = (y: number): Waypoint => ({ x: 50, y, label: "the hallway" });
-
-type RoomDef = {
-  id: string;
-  name: string;
-  rect: { x: number; y: number; w: number; h: number };
-  door: "left" | "right" | "bottom";
-  tint: string;
-  label: { x: number; y: number };
-  manager: { x: number; y: number };
-  pickup: { x: number; y: number };
-  furniture: { kind: FurnitureKind; x: number; y: number }[];
-};
-
-const ROOMS: Record<string, RoomDef> = {
-  LIVING: {
-    id: "LIVING",
-    name: "Living room",
-    rect: { x: 4, y: 18, w: 40, h: 25 },
-    door: "right",
-    tint: "rgba(205,170,135,0.18)",
-    label: { x: 7, y: 21 },
-    manager: { x: 40, y: 31 },
-    pickup: { x: 26, y: 31 },
-    furniture: [
-      { kind: "couch", x: 33, y: 24 },
-      { kind: "toybox", x: 11, y: 38 },
-    ],
-  },
-  KITCHEN: {
-    id: "KITCHEN",
-    name: "Kitchen",
-    rect: { x: 56, y: 18, w: 40, h: 25 },
-    door: "left",
-    tint: "rgba(150,180,200,0.16)",
-    label: { x: 59, y: 21 },
-    manager: { x: 59, y: 31 },
-    pickup: { x: 67, y: 27 },
-    furniture: [
-      { kind: "stove", x: 62, y: 25 },
-      { kind: "cupboard", x: 75, y: 38 },
-      { kind: "sink", x: 90, y: 38 },
-    ],
-  },
-  LAUNDRY: {
-    id: "LAUNDRY",
-    name: "Laundry room",
-    rect: { x: 4, y: 45, w: 40, h: 23 },
-    door: "right",
-    tint: "rgba(150,165,225,0.16)",
-    label: { x: 7, y: 48 },
-    manager: { x: 40, y: 56 },
-    pickup: { x: 28, y: 52 },
-    furniture: [{ kind: "washer", x: 11, y: 61 }],
-  },
-  OFFICE: {
-    id: "OFFICE",
-    name: "Office",
-    rect: { x: 56, y: 45, w: 40, h: 23 },
-    door: "left",
-    tint: "rgba(170,160,205,0.16)",
-    label: { x: 59, y: 48 },
-    manager: { x: 59, y: 56 },
-    pickup: { x: 67, y: 52 },
-    furniture: [{ kind: "bookshelf", x: 90, y: 61 }],
-  },
-  BEDROOM: {
-    id: "BEDROOM",
-    name: "Bedroom",
-    rect: { x: 4, y: 70, w: 40, h: 20 },
-    door: "right",
-    tint: "rgba(200,180,205,0.16)",
-    label: { x: 7, y: 73 },
-    manager: { x: 40, y: 80 },
-    pickup: { x: 26, y: 76 },
-    furniture: [
-      { kind: "bed", x: 12, y: 83 },
-      { kind: "dresser", x: 35, y: 83 },
-    ],
-  },
-  BATHROOM: {
-    id: "BATHROOM",
-    name: "Bathroom",
-    rect: { x: 56, y: 70, w: 40, h: 20 },
-    door: "left",
-    tint: "rgba(150,200,200,0.16)",
-    label: { x: 59, y: 73 },
-    manager: { x: 59, y: 80 },
-    pickup: { x: 74, y: 76 },
-    furniture: [
-      { kind: "toilet", x: 62, y: 83 },
-      { kind: "hamper", x: 90, y: 83 },
-    ],
-  },
-};
-
-function wp(x: number, y: number, label: string): Waypoint {
-  return { x, y, label };
-}
-
-function job(sprite: ItemKind, route: Waypoint[], jammed = false): Job {
-  return { id: jobId(), sprite, route, jammed };
+function makeItems(kinds: ClutterKind[], jamIndex = -1): Clutter[] {
+  return kinds.map((kind, i) => ({
+    id: `${kind}-${i}-${Math.random().toString(36).slice(2, 6)}`,
+    kind,
+    xPercent: 0,
+    yPercent: 0,
+    jammed: i === jamIndex,
+  }));
 }
 
 /**
- * One messy house. Each room owns its chores; several are multi-step and some
- * cross rooms (laundry ends in the bedroom; trash from every room goes
- * outside). The Boss splits the whole job across the rooms.
+ * One big mixed pile, split by the Boss into rooms of a house. Each room gets a
+ * meaningfully different load so the Boss's decomposition is genuinely
+ * different per room, not copy-pasted.
  */
 function buildZones(): ZoneRuntime[] {
-  jobSeq = 0;
-  const L = ROOMS;
+  const kitchen: ClutterKind[] = [
+    "dishes",
+    "dishes",
+    "dishes",
+    "dishes",
+    "bottles",
+    "bottles",
+  ]; // 4 cups + 2 cans -> sink + recycling
+  const laundry: ClutterKind[] = [
+    "laundry",
+    "laundry",
+    "laundry",
+    "laundry",
+    "laundry",
+    "laundry",
+  ]; // 6 socks -> hamper
+  const living: ClutterKind[] = ["books", "books", "books", "toys", "toys"]; // 3 books + 2 toys -> shelf + toy box
 
-  const livingJobs: Job[] = [
-    ...[0, 1, 2].map(() =>
-      job("toy", [wp(L.LIVING.pickup.x, L.LIVING.pickup.y, "the floor"), wp(11, 38, "the toy box")]),
-    ),
-    job("trash", [wp(26, 31, "the floor"), hallway(46), OUT_RECYCLE]),
-    job("trash", [wp(26, 31, "the floor"), hallway(46), OUT_LANDFILL]),
-  ];
-
-  const kitchenJobs: Job[] = [
-    ...[0, 1, 2, 3].map(() =>
-      job("cup", [
-        wp(67, 27, "the counter"),
-        wp(90, 38, "the sink"),
-        wp(75, 38, "the cupboard"),
-      ]),
-    ),
-    job("trash", [wp(67, 27, "the counter"), hallway(46), OUT_LANDFILL]),
-  ];
-
-  const laundryJobs: Job[] = [
-    job(
-      "sock",
-      [wp(28, 52, "the basket"), wp(11, 61, "the washer"), wp(35, 83, "the bedroom dresser")],
-      true, // a tangled load -> manager sorts it out
-    ),
-    ...[0, 1, 2].map(() =>
-      job("sock", [
-        wp(28, 52, "the basket"),
-        wp(11, 61, "the washer"),
-        wp(35, 83, "the bedroom dresser"),
-      ]),
-    ),
-    job("trash", [wp(28, 52, "the basket"), hallway(58), OUT_RECYCLE]),
-  ];
-
-  const officeJobs: Job[] = [
-    ...[0, 1, 2, 3].map(() =>
-      job("book", [wp(67, 52, "the desk"), wp(90, 61, "the bookshelf, by color")]),
-    ),
-    job("trash", [wp(67, 52, "the desk"), hallway(58), OUT_LANDFILL]),
-  ];
-
-  const bedroomJobs: Job[] = [
-    ...[0, 1].map(() =>
-      job("sock", [wp(26, 76, "the floor"), wp(35, 83, "the dresser")]),
-    ),
-    job("trash", [wp(26, 76, "the floor"), hallway(80), OUT_RECYCLE]),
-  ];
-
-  const bathroomJobs: Job[] = [
-    ...[0, 1].map(() =>
-      job("sock", [wp(74, 76, "the floor"), wp(90, 83, "the hamper")]),
-    ),
-    job("trash", [wp(74, 76, "the floor"), hallway(80), OUT_LANDFILL]),
-  ];
-
-  const split = (items: Job[]): [Job[], Job[]] => {
+  const split = (items: Clutter[]): [Clutter[], Clutter[]] => {
     const half = Math.ceil(items.length / 2);
     return [items.slice(0, half), items.slice(half)];
   };
 
-  const mkAgent = (
-    id: string,
-    name: string,
-    lane: number,
-    home: { x: number; y: number },
-    queue: Job[],
-  ): AgentRuntime => ({
+  const aItems = makeItems(kitchen);
+  const bItems = makeItems(laundry, 0); // one tangled sock -> manager resolves
+  const cItems = makeItems(living);
+
+  const [a1, a2] = split(aItems);
+  const [b1, b2] = split(bItems);
+  const [c1, c2] = split(cItems);
+
+  const mkAgent = (id: string, name: string, queue: Clutter[]): AgentRuntime => ({
     id,
     name,
-    lane,
-    pos: { ...home },
-    home,
     queue,
     total: queue.length,
     cleared: 0,
@@ -269,73 +127,54 @@ function buildZones(): ZoneRuntime[] {
     carrying: null,
   });
 
-  const twoAgentZone = (
-    id: string,
-    name: string,
-    jobs: Job[],
-    labelPrefix: string,
-  ): ZoneRuntime => {
-    const room = ROOMS[id];
-    const cx = room.rect.x + room.rect.w / 2;
-    const cy = room.rect.y + room.rect.h / 2;
-    const [q1, q2] = split(jobs);
-    return {
-      id,
-      name,
-      instruction: null,
-      managerActive: false,
-      agents: [
-        mkAgent(`${id}1`, `${labelPrefix} 1`, 0, { x: cx - 8, y: cy + 3 }, q1),
-        mkAgent(`${id}2`, `${labelPrefix} 2`, 1, { x: cx + 8, y: cy + 3 }, q2),
-      ],
-      report: [],
-      status: "idle",
-      itemsCleared: 0,
-      escalationsResolved: 0,
-      neededHuman: false,
-      escalationPaused: false,
-    };
-  };
-
-  const oneAgentZone = (
-    id: string,
-    name: string,
-    jobs: Job[],
-    labelPrefix: string,
-  ): ZoneRuntime => {
-    const room = ROOMS[id];
-    const cx = room.rect.x + room.rect.w / 2;
-    const cy = room.rect.y + room.rect.h / 2;
-    return {
-      id,
-      name,
-      instruction: null,
-      managerActive: false,
-      agents: [mkAgent(`${id}1`, labelPrefix, 0, { x: cx, y: cy + 3 }, jobs)],
-      report: [],
-      status: "idle",
-      itemsCleared: 0,
-      escalationsResolved: 0,
-      neededHuman: false,
-      escalationPaused: false,
-    };
-  };
-
   return [
-    twoAgentZone("LIVING", "Living room", livingJobs, "Living"),
-    twoAgentZone("KITCHEN", "Kitchen", kitchenJobs, "Kitchen"),
-    twoAgentZone("LAUNDRY", "Laundry room", laundryJobs, "Laundry"),
-    twoAgentZone("OFFICE", "Office", officeJobs, "Office"),
-    oneAgentZone("BEDROOM", "Bedroom", bedroomJobs, "Bedroom"),
-    oneAgentZone("BATHROOM", "Bathroom", bathroomJobs, "Bathroom"),
+    {
+      id: "A",
+      name: "Kitchen",
+      instruction: null,
+      managerActive: false,
+      agents: [mkAgent("A1", "Kitchen 1", a1), mkAgent("A2", "Kitchen 2", a2)],
+      report: [],
+      status: "idle",
+      itemsCleared: 0,
+      escalationsResolved: 0,
+      neededHuman: false,
+      escalationPaused: false,
+    },
+    {
+      id: "B",
+      name: "Laundry room",
+      instruction: null,
+      managerActive: false,
+      agents: [mkAgent("B1", "Laundry 1", b1), mkAgent("B2", "Laundry 2", b2)],
+      report: [],
+      status: "idle",
+      itemsCleared: 0,
+      escalationsResolved: 0,
+      neededHuman: false,
+      escalationPaused: false,
+    },
+    {
+      id: "C",
+      name: "Living room",
+      instruction: null,
+      managerActive: false,
+      agents: [mkAgent("C1", "Living 1", c1), mkAgent("C2", "Living 2", c2)],
+      report: [],
+      status: "idle",
+      itemsCleared: 0,
+      escalationsResolved: 0,
+      neededHuman: false,
+      escalationPaused: false,
+    },
   ];
 }
 
 function zoneItemSummary(zone: ZoneRuntime) {
   const counts = new Map<string, number>();
   for (const agent of zone.agents) {
-    for (const j of agent.queue) {
-      counts.set(j.sprite, (counts.get(j.sprite) ?? 0) + 1);
+    for (const item of agent.queue) {
+      counts.set(item.kind, (counts.get(item.kind) ?? 0) + 1);
     }
   }
   return Array.from(counts.entries()).map(([kind, count]) => ({ kind, count }));
@@ -346,7 +185,9 @@ export default function WarehouseScene() {
   const [phase, setPhase] = useState<Phase>("idle");
   const [command, setCommand] = useState("");
   const [bossNote, setBossNote] = useState<string | null>(null);
-  const [decompSource, setDecompSource] = useState<"ai" | "fallback" | null>(null);
+  const [decompSource, setDecompSource] = useState<"ai" | "fallback" | null>(
+    null,
+  );
   const [finalReport, setFinalReport] = useState<string | null>(null);
   const [humanNeeded, setHumanNeeded] = useState<{
     zoneId: string;
@@ -361,12 +202,13 @@ export default function WarehouseScene() {
     setZones(
       zonesRef.current.map((z) => ({
         ...z,
-        agents: z.agents.map((a) => ({ ...a, queue: [...a.queue], pos: { ...a.pos } })),
+        agents: z.agents.map((a) => ({ ...a, queue: [...a.queue] })),
         report: [...z.report],
       })),
     );
   }, []);
 
+  // Stable helpers — they only read/write the mutable ref, so empty deps.
   const getZone = useCallback(
     (id: string) => zonesRef.current.find((z) => z.id === id)!,
     [],
@@ -379,75 +221,73 @@ export default function WarehouseScene() {
     [getZone],
   );
 
-  // ---- One agent works its queue, following each job's multi-step route ----
+  // ---- One agent's act-loop within its zone ----
   const runAgent = useCallback(
     async (zoneId: string, agentId: string) => {
       const zone = getZone(zoneId);
       const agent = zone.agents.find((a) => a.id === agentId)!;
-      const off = agent.lane === 0 ? -3 : 3;
 
       while (agent.queue.length > 0) {
+        // Presenter forced a full escalation: pause until a human resolves.
         while (getZone(zoneId).escalationPaused) {
           agent.state = "idle";
           commit();
           await sleep(250);
         }
 
-        const j = agent.queue[0];
-        const name = j.sprite;
+        const item = agent.queue[0];
+        const name = FRIENDLY[item.kind];
 
-        for (let i = 0; i < j.route.length; i++) {
-          const stop = j.route[i];
-          agent.state = "walking";
-          agent.pos = { x: stop.x + off, y: stop.y };
+        agent.state = "walking";
+        agent.carrying = null;
+        commit();
+        await sleep(STEP);
+
+        // A naturally stuck item: escalate to the Manager, who resolves it.
+        if (item.jammed) {
+          addLine(zoneId, {
+            text: `${agent.name} hit a tangled ${name} → escalated to Manager.`,
+            tone: "escalation",
+          });
           commit();
           await sleep(STEP);
-
-          // A tangled load at pickup: escalate to the Manager, who resolves it.
-          if (i === 0 && j.jammed) {
-            addLine(zoneId, {
-              text: `${agent.name} hit a tangled ${name} → escalated to Manager.`,
-              tone: "escalation",
-            });
-            commit();
-            await sleep(STEP);
-            addLine(zoneId, {
-              text: `Manager sorted out the tangle on its own.`,
-              tone: "escalation",
-              reviewed: true,
-            });
-            zone.escalationsResolved += 1;
-            commit();
-            await sleep(STEP);
-          }
-
-          agent.state = "working";
-          if (i === 0) agent.carrying = j.sprite; // picked it up
+          addLine(zoneId, {
+            text: `Manager sorted out the tangle on its own.`,
+            tone: "escalation",
+            reviewed: true,
+          });
+          zone.escalationsResolved += 1;
           commit();
-          await sleep(STEP * 0.75);
+          await sleep(STEP);
         }
 
-        // Placed at the final stop.
-        const dest = j.route[j.route.length - 1].label;
-        agent.carrying = null;
+        // Carry it to where it belongs and put it away.
+        agent.state = "working";
+        agent.carrying = spriteFor(item.kind);
+        commit();
+        await sleep(STEP);
+
         agent.queue.shift();
         agent.cleared += 1;
         zone.itemsCleared += 1;
+        agent.carrying = null;
+
+        // Report the finished item up to the Manager, who reviews it.
         addLine(zoneId, {
-          text: `${agent.name} took a ${name} to ${dest} → Manager reviewed.`,
+          text: `${agent.name} put a ${name} away → Manager reviewed.`,
           reviewed: true,
         });
         commit();
-        await sleep(STEP * 0.4);
+        await sleep(STEP * 0.6);
       }
 
       agent.state = "done";
-      agent.pos = { ...agent.home };
       commit();
     },
     [commit, addLine, getZone],
   );
 
+  // ---- One zone: run both agents, then the Manager delivers the report ----
   const runZone = useCallback(
     async (zoneId: string) => {
       const zone = getZone(zoneId);
@@ -457,8 +297,9 @@ export default function WarehouseScene() {
 
       await Promise.all(zone.agents.map((a) => runAgent(zoneId, a.id)));
 
+      // Both agents done — Manager walks the hallway to the Boss.
       addLine(zoneId, {
-        text: `All done. Manager delivered the ${zone.name} report to the Boss.`,
+        text: `Both agents done. Manager delivered the ${zone.name} report to the Boss.`,
         tone: "success",
         reviewed: true,
       });
@@ -473,6 +314,7 @@ export default function WarehouseScene() {
     if (runningRef.current) return;
     runningRef.current = true;
 
+    // Fresh state for this run.
     lineSeq = 0;
     zonesRef.current = buildZones();
     commit();
@@ -482,6 +324,7 @@ export default function WarehouseScene() {
 
     const prompt = command.trim() || "Clean the house";
 
+    // ---- The one real AI moment: Boss decomposes the job ----
     setPhase("deciding");
     setBossNote("Boss is deciding…");
     const decideStart = Date.now();
@@ -510,24 +353,28 @@ export default function WarehouseScene() {
     } catch (err) {
       console.error("[warehouse] decompose request failed:", err);
       for (const z of zonesRef.current) {
-        z.instruction = `Tidy the ${z.name} and report back when done.`;
+        z.instruction = `Clear ${z.name} and report back when done.`;
       }
       setDecompSource("fallback");
     }
 
+    // Keep the "deciding" beat on screen long enough for a live audience to
+    // register it, even when the fast fallback returns instantly.
     const decideElapsed = Date.now() - decideStart;
     if (decideElapsed < 900) await sleep(900 - decideElapsed);
 
-    setBossNote("Boss dispatched a plan to each room's Manager.");
+    setBossNote("Boss dispatched a plan to each Manager.");
     setPhase("dispatched");
     commit();
     await sleep(900);
 
+    // ---- Managers assign agents; zones run in parallel ----
     setPhase("working");
     await Promise.all(zonesRef.current.map((z) => runZone(z.id)));
 
+    // ---- All zones reported — Boss synthesizes the final report ----
     setPhase("summarizing");
-    setBossNote("Every room reported in. Boss is writing the final report…");
+    setBossNote("All zones reported in. Boss is writing the final report…");
 
     const results = zonesRef.current.map((z) => ({
       name: z.name,
@@ -547,7 +394,9 @@ export default function WarehouseScene() {
     } catch (err) {
       console.error("[warehouse] summary request failed:", err);
       setFinalReport(
-        results.map((r) => `${r.name}: ${r.itemsCleared} items handled.`).join("\n"),
+        results
+          .map((r) => `${r.name}: ${r.itemsCleared} items cleared.`)
+          .join("\n"),
       );
     }
 
@@ -568,6 +417,7 @@ export default function WarehouseScene() {
     setDecompSource(null);
   }, [commit]);
 
+  // ---- Hidden presenter override: force a stuck item to the human ----
   const triggerJam = useCallback(
     (zoneId: string) => {
       const zone = getZone(zoneId);
@@ -616,6 +466,7 @@ export default function WarehouseScene() {
 
   return (
     <div className="flex flex-col gap-4">
+      {/* Controls */}
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -678,7 +529,7 @@ export default function WarehouseScene() {
               }`}
               title={
                 decompSource === "ai"
-                  ? "Plan came from a real OpenAI API call."
+                  ? "Plan came from a real Anthropic API call."
                   : "Live API unavailable — using the built-in fallback plan."
               }
             >
@@ -699,19 +550,24 @@ export default function WarehouseScene() {
         ) : null}
       </div>
 
+      {/* Human escalation exit point */}
       {humanNeeded ? (
-        <EscalationBanner message={humanNeeded.message} onDismiss={resolveHuman} />
+        <EscalationBanner
+          message={humanNeeded.message}
+          onDismiss={resolveHuman}
+        />
       ) : null}
 
       <HouseMap zones={zones} phase={phase} humanNeeded={humanNeeded} />
 
-      {/* Room / Manager panels */}
+      {/* Zones */}
       <div className="grid gap-4 lg:grid-cols-3">
         {zones.map((zone) => (
           <div
             key={zone.id}
             className="flex flex-col gap-3 rounded-2xl border border-slate-300 bg-white p-3 shadow-sm"
           >
+            {/* Zone / Manager header */}
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="text-2xl" aria-hidden>
@@ -730,14 +586,15 @@ export default function WarehouseScene() {
                   onClick={() => triggerJam(zone.id)}
                   disabled={zone.status !== "working" || zone.escalationPaused}
                   className="rounded-md border border-rose-200 bg-rose-50 px-2 py-1 text-[11px] font-semibold text-rose-600 transition enabled:hover:bg-rose-100 disabled:opacity-40"
-                  title="Force a stuck-item escalation for this room"
+                  title="Force a stuck-item escalation for this zone"
                 >
                   ⚠ Jam
                 </button>
               ) : null}
             </div>
 
-            <div className="min-h-[44px] rounded-xl bg-slate-50 p-2 text-[12px] leading-snug text-slate-600">
+            {/* Manager instruction (from the Boss) */}
+            <div className="min-h-[58px] rounded-xl bg-slate-50 p-2 text-[12px] leading-snug text-slate-600">
               {zone.instruction ? (
                 <span className="animate-fade-in">{zone.instruction}</span>
               ) : (
@@ -747,17 +604,19 @@ export default function WarehouseScene() {
               )}
             </div>
 
+            {/* Agents */}
             <div className="space-y-2">
               {zone.agents.map((agent) => (
                 <AgentRow key={agent.id} agent={agent} />
               ))}
             </div>
 
+            {/* Zone report log */}
             <ReportPanel
               title="Manager review log"
               lines={zone.report}
               emptyHint="No activity yet."
-              className="h-36"
+              className="h-44"
             />
           </div>
         ))}
@@ -782,6 +641,63 @@ function StatusBadge({ zone }: { zone: ZoneRuntime }) {
   );
 }
 
+const HUB_BOTTOM = 30; // y where the rooms begin, below the boss hub
+const DOORS = [18, 50, 82]; // doorway x for each room into the hub
+const PARTITIONS = [34, 66]; // interior wall x positions
+const WALL = "#8d8a82";
+const FLOOR = "#c69b63";
+
+type RoomLayout = {
+  center: number;
+  nameX: number;
+  tint: string;
+  shelfItem: ItemKind;
+  furniture: { kind: FurnitureKind; x: number; y: number }[];
+  tray: { x: number; y: number };
+  shelf: { x: number; y: number };
+  agentX: [number, number];
+};
+
+const ROOM_LAYOUT: Record<string, RoomLayout> = {
+  A: {
+    center: 18,
+    nameX: 9,
+    tint: "rgba(150,180,200,0.16)",
+    shelfItem: "cup",
+    furniture: [
+      { kind: "sink", x: 11, y: 86 },
+      { kind: "recycling", x: 27, y: 86 },
+    ],
+    tray: { x: 18, y: 42 },
+    shelf: { x: 18, y: 64 },
+    agentX: [12, 25],
+  },
+  B: {
+    center: 50,
+    nameX: 41,
+    tint: "rgba(150,165,225,0.16)",
+    shelfItem: "sock",
+    furniture: [{ kind: "hamper", x: 50, y: 86 }],
+    tray: { x: 50, y: 42 },
+    shelf: { x: 50, y: 64 },
+    agentX: [44, 56],
+  },
+  C: {
+    center: 82,
+    nameX: 73,
+    tint: "rgba(205,170,135,0.18)",
+    shelfItem: "book",
+    furniture: [
+      { kind: "bookshelf", x: 75, y: 86 },
+      { kind: "toybox", x: 89, y: 86 },
+    ],
+    tray: { x: 82, y: 42 },
+    shelf: { x: 82, y: 64 },
+    agentX: [76, 88],
+  },
+};
+
+// Small heap-cluster offsets so piles/shelves read as a little stack.
 const CLUSTER: [number, number][] = [
   [-8, -2],
   [0, 0],
@@ -791,58 +707,15 @@ const CLUSTER: [number, number][] = [
   [-1, 14],
 ];
 
-function RoomBox({ def }: { def: RoomDef }) {
-  const { x, y, w, h } = def.rect;
-  const gapV = 8; // doorway height (% of canvas) for left/right doors
-  const wallStyleH = {
-    backgroundColor: WALL,
-    backgroundImage: seamH,
-    boxShadow: "inset 0 0 0 1px rgba(40,38,34,0.35)",
-  };
-  const wallStyleV = {
-    backgroundColor: WALL,
-    backgroundImage: seamV,
-    boxShadow: "inset 0 0 0 1px rgba(40,38,34,0.35)",
-  };
-  const segH = (h - gapV) / 2;
-
-  return (
-    <>
-      {/* tint */}
-      <div
-        className="absolute z-0"
-        style={{
-          left: `${x}%`,
-          top: `${y}%`,
-          width: `${w}%`,
-          height: `${h}%`,
-          backgroundColor: def.tint,
-        }}
-        aria-hidden
-      />
-      {/* top + bottom */}
-      <div className="absolute z-[1]" style={{ left: `${x}%`, top: `${y}%`, width: `${w}%`, height: 6, ...wallStyleH }} aria-hidden />
-      <div className="absolute z-[1]" style={{ left: `${x}%`, top: `${y + h}%`, width: `${w}%`, height: 6, transform: "translateY(-6px)", ...wallStyleH }} aria-hidden />
-      {/* left wall (or split for a left door) */}
-      {def.door === "left" ? (
-        <>
-          <div className="absolute z-[1]" style={{ left: `${x}%`, top: `${y}%`, width: 6, height: `${segH}%`, ...wallStyleV }} aria-hidden />
-          <div className="absolute z-[1]" style={{ left: `${x}%`, top: `${y + segH + gapV}%`, width: 6, height: `${segH}%`, ...wallStyleV }} aria-hidden />
-        </>
-      ) : (
-        <div className="absolute z-[1]" style={{ left: `${x}%`, top: `${y}%`, width: 6, height: `${h}%`, ...wallStyleV }} aria-hidden />
-      )}
-      {/* right wall (or split for a right door) */}
-      {def.door === "right" ? (
-        <>
-          <div className="absolute z-[1]" style={{ left: `${x + w}%`, top: `${y}%`, width: 6, height: `${segH}%`, transform: "translateX(-6px)", ...wallStyleV }} aria-hidden />
-          <div className="absolute z-[1]" style={{ left: `${x + w}%`, top: `${y + segH + gapV}%`, width: 6, height: `${segH}%`, transform: "translateX(-6px)", ...wallStyleV }} aria-hidden />
-        </>
-      ) : (
-        <div className="absolute z-[1]" style={{ left: `${x + w}%`, top: `${y}%`, width: 6, height: `${h}%`, transform: "translateX(-6px)", ...wallStyleV }} aria-hidden />
-      )}
-    </>
-  );
+function agentPos(
+  layout: RoomLayout,
+  index: number,
+  state: AgentState,
+): { x: number; y: number } {
+  const x = layout.agentX[index];
+  if (state === "walking") return { x, y: layout.tray.y + 4 }; // up at the pile
+  if (state === "working") return { x, y: 77 }; // down at the furniture
+  return { x, y: layout.shelf.y }; // idle / done: resting in the room
 }
 
 function HouseMap({
@@ -863,6 +736,11 @@ function HouseMap({
   const reportActive =
     phase === "working" || phase === "summarizing" || phase === "done";
   const hubPile = phase === "idle" || phase === "deciding";
+
+  const seamH =
+    "repeating-linear-gradient(90deg, rgba(47,45,40,0.5) 0 1.5px, transparent 1.5px 40px)";
+  const seamV =
+    "repeating-linear-gradient(0deg, rgba(47,45,40,0.5) 0 1.5px, transparent 1.5px 40px)";
 
   return (
     <div className="flex flex-col gap-2">
@@ -885,60 +763,156 @@ function HouseMap({
           aria-hidden
         />
 
-        {/* Boss office (hub) box across the top, door to the hallway */}
+        {/* per-room floor tints */}
+        {zones.map((zone) => {
+          const i = ["A", "B", "C"].indexOf(zone.id);
+          const x0 = i === 0 ? 3 : PARTITIONS[i - 1];
+          const x1 = i === 2 ? 97 : PARTITIONS[i];
+          return (
+            <div
+              key={`tint-${zone.id}`}
+              className="pointer-events-none absolute z-0"
+              style={{
+                left: `${x0}%`,
+                width: `${x1 - x0}%`,
+                top: `${HUB_BOTTOM}%`,
+                bottom: 0,
+                backgroundColor: ROOM_LAYOUT[zone.id].tint,
+              }}
+              aria-hidden
+            />
+          );
+        })}
+
+        {/* interior walls (below outer walls) */}
+        <div className="pointer-events-none absolute inset-0 z-[1]" aria-hidden>
+          {/* hub divider */}
+          <div
+            className="absolute left-0 right-0"
+            style={{
+              top: `${HUB_BOTTOM}%`,
+              height: 11,
+              transform: "translateY(-6px)",
+              backgroundColor: WALL,
+              backgroundImage: seamH,
+              boxShadow:
+                "inset 0 3px 0 rgba(255,255,255,0.16), inset 0 -3px 0 rgba(0,0,0,0.30)",
+            }}
+          />
+          {/* doorways punched into the divider */}
+          {DOORS.map((x) => (
+            <div
+              key={`door-${x}`}
+              className="absolute"
+              style={{
+                left: `${x - 4.5}%`,
+                width: "9%",
+                top: `${HUB_BOTTOM}%`,
+                height: 16,
+                transform: "translateY(-8px)",
+                backgroundColor: FLOOR,
+              }}
+            />
+          ))}
+          {/* vertical partitions between rooms */}
+          {PARTITIONS.map((x) => (
+            <div
+              key={`part-${x}`}
+              className="absolute"
+              style={{
+                left: `${x}%`,
+                width: 11,
+                top: `${HUB_BOTTOM}%`,
+                bottom: 0,
+                transform: "translateX(-6px)",
+                backgroundColor: WALL,
+                backgroundImage: seamV,
+                boxShadow:
+                  "inset 3px 0 0 rgba(255,255,255,0.14), inset -3px 0 0 rgba(0,0,0,0.30)",
+              }}
+            />
+          ))}
+        </div>
+
+        {/* outer walls (above interior so joints stay clean) */}
+        <div className="pointer-events-none absolute inset-0 z-[2]" aria-hidden>
+          <div
+            className="absolute left-0 right-0 top-0 h-5"
+            style={{
+              backgroundColor: WALL,
+              backgroundImage: seamH,
+              boxShadow:
+                "inset 0 3px 0 rgba(255,255,255,0.18), inset 0 -3px 0 rgba(0,0,0,0.32)",
+            }}
+          />
+          <div
+            className="absolute bottom-0 left-0 right-0 h-5"
+            style={{
+              backgroundColor: WALL,
+              backgroundImage: seamH,
+              boxShadow:
+                "inset 0 3px 0 rgba(0,0,0,0.28), inset 0 -3px 0 rgba(255,255,255,0.12)",
+            }}
+          />
+          <div
+            className="absolute bottom-0 left-0 top-0 w-5"
+            style={{
+              backgroundColor: WALL,
+              backgroundImage: seamV,
+              boxShadow:
+                "inset 3px 0 0 rgba(255,255,255,0.16), inset -3px 0 0 rgba(0,0,0,0.32)",
+            }}
+          />
+          <div
+            className="absolute bottom-0 right-0 top-0 w-5"
+            style={{
+              backgroundColor: WALL,
+              backgroundImage: seamV,
+              boxShadow:
+                "inset -3px 0 0 rgba(255,255,255,0.16), inset 3px 0 0 rgba(0,0,0,0.32)",
+            }}
+          />
+        </div>
+
+        {/* ---- Boss hub ---- */}
         <div
-          className="absolute z-0"
-          style={{ left: "4%", top: "4%", width: "92%", height: "11%", backgroundColor: "rgba(150,140,205,0.16)" }}
-          aria-hidden
-        />
-        <div className="absolute z-[1]" style={{ left: "4%", top: "4%", width: "92%", height: 6, backgroundColor: WALL, backgroundImage: seamH }} aria-hidden />
-        <div className="absolute z-[1]" style={{ left: "4%", top: "4%", width: 6, height: "11%", backgroundColor: WALL, backgroundImage: seamV }} aria-hidden />
-        <div className="absolute z-[1]" style={{ left: "96%", top: "4%", width: 6, height: "11%", transform: "translateX(-6px)", backgroundColor: WALL, backgroundImage: seamV }} aria-hidden />
-        {/* hub bottom wall split for the hallway doorway */}
-        <div className="absolute z-[1]" style={{ left: "4%", top: "15%", width: "41%", height: 6, transform: "translateY(-6px)", backgroundColor: WALL, backgroundImage: seamH }} aria-hidden />
-        <div className="absolute z-[1]" style={{ left: "55%", top: "15%", width: "41%", height: 6, transform: "translateY(-6px)", backgroundColor: WALL, backgroundImage: seamH }} aria-hidden />
-
-        {/* Rooms */}
-        {Object.values(ROOMS).map((def) => (
-          <RoomBox key={def.id} def={def} />
-        ))}
-
-        {/* outer bottom wall split for the door to "outside" */}
-        <div className="absolute z-[1]" style={{ left: "4%", top: "90%", width: "42%", height: 6, transform: "translateY(-6px)", backgroundColor: WALL, backgroundImage: seamH }} aria-hidden />
-        <div className="absolute z-[1]" style={{ left: "54%", top: "90%", width: "42%", height: 6, transform: "translateY(-6px)", backgroundColor: WALL, backgroundImage: seamH }} aria-hidden />
-
-        {/* ---- Boss hub contents ---- */}
-        <div
-          className="absolute left-1/2 top-[5%] z-30 -translate-x-1/2 rounded bg-black/50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white"
+          className="absolute left-1/2 top-[4%] z-30 -translate-x-1/2 rounded bg-black/50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white"
           aria-hidden
         >
           Boss office
         </div>
-        <RoomWorker x={50} y={10} state={reportActive ? "working" : "sitting"} label="Boss" />
-        <Marker x={62} y={9} tone="rose" label="Human exit" active={!!humanNeeded} />
+        <RoomWorker
+          x={50}
+          y={15}
+          state={reportActive ? "working" : "sitting"}
+          label="Boss"
+        />
+        <Marker x={64} y={13} tone="rose" label="Human exit" active={!!humanNeeded} />
+
+        {/* The unsorted pile the Boss is about to split up. */}
         {hubPile ? (
-          <div className="absolute z-20 -translate-x-1/2 -translate-y-1/2" style={{ left: "38%", top: "10%" }} aria-hidden>
-            {(["sock", "cup", "book", "can", "toy", "trash", "sock"] as ItemKind[]).map((it, i) => (
-              <span key={i} className="absolute" style={{ left: CLUSTER[i % CLUSTER.length][0] * 1.4, top: CLUSTER[i % CLUSTER.length][1] * 1.4 }}>
-                <ItemSprite item={it} size={20} />
-              </span>
-            ))}
+          <div
+            className="absolute z-20 -translate-x-1/2 -translate-y-1/2"
+            style={{ left: "36%", top: "16%" }}
+            aria-hidden
+          >
+            {(["sock", "cup", "book", "can", "toy", "sock", "cup"] as ItemKind[]).map(
+              (it, i) => (
+                <span
+                  key={i}
+                  className="absolute"
+                  style={{ left: CLUSTER[i % CLUSTER.length][0] * 1.4, top: CLUSTER[i % CLUSTER.length][1] * 1.4 }}
+                >
+                  <ItemSprite item={it} size={22} />
+                </span>
+              ),
+            )}
           </div>
         ) : null}
 
-        {/* ---- Outside trash spot ---- */}
-        <div
-          className="absolute left-1/2 top-[97%] z-30 -translate-x-1/2 rounded bg-black/55 px-1.5 py-0.5 text-[10px] font-semibold text-white shadow-sm"
-          aria-hidden
-        >
-          Outside
-        </div>
-        <Furniture x={46} y={94} kind="recycling" scale={0.55} />
-        <Furniture x={54} y={94} kind="trashcan" scale={0.55} />
-
-        {/* ---- Rooms: furniture, piles, managers, agents ---- */}
+        {/* ---- Rooms ---- */}
         {zones.map((zone) => {
-          const def = ROOMS[zone.id];
+          const layout = ROOM_LAYOUT[zone.id];
           const managerState = zone.managerActive
             ? zone.status === "delivered"
               ? "done"
@@ -948,53 +922,104 @@ function HouseMap({
 
           return (
             <div key={zone.id}>
-              <ReportPath x1={def.manager.x} y1={def.manager.y} x2={50} y2={12} active={reportActive && zone.status !== "idle"} />
+              {/* report path room -> boss */}
+              <ReportPath
+                x1={layout.center}
+                y1={HUB_BOTTOM}
+                x2={50}
+                y2={20}
+                active={reportActive && zone.status !== "idle"}
+              />
               {humanNeeded?.zoneId === zone.id ? (
-                <ReportPath x1={def.manager.x} y1={def.manager.y} x2={62} y2={9} active />
+                <ReportPath x1={layout.center} y1={HUB_BOTTOM} x2={64} y2={13} active />
               ) : null}
 
               {/* room name */}
               <div
                 className="absolute z-30 rounded bg-black/55 px-1.5 py-0.5 text-[10px] font-semibold text-white shadow-sm"
-                style={{ left: `${def.label.x}%`, top: `${def.label.y}%` }}
+                style={{ left: `${layout.nameX}%`, top: `${HUB_BOTTOM + 3}%` }}
                 aria-hidden
               >
                 {zone.name}
               </div>
 
-              {/* furniture */}
-              {def.furniture.map((f, i) => (
-                <Furniture key={i} x={f.x} y={f.y} kind={f.kind} scale={0.6} />
+              {/* destination furniture / shelves */}
+              {layout.furniture.map((f, i) => (
+                <Furniture key={i} x={f.x} y={f.y} kind={f.kind} scale={0.78} />
               ))}
 
-              {/* the room's remaining mess */}
+              {/* incoming pile for this room (drains as agents work) */}
               {dispatched && remaining.length > 0 ? (
-                <div className="absolute z-20 -translate-x-1/2 -translate-y-1/2" style={{ left: `${def.pickup.x}%`, top: `${def.pickup.y}%` }} aria-hidden>
-                  {remaining.slice(0, 6).map((j, i) => (
-                    <span key={j.id} className="absolute" style={{ left: CLUSTER[i][0], top: CLUSTER[i][1] }}>
-                      <ItemSprite item={j.sprite} size={18} />
+                <div
+                  className="absolute z-20 -translate-x-1/2 -translate-y-1/2"
+                  style={{ left: `${layout.tray.x}%`, top: `${layout.tray.y}%` }}
+                  aria-hidden
+                >
+                  {remaining.slice(0, 6).map((it, i) => (
+                    <span
+                      key={it.id}
+                      className="absolute"
+                      style={{ left: CLUSTER[i][0], top: CLUSTER[i][1] }}
+                    >
+                      <ItemSprite item={spriteFor(it.kind)} size={20} />
                     </span>
                   ))}
                 </div>
               ) : null}
 
+              {/* put-away items stacking near the furniture */}
+              {zone.itemsCleared > 0 ? (
+                <div
+                  className="absolute z-[15] -translate-x-1/2 -translate-y-1/2"
+                  style={{ left: `${layout.shelf.x}%`, top: `${layout.shelf.y + 10}%` }}
+                  aria-hidden
+                >
+                  {Array.from({ length: Math.min(zone.itemsCleared, 6) }).map(
+                    (_, i) => (
+                      <span
+                        key={i}
+                        className="absolute"
+                        style={{ left: CLUSTER[i][0], top: CLUSTER[i][1] }}
+                      >
+                        <ItemSprite item={layout.shelfItem} size={16} />
+                      </span>
+                    ),
+                  )}
+                </div>
+              ) : null}
+
               {/* manager near the doorway */}
-              <RoomWorker x={def.manager.x} y={def.manager.y} label={`${zone.name} mgr`} state={managerState} />
+              <RoomWorker
+                x={layout.center + 9}
+                y={HUB_BOTTOM + 6}
+                label={`${zone.name} mgr`}
+                state={managerState}
+              />
 
-              {/* agents on their routes */}
-              {zone.agents.map((agent) => (
-                <RoomWorker
-                  key={agent.id}
-                  x={agent.pos.x}
-                  y={agent.pos.y}
-                  label={agent.name}
-                  state={agent.state}
-                  carrying={agent.carrying}
-                />
-              ))}
+              {/* the two agents shuttling pile -> furniture */}
+              {zone.agents.map((agent, index) => {
+                const pos = agentPos(layout, index, agent.state);
+                return (
+                  <RoomWorker
+                    key={agent.id}
+                    x={pos.x}
+                    y={pos.y}
+                    label={agent.name}
+                    state={agent.state}
+                    carrying={agent.carrying}
+                  />
+                );
+              })}
 
+              {/* escalation marker — only while a human is actually needed */}
               {zone.neededHuman ? (
-                <Marker x={def.manager.x} y={def.manager.y - 6} tone="rose" label="Needs human" active />
+                <Marker
+                  x={layout.center}
+                  y={50}
+                  tone="rose"
+                  label="Needs human"
+                  active
+                />
               ) : null}
             </div>
           );
@@ -1013,7 +1038,7 @@ function AgentRow({ agent }: { agent: AgentRuntime }) {
   const stateLabel: Record<AgentState, string> = {
     idle: "idle",
     walking: "moving",
-    working: "working",
+    working: "clearing",
     done: "done",
   };
   return (

@@ -1,9 +1,9 @@
-import Anthropic from "@anthropic-ai/sdk";
+import OpenAI from "openai";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 
-const MODEL = process.env.AGENT_DEMO_MODEL || "claude-haiku-4-5-20251001";
+const MODEL = process.env.OPENAI_MODEL || "gpt-5.4-mini";
 // Keep the live demo snappy: bail to the fallback if the model is slow.
 const TIMEOUT_MS = 12_000;
 
@@ -58,7 +58,7 @@ function buildPrompt(prompt: string, zones: ZoneState[]): string {
     .map((z) => `- ${z.name} (id "${z.id}"): ${describeZone(z)}`)
     .join("\n");
 
-  return `You are the Boss of a warehouse cleaning crew. A human gave you this instruction:
+  return `You are the Boss of a warehouse operations crew. A human gave you this instruction:
 
 "${prompt}"
 
@@ -95,7 +95,7 @@ export async function POST(req: Request) {
   const zones = body.zones ?? [];
   const prompt = body.prompt ?? "Clean the warehouse";
 
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
     return NextResponse.json({
       decomposition: fallbackDecomposition(zones),
@@ -104,25 +104,25 @@ export async function POST(req: Request) {
   }
 
   try {
-    const client = new Anthropic({ apiKey });
+    const client = new OpenAI({ apiKey });
 
-    const message = await Promise.race([
-      client.messages.create({
+    const response = await Promise.race([
+      client.responses.create({
         model: MODEL,
-        max_tokens: 1024,
-        messages: [{ role: "user", content: buildPrompt(prompt, zones) }],
+        input: buildPrompt(prompt, zones),
+        max_output_tokens: 1024,
       }),
       new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error("timeout")), TIMEOUT_MS),
       ),
     ]);
 
-    const textBlock = message.content.find((b) => b.type === "text");
-    if (!textBlock || textBlock.type !== "text") {
+    const text = response.output_text;
+    if (!text.trim()) {
       throw new Error("no text content");
     }
 
-    const parsed = extractJson(textBlock.text) as {
+    const parsed = extractJson(text) as {
       decomposition?: ZoneInstruction[];
     };
 

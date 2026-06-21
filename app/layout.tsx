@@ -4,7 +4,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "AI Agent Swarm Demo",
   description:
-    "A live presentation tool that teaches what an AI agent and an agent swarm are, using a room-cleaning metaphor.",
+    "A live presentation tool that teaches what an AI agent and an agent swarm are with task maps and swarm workflows.",
 };
 
 export default function RootLayout({

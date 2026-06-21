@@ -30,11 +30,11 @@ export default function RoomPage() {
         </p>
         <h1 className="text-3xl font-bold tracking-tight">Single Room</h1>
         <p className="mt-2 max-w-2xl text-slate-600">
-          A messy room and one job: tidy it up. Toggle between{" "}
-          <strong>Manual</strong> (you trigger every single step) and{" "}
-          <strong>Agent</strong> (you give one goal and it finishes the whole
-          job by itself). That self-finishing loop is what makes something an
-          &ldquo;agent.&rdquo;
+          A little worker tidies a messy room, carrying each item to where it
+          belongs. Toggle between <strong>Manual</strong> (you trigger every
+          single step) and <strong>Agent</strong> (you give one goal and it
+          cleans the whole room by itself). That self-finishing loop is what
+          makes something an &ldquo;agent.&rdquo;
         </p>
       </header>
 

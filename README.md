@@ -1,10 +1,10 @@
 # AI Agent Swarm Demo
 
 An internal presentation tool for teaching non-technical coworkers what an
-**AI agent** and an **agent swarm** are, using a simple room-cleaning metaphor.
-Two scenes, one app. A presenter drives it live, but it also works if a
-coworker opens the URL on their own laptop — each browser tab is its own
-isolated session (no database, no login, no shared state).
+**AI agent** and an **agent swarm** are. Two scenes, one app. A presenter drives
+it live, but it also works if a coworker opens the URL on their own laptop -
+each browser tab is its own isolated session (no database, no login, no shared
+state).
 
 - **Scene 1 — Single Room (`/room`):** Contrasts doing every step yourself
   (Manual: 1 input → 1 action) with handing one goal to an agent that loops on
@@ -14,18 +14,34 @@ isolated session (no database, no login, no shared state).
   instruction into a per-zone plan, Managers assign Agents, work is reviewed
   and reported back up the chain, and genuinely stuck items surface to a human.
 
+## Active visual redesign
+
+The project keeps the room-cleaning metaphor but draws it top-down, as a
+readable operations map:
+
+- **Single Room:** a worker on a central rug carries scattered household
+  clutter (socks, cups, cans, books, toys, trash) to where each belongs —
+  trash can, kitchen sink, recycling, bookshelf, laundry hamper, and toy box.
+- **Swarm Warehouse:** a top-down facility map shows a boss office, manager
+  rooms, agent work zones, report paths, and escalation markers.
+
+The redesign is visual-layer first. It must preserve the existing teaching
+behavior: Manual mode is still one submit -> one action, Agent mode is still one
+submit -> a self-terminating loop, and the warehouse still uses at most two
+server-side OpenAI calls with deterministic fallbacks.
+
 ## Tech stack
 
 - Next.js (App Router, TypeScript)
 - Tailwind CSS
-- Two serverless API routes that keep the Anthropic key server-side only
+- Two serverless API routes that keep the OpenAI key server-side only
 - Deploy target: Vercel
 
 ## The two real AI calls
 
 Everything the agents and managers do is **scripted on the client** to keep
 cost and latency predictable for a live audience. Exactly two routes make real
-Anthropic API calls, both server-side:
+OpenAI API calls, both server-side:
 
 | Route                  | When it runs                          | What it does                                        |
 | ---------------------- | ------------------------------------- | --------------------------------------------------- |
@@ -39,14 +55,14 @@ the audience never sees an error. A small badge on the Boss panel shows whether
 the plan came from the live model (`real AI plan`) or the fallback
 (`fallback plan`).
 
-The API key is read from `process.env.ANTHROPIC_API_KEY` **inside the two API
+The API key is read from `process.env.OPENAI_API_KEY` **inside the two API
 routes only** — it is never exposed to client-side code.
 
 ## Local development
 
 ```bash
 npm install
-cp .env.example .env.local   # then fill in ANTHROPIC_API_KEY
+cp .env.example .env.local   # then fill in OPENAI_API_KEY
 npm run dev
 ```
 
@@ -54,20 +70,18 @@ Open <http://localhost:3000>.
 
 `.env.local` variables:
 
-- `ANTHROPIC_API_KEY` — your Anthropic API key (required for the live AI plan;
+- `OPENAI_API_KEY` — your OpenAI API key (required for the live AI plan;
   without it, the app runs entirely on the built-in fallbacks, which is fine for
   a dry run).
-- `AGENT_DEMO_MODEL` — model used for the two Boss calls. Defaults to
-  `claude-haiku-4-5-20251001` for live-demo speed. You can swap in
-  `claude-sonnet-4-6` for richer Boss reasoning if a few extra seconds of
-  latency is acceptable during rehearsal.
+- `OPENAI_MODEL` — model used for the two Boss calls. Defaults to
+  `gpt-5.4-mini` for live-demo speed and cost control.
 
 Both scenes are fully functional locally via `npm run dev`.
 
 ## Testing
 
 A real-browser end-to-end smoke test drives both scenes and checks the core
-behaviors (Manual = one item per submit, Agent self-terminates, mode lock while
+behaviors (Manual = one task per submit, Agent self-terminates, mode lock while
 busy, the warehouse produces a final report, and the jam → human-escalation exit
 point). It uses Playwright.
 
@@ -100,8 +114,8 @@ Point it at a different origin with `E2E_BASE`, e.g.
    `.env.example` only documents the names):
 
    ```bash
-   vercel env add ANTHROPIC_API_KEY production
-   vercel env add AGENT_DEMO_MODEL production
+   vercel env add OPENAI_API_KEY production
+   vercel env add OPENAI_MODEL production
    ```
 
    (Repeat for the `preview` environment if you want previews to use the live
@@ -124,20 +138,22 @@ VPN, no login required by default.
 
 **Scene 1 — Single Room (~3 min)**
 
-1. Start in **Manual** mode. Type `clean the room`, hit Submit. One item moves.
-2. Make the point out loud: *"One instruction, one action. To finish the room I
-   have to keep submitting."* Submit a few more times — the counter climbs.
-3. Switch to **Agent** mode (the room resets). Type `clean the room`, Submit
+1. Start in **Manual** mode. Type `tidy the room`, hit Submit. One item gets
+   carried to where it belongs.
+2. Make the point out loud: *"One instruction, one action. To finish cleaning I
+   have to keep submitting."* Submit a few more times - the counter climbs.
+3. Switch to **Agent** mode (the room resets). Type `tidy the room`, Submit
    **once**.
-4. Let it run. The worker walks, clears an item, returns to the desk, scans,
-   and repeats — on its own — until "Room clean" appears.
+4. Let it run. The worker walks, puts an item away, returns to the rug, looks
+   for the next one, and repeats - on its own - until "Room clean!" appears.
 5. Land the lesson: *"Same one instruction. But this time it kept going by
    itself and stopped when the goal was reached. That self-finishing loop is
    what makes something an agent."*
 
 **Scene 2 — Swarm Warehouse (~4 min)**
 
-1. Go to `/warehouse`. Note the three zones each have a different mess.
+1. Go to `/warehouse`. Note the facility map: Boss office, manager rooms, work
+   cells, report paths, and escalation markers.
 2. Type `clean the warehouse`, Submit. Pause on **"Boss is deciding…"** —
    *"This is the one moment that's real AI. The Boss is actually reasoning about
    what's in each zone."*
@@ -173,11 +189,12 @@ app/
   page.tsx                     Landing page (Single Room / Swarm Warehouse)
   room/page.tsx                Scene 1
   warehouse/page.tsx           Scene 2
-  api/boss-decompose/route.ts  Real Anthropic call — per-zone plan (+ fallback)
-  api/boss-summary/route.ts    Real Anthropic call — final report (+ fallback)
+  api/boss-decompose/route.ts  Real OpenAI call — per-zone plan (+ fallback)
+  api/boss-summary/route.ts    Real OpenAI call — final report (+ fallback)
 components/
   RoomScene.tsx                Scene 1 logic + animation
   WarehouseScene.tsx           Scene 2 orchestration
+  ScenePrimitives.tsx          Shared top-down walls, stations, workers, paths
   Character.tsx                Shared sprite (idle / walking / working / sitting)
   ClutterItem.tsx              Clutter items + target mapping
   ReportPanel.tsx              Manager / Boss audit log

@@ -1,4 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
-  <rect width="64" height="64" rx="14" fill="#4f46e5" />
-  <text x="50%" y="52%" dominant-baseline="central" text-anchor="middle" font-size="38">🤖</text>
+  <rect width="64" height="64" rx="12" fill="#0A0A0A" />
+  <rect x="8" y="8" width="48" height="48" rx="10" fill="#191919" stroke="#474747" stroke-width="3" />
+  <rect x="19" y="23" width="26" height="24" rx="7" fill="none" stroke="#1ABCBD" stroke-width="4" />
+  <path d="M26 23v-7M38 23v-7" stroke="#E0BD3E" stroke-width="4" stroke-linecap="round" />
+  <circle cx="28" cy="34" r="2.5" fill="#F7F7F7" />
+  <circle cx="36" cy="34" r="2.5" fill="#F7F7F7" />
+  <path d="M27 41h10" stroke="#F7F7F7" stroke-width="3" stroke-linecap="round" />
 </svg>

@@ -268,10 +268,10 @@ export default function RoomScene() {
 
       <form
         onSubmit={handleSubmit}
-        className="flex flex-wrap items-center gap-3 rounded-lg border border-slate-200 bg-white p-3 shadow-sm"
+        className="flex flex-wrap items-center gap-3 rounded-lg border border-[#474747] bg-[#191919] p-3 shadow-sm"
       >
         <div
-          className="inline-flex overflow-hidden rounded-md border border-slate-300"
+          className="inline-flex overflow-hidden rounded-md border border-[#474747]"
           role="group"
           aria-label="Mode"
         >
@@ -284,8 +284,8 @@ export default function RoomScene() {
               aria-pressed={mode === m}
               className={`px-4 py-2 text-sm font-semibold capitalize transition disabled:cursor-not-allowed ${
                 mode === m
-                  ? "bg-indigo-600 text-white"
-                  : "bg-white text-slate-600 enabled:hover:bg-slate-50 disabled:opacity-50"
+                  ? "bg-[#3A7CA5] text-[#F7F7F7]"
+                  : "bg-[#0A0A0A] text-zinc-300 enabled:hover:bg-[#474747]/40 disabled:opacity-50"
               }`}
             >
               {m}
@@ -298,13 +298,13 @@ export default function RoomScene() {
           onChange={(e) => setCommand(e.target.value)}
           placeholder={placeholder}
           aria-label="Command"
-          className="min-w-[220px] flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+          className="min-w-[220px] flex-1 rounded-md border border-[#474747] bg-[#0A0A0A] px-3 py-2 text-sm text-[#F7F7F7] outline-none placeholder:text-zinc-500 focus:border-[#1ABCBD] focus:ring-2 focus:ring-[#1ABCBD]/20"
         />
 
         <button
           type="submit"
           disabled={busy || allClean}
-          className="rounded-md bg-indigo-600 px-5 py-2 text-sm font-semibold text-white transition enabled:hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+          className="rounded-md bg-[#3A7CA5] px-5 py-2 text-sm font-semibold text-white transition enabled:hover:bg-[#1ABCBD] disabled:cursor-not-allowed disabled:opacity-50"
         >
           Submit
         </button>
@@ -313,63 +313,63 @@ export default function RoomScene() {
           type="button"
           onClick={reset}
           disabled={busy}
-          className="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-600 transition enabled:hover:bg-slate-50 disabled:opacity-50"
+          className="rounded-md border border-[#474747] px-4 py-2 text-sm font-semibold text-zinc-300 transition enabled:hover:bg-[#474747]/40 disabled:opacity-50"
         >
           Reset room
         </button>
       </form>
 
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg bg-slate-50 px-4 py-2 text-sm text-slate-600">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg border border-[#474747] bg-[#191919] px-4 py-2 text-sm text-zinc-300">
         <span
           className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${
             mode === "manual"
-              ? "bg-amber-100 text-amber-700"
-              : "bg-emerald-100 text-emerald-700"
+              ? "bg-[#E0BD3E]/15 text-[#f1d977]"
+              : "bg-[#4DAA57]/15 text-[#95df9d]"
           }`}
         >
           {mode === "manual" ? "1 input -> 1 action" : "1 input -> N actions"}
         </span>
         {mode === "manual" ? (
           <span>
-            <strong className="text-slate-800">Manual:</strong> one Submit =
+            <strong className="text-[#F7F7F7]">Manual:</strong> one Submit =
             one item put away. You must resubmit for every remaining item.
             Submits so far: <strong>{manualActions}</strong>.
           </span>
         ) : (
           <span>
-            <strong className="text-slate-800">Agent:</strong> one Submit gives
+            <strong className="text-[#F7F7F7]">Agent:</strong> one Submit gives
             the worker a goal. It tidies every item, returns home, then stops
             itself.
           </span>
         )}
         {lastCommand ? (
-          <span className="text-slate-400">
+          <span className="text-zinc-500">
             Last command: &ldquo;{lastCommand}&rdquo;.
           </span>
         ) : null}
       </div>
 
       {mode === "manual" && manualActions >= 3 && remaining > 0 ? (
-        <div className="animate-fade-in rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm text-emerald-800">
+        <div className="animate-fade-in rounded-lg border border-[#4DAA57]/50 bg-[#4DAA57]/15 px-4 py-2 text-sm text-[#d5f4d8]">
           Getting repetitive? That is the point. Switch to{" "}
           <strong>Agent</strong> mode and give the same goal once.
         </div>
       ) : null}
 
       <div className="flex items-center gap-3">
-        <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-200">
+        <div className="h-2 flex-1 overflow-hidden rounded-full bg-[#474747]">
           <div
-            className="h-full rounded-full bg-emerald-500 transition-all duration-300"
+            className="h-full rounded-full bg-[#4DAA57] transition-all duration-300"
             style={{ width: `${(cleared / startCount) * 100}%` }}
           />
         </div>
-        <span className="w-16 text-right text-xs font-semibold text-slate-500">
+        <span className="w-16 text-right text-xs font-semibold text-zinc-400">
           {cleared}/{startCount} done
         </span>
       </div>
 
-      <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-xs font-medium text-slate-500">
-        <span className="text-slate-400">Where things go:</span>
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-xs font-medium text-zinc-400">
+        <span className="text-zinc-500">Where things go:</span>
         {Object.values(SPOTS).map((spot) => (
           <span key={spot.label} className="flex items-center gap-1.5">
             <span

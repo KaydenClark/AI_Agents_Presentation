@@ -1,6 +1,6 @@
 # AI_Agents_Presentation - Runbook
 
-**Last reviewed:** 2026-06-20  
+**Last reviewed:** 2026-06-21
 **Runtime owner:** Kayden / agent  
 **Environment:** local development and Vercel production target
 
@@ -17,7 +17,7 @@ Required tools:
 
 Required accounts/services:
 
-- OpenAI API key for the live Boss decomposition and summary calls.
+- OpenAI API key for the live Boss planning call.
 - Vercel account for deployment.
 
 Required local files:
@@ -36,8 +36,8 @@ Required variables:
 
 | Variable | Purpose | Secret? | Example / Notes |
 |---|---|---|---|
-| `OPENAI_API_KEY` | Enables the two live Boss AI calls. | yes | Optional for fallback-only dry runs. |
-| `OPENAI_MODEL` | Overrides the model used by both Boss API routes. | no | Defaults to `gpt-5.4-mini`. |
+| `OPENAI_API_KEY` | Enables the live Boss planning call. | yes | Optional for fallback-only dry runs. |
+| `OPENAI_MODEL` | Overrides the model used by the Boss planning route. | no | Defaults to `gpt-5.4-mini`. |
 
 Rules:
 
@@ -71,7 +71,7 @@ Expected result:
 
 - Landing page links to both scenes.
 - `/room` supports Manual and Agent modes.
-- `/warehouse` runs with either `real AI plan` when a valid key is configured or `fallback plan` when not.
+- `/warehouse` runs with either `real AI decision` when a valid key is configured or `fallback decision` when not.
 
 ## Test And Build
 
@@ -173,15 +173,14 @@ vercel --prod
 Expected healthy state:
 
 - Public URL loads without login by default.
-- A rehearsal warehouse run shows `real AI plan` with a configured key.
+- A rehearsal warehouse run shows `real AI decision` with a configured key.
 - The app still completes using fallbacks if the live call fails.
 
 ## Troubleshooting
 
 | Symptom | Likely cause | Check | Fix |
 |---|---|---|---|
-| Warehouse shows `fallback plan` | Missing key, OpenAI failure, timeout, or malformed response | Check server console for `[boss-decompose] falling back:` | Add/fix `OPENAI_API_KEY`, lower latency, or accept fallback for dry run. |
-| Final report is generic fallback text | Missing key or summary route failure | Check server console for `[boss-summary] falling back:` | Add/fix `OPENAI_API_KEY`; verify model availability. |
+| Warehouse shows `fallback decision` | Missing key, OpenAI failure, timeout, or malformed response | Check server console for `[boss-plan] falling back:` | Add/fix `OPENAI_API_KEY`, lower latency, or accept fallback for dry run. |
 | `npm run test:e2e` cannot connect | Dev server is not running or base URL differs | `curl http://localhost:3000` or check terminal running `npm run dev` | Start server or set `E2E_BASE`. |
 | Playwright complains browser is missing | Chromium has not been installed locally | `npx playwright install chromium` | Install Chromium and rerun the E2E test. |
 | Lint command fails before linting | Next lint/version drift | `npm run lint` output | Update lint script or config with evidence. |

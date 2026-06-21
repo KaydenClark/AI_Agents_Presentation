@@ -6,13 +6,16 @@ it live, but it also works if a coworker opens the URL on their own laptop -
 each browser tab is its own isolated session (no database, no login, no shared
 state).
 
+**Current release:** v1.2.0, the top-down room/warehouse release.
+
 - **Scene 1 — Single Room (`/room`):** Contrasts doing every step yourself
   (Manual: 1 input → 1 action) with handing one goal to an agent that loops on
   its own until the job is done and then stops itself (Agent: 1 input → N
   actions, self-terminating).
-- **Scene 2 — Swarm Warehouse (`/warehouse`):** A Boss decomposes one
-  instruction into a per-zone plan, Managers assign Agents, work is reviewed
-  and reported back up the chain, and genuinely stuck items surface to a human.
+- **Scene 2 — Swarm Warehouse (`/warehouse`):** A local mess scenario renders
+  instantly, then a Boss assigns the fixed "Clean the house" goal to Managers,
+  explains the decision, reviews work up the chain, and surfaces genuinely stuck
+  items to a human.
 
 ## Active visual redesign
 
@@ -23,40 +26,40 @@ readable operations map:
   clutter (socks, cups, cans, books, toys, trash) to where each belongs —
   trash can, kitchen sink, recycling, bookshelf, laundry hamper, and toy box.
 - **Swarm Warehouse:** a top-down facility map shows a boss office, manager
-  rooms, agent work zones, report paths, and escalation markers.
+  rooms, generated mess piles, agent work zones, report paths, and escalation
+  markers.
 
 The redesign is visual-layer first. It must preserve the existing teaching
 behavior: Manual mode is still one submit -> one action, Agent mode is still one
-submit -> a self-terminating loop, and the warehouse still uses at most two
-server-side OpenAI calls with deterministic fallbacks.
+submit -> a self-terminating loop, and the warehouse uses one server-side OpenAI
+Boss planning call with deterministic fallback.
 
 ## Tech stack
 
 - Next.js (App Router, TypeScript)
 - Tailwind CSS
-- Two serverless API routes that keep the OpenAI key server-side only
+- One serverless API route that keeps the OpenAI key server-side only
 - Deploy target: Vercel
 
-## The two real AI calls
+## The real AI call
 
 Everything the agents and managers do is **scripted on the client** to keep
-cost and latency predictable for a live audience. Exactly two routes make real
-OpenAI API calls, both server-side:
+cost and latency predictable for a live audience. The warehouse now renders a
+local scenario first, then makes one optional server-side OpenAI call:
 
 | Route                  | When it runs                          | What it does                                        |
 | ---------------------- | ------------------------------------- | --------------------------------------------------- |
-| `/api/boss-decompose`  | On Submit in Scene 2 (the centerpiece) | Asks the model for a JSON plan: one plain-language instruction per zone, based on what's actually in each zone. |
-| `/api/boss-summary`    | After all zones report complete        | Asks the model for a short natural-language final report. |
+| `/api/boss-plan`       | On Submit in Scene 2 (the centerpiece) | Asks the model to assign generated work groups to Managers, prioritize the work, estimate workload, and explain the Boss decision. |
 
-**Resilience:** if either call fails, times out, or returns malformed JSON, the
-route automatically falls back to a hardcoded decomposition/summary so the live
-demo never visibly breaks. The failure is logged to the server console only —
-the audience never sees an error. A small badge on the Boss panel shows whether
-the plan came from the live model (`real AI plan`) or the fallback
-(`fallback plan`).
+The final report is generated locally from the actual completed work. If the
+Boss planning call fails, times out, or returns malformed JSON, the route falls
+back to deterministic assignments so the live demo never visibly breaks. The
+failure is logged to the server console only. A small badge on the Boss panel
+shows whether the decision came from the live model (`real AI decision`) or the
+fallback (`fallback decision`).
 
-The API key is read from `process.env.OPENAI_API_KEY` **inside the two API
-routes only** — it is never exposed to client-side code.
+The API key is read from `process.env.OPENAI_API_KEY` **inside the API route
+only** — it is never exposed to client-side code.
 
 ## Local development
 
@@ -73,7 +76,7 @@ Open <http://localhost:3000>.
 - `OPENAI_API_KEY` — your OpenAI API key (required for the live AI plan;
   without it, the app runs entirely on the built-in fallbacks, which is fine for
   a dry run).
-- `OPENAI_MODEL` — model used for the two Boss calls. Defaults to
+- `OPENAI_MODEL` — model used for the Boss planning call. Defaults to
   `gpt-5.4-mini` for live-demo speed and cost control.
 
 Both scenes are fully functional locally via `npm run dev`.
@@ -134,7 +137,7 @@ VPN, no login required by default.
 ## Run-of-show (presenting both scenes back to back)
 
 **Before you start:** open the production URL, confirm the Boss panel shows
-`real AI plan` after a test run, then Reset.
+`real AI decision` after a test run, then Reset.
 
 **Scene 1 — Single Room (~3 min)**
 
@@ -154,33 +157,34 @@ VPN, no login required by default.
 
 1. Go to `/warehouse`. Note the facility map: Boss office, manager rooms, work
    cells, report paths, and escalation markers.
-2. Type `clean the warehouse`, Submit. Pause on **"Boss is deciding…"** —
-   *"This is the one moment that's real AI. The Boss is actually reasoning about
-   what's in each zone."*
-3. The per-zone instructions appear (notice they differ per zone). Managers
-   light up, Agents start clearing, and the review log fills with checkmarks —
+2. Click Submit. Pause on **"Boss is deciding…"** and the thought bubbles —
+   *"The house is already messy; this is the one moment that's real AI. The Boss
+   is assigning the work across Managers."*
+3. Open the Boss decision dropdown. The per-manager assignments and rationale
+   appear. Managers light up, Agents start clearing, and the review log fills —
    *"The Manager is auditing every item."*
 4. Point out Zone B resolving its own jam: *"A Manager can handle most problems
    without bothering anyone up the chain."*
-5. **(Optional)** Tick **Presenter tools** and click a zone's **⚠ Jam** button
+5. **(Optional)** Tick **Presenter tools** and click a zone's **Jam** button
    while it's working. Walk the escalation: Agent → Manager → Boss → the red
    **Needs human input** banner. *"This is the real exit point — when the whole
    chain is stuck, a person steps in."* Click **Resolve** to continue.
-6. When all zones report in, the Boss writes the **final report** (the second
-   real AI call). Read it aloud to close.
+6. When all zones report in, the Boss assembles the **final report** locally
+   from what actually happened. Read it aloud to close.
 
 **Reset** between runs with the Reset button. If the venue Wi-Fi is flaky, the
-fallbacks keep everything working — you'll just see the `fallback plan` badge.
+fallback keeps everything working — you'll just see the `fallback decision`
+badge.
 
-## Constraints / non-goals (v1)
+## Constraints / non-goals (v1.2)
 
 - No database, no multiplayer sync — each tab is independent.
-- No more than 2 real API calls per full warehouse run.
-- Fixed hierarchy: 1 Boss, 3 Managers, 6 Agents. No mid-run second
-  decomposition call.
+- No more than 1 real API call per full warehouse run.
+- Fixed hierarchy: 1 Boss, 3 Managers, 6 Agents. No mid-run second planning
+  call.
 - Primary target is laptop + projector. Mobile is usable but not the focus.
 - An optional shared `ACCESS_CODE` passcode gate is intentionally **out of
-  scope for v1**.
+  scope for v1.2**.
 
 ## Project structure
 
@@ -189,8 +193,7 @@ app/
   page.tsx                     Landing page (Single Room / Swarm Warehouse)
   room/page.tsx                Scene 1
   warehouse/page.tsx           Scene 2
-  api/boss-decompose/route.ts  Real OpenAI call — per-zone plan (+ fallback)
-  api/boss-summary/route.ts    Real OpenAI call — final report (+ fallback)
+  api/boss-plan/route.ts       Real OpenAI call — Boss assignment decision (+ fallback)
 components/
   RoomScene.tsx                Scene 1 logic + animation
   WarehouseScene.tsx           Scene 2 orchestration

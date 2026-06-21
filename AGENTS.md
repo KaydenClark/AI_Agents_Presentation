@@ -101,7 +101,7 @@ The active phase is a top-down colony-sim visual redesign (see `BLUEPRINT.md` ->
 - Preserve teaching behavior before improving visuals: manual = one task per submit, agent = one self-terminating loop, Boss -> zones -> agents, and the human-escalation exit must all still work.
 - Do not rewrite the room/warehouse state machines unless the change strictly requires it; the redesign is visual-layer first.
 - Keep accessible labels and stable selectors so `tests/e2e.mjs` stays reliable. If you change audience-facing wording that a selector depends on, update the test in the same change.
-- Do not introduce new paid services, a database, auth, multiplayer, or extra AI calls; keep the two-calls-per-warehouse-run and server-side-key rules intact.
+- Do not introduce new paid services, a database, auth, multiplayer, or extra AI calls; keep the one-call-per-warehouse-run and server-side-key rules intact.
 - Make small visual-layer changes first; reuse shared sprite/tile primitives rather than duplicating scene markup.
 - Prefer geometric top-down props and workers over emoji-first visuals; labels should clarify stations without becoming the main artwork.
 - Keep fixed, responsive scene bounds so labels, workers, paths, and controls do not shift or overlap at laptop/projector sizes.
@@ -121,6 +121,7 @@ Load only what the task requires:
 - Feature, refactor, or unknown-scope bug: Read `BLUEPRINT.md` and `ROADMAP.md`.
 - Onboarding, setup, or architecture work: Read all three (`BLUEPRINT.md`, `ROADMAP.md`, `RUNBOOK.md`).
 - Any task that involves running verification: Also open `RUNBOOK.md` -> Test And Build for commands.
+- Any task that creates or changes UI/visuals: Read `VISUAL_DESIGN.md` first and follow it unless the current user request overrides it.
 
 Then for every task:
 

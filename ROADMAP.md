@@ -1,15 +1,15 @@
 # AI_Agents_Presentation - Roadmap
 
-**Current phase:** visual redesign verification / live-demo polish  
+**Current phase:** v1.2 release stabilization / live-demo polish
 **Owner:** Kayden / agent
 
 This is the active work plan. Keep it forward-looking and proof-oriented. Do not use it as a dumping ground for old session history.
 
 ## Current State
 
-The repo is a cloned Next.js 14 App Router app for an AI agent presentation demo. The README documents local development, Vercel deployment, two server-side OpenAI calls, deterministic fallbacks, and a Playwright smoke test. The project has the standard GPT_OS four-file harness installed, dependencies installed, env copied into `.env.local`, and a passing local lint/build/E2E baseline with the OpenAI route path verified.
+The repo is a cloned Next.js 14 App Router app for an AI agent presentation demo. The local package metadata marks the current checkpoint as v1.2.0. The README documents local development, Vercel deployment, one server-side OpenAI Boss planning call, deterministic fallback planning, and a Playwright smoke test. The project has the standard GPT_OS four-file harness installed, dependencies installed, env copied into `.env.local`, and a passing local lint/build/E2E baseline with the OpenAI route path verified.
 
-The active top-down visual redesign is now implemented locally. `/room` is a top-down room-cleaning scene: a worker on a central rug carries scattered household clutter (socks, cups, cans, books, toys, trash) to labelled destinations (trash can, kitchen sink, recycling, bookshelf, laundry hamper, toy box). The earlier developer-tool framing (MCP / computer use / terminal) was tried and rejected; the front end is back to a plain cleaning metaphor with no MCP language. `/warehouse` adds a top-down facility map with a boss office, manager rooms, work cells, report paths, and escalation markers while preserving the existing detailed zone logs.
+The active top-down visual redesign is now implemented locally. `/room` is a top-down room-cleaning scene: a worker on a central rug carries scattered household clutter (socks, cups, cans, books, toys, trash) to labelled destinations (trash can, kitchen sink, recycling, bookshelf, laundry hamper, toy box). The earlier developer-tool framing (MCP / computer use / terminal) was tried and rejected; the front end is back to a plain cleaning metaphor with no MCP language. `/warehouse` adds a top-down facility map with a boss office, manager rooms, generated mess scenarios, work cells, report paths, escalation markers, and a Boss decision panel showing Manager assignments, workload, rationale, and escalation notes.
 
 Important drift or uncertainty:
 
@@ -18,12 +18,12 @@ Important drift or uncertainty:
 
 ## Current Goal
 
-Stabilize the shipped top-down scene presentation layer for live use without changing teaching behavior or the two-call OpenAI boundary.
+Stabilize the shipped top-down scene presentation layer for live use without changing teaching behavior or the one-call OpenAI Boss planning boundary.
 
 Done when:
 
 - manual vs agent behavior remains preserved (manual = one item per submit; agent = one self-terminating loop);
-- the two-call OpenAI boundary and deterministic fallbacks remain preserved;
+- the one-call OpenAI Boss planning boundary and deterministic fallback remain preserved;
 - live presenter copy stays aligned with the room-cleaning language (no developer-tool / MCP framing on the front end);
 - lint, build, E2E, and visual viewport checks pass before handoff or deployment.
 
@@ -43,9 +43,9 @@ Do not start these until their prerequisite is met.
 |---|---|---|
 | Dependency advisory triage | User approval for dependency migration scope | `npm audit --omit=dev` reports production advisories; npm's fix is a breaking Next 16 upgrade, so handle it as a separate dependency task. |
 | Deployment env sync | Decision to deploy | If deploying, set `OPENAI_API_KEY` and `OPENAI_MODEL` in Vercel; verify with a redacted env listing and production route probe. |
-| Verify deployed live OpenAI plan/summary path | Valid `OPENAI_API_KEY` in Vercel env | Confirms the two real AI calls work outside fallback mode after deployment. |
+| Verify deployed live OpenAI Boss planning path | Valid `OPENAI_API_KEY` in Vercel env | Confirms the one real AI call works outside fallback mode after deployment. |
 | Deploy to Vercel | User approval and Vercel login/project link | Deployment can create public URLs and environment changes. |
-| Add passcode gate | Explicit user request | README marks optional `ACCESS_CODE` gate out of scope for v1. |
+| Add passcode gate | Explicit user request | README marks optional `ACCESS_CODE` gate out of scope for v1.2. |
 
 ## Backlog
 
@@ -62,7 +62,7 @@ Project-specific release and checkpoint checks:
 
 - Confirm `.env.local` is not committed and no real OpenAI key appears in source.
 - Confirm a fallback-only run completes when `OPENAI_API_KEY` is absent.
-- For live presentations, confirm the Boss panel shows `real AI plan` after a rehearsal run with a valid key.
+- For live presentations, confirm the Boss panel shows `real AI decision` after a rehearsal run with a valid key.
 - Reset both scenes before presenting.
 
 ## Verification Log
@@ -82,3 +82,7 @@ Append a row when a task changes durable project state. Use actual results, not 
 | 2026-06-21 | Reskin `/warehouse` into a top-down house (new `HouseMap` in `WarehouseScene.tsx`): Boss hub + unsorted pile, three walled rooms (Kitchen / Laundry / Living) each with a Manager + 2 agents shuttling household items to furniture, report paths, human-exit marker. Reuses `RoomSprites`. | `npm run lint`; `npx tsc --noEmit`; `E2E_BASE=http://localhost:52743 npm run test:e2e` (23/23 pass); Playwright screenshots of `/warehouse` idle and mid-run | pass | Used `tsc --noEmit` instead of `build` to avoid clobbering the live dev server's `.next`; full prod build not re-run this pass. Hierarchy/2-call boundary/escalation unchanged. |
 | 2026-06-21 | Expand `/warehouse` to a full 6-room house: vertical hallway, Boss office on top, Living/Laundry/Bedroom (left) + Kitchen/Office/Bathroom (right), "outside" recycle/landfill bins; multi-step + cross-room routes (wash->put away, laundry->bedroom, books sorted by color, trash->outside); ~10 agents via a generalized waypoint agent loop. Added 7 furniture sprites (washer/stove/bed/toilet/cupboard/dresser/couch). Saved prior 3-room scene as `components/templates/ManagerFewAgentsHouse.template.tsx`. | `npm run lint`; `npx tsc --noEmit`; `E2E_BASE=http://localhost:3000 npm run test:e2e` (23/23 pass, now "all 6 rooms report complete"); Playwright screenshots of idle + mid-run | pass | Full prod `build` not re-run (dev server live — avoids `.next` corruption). Minor: a couple of furniture pieces sit partly behind a manager sprite; agents converging on the outside bins can overlap labels momentarily. |
 | 2026-06-21 | Rebuild `/warehouse` to a 4-room sort-and-clean house with a true 1 Boss / 3 Managers / 6 Agents org chart: merged the three left rooms into one big **Living room** (endless mixed piles of clothes/dishes/books/trash, none a single object); Kitchen/Laundry/Office crews each carry their item type out, clean or sort it (dishes->sink->cupboard, clothes->washer->basket by type, books->shelves by color), and trash (recyclable vs. landfill) in every room is sorted out to the "outside" bins. Decoupled drawn rooms from worker zones; added depleting pile rendering. New sprites: `plate`/`fork`/`shirt`/`towel` items, color-tintable books, `basket` furniture. Updated `tests/e2e.mjs` (6 -> 3 rooms report complete) and the `/warehouse` intro copy + `BLUEPRINT.md` warehouse metaphor. | `npm run lint`; `npm run build`; `npm run test:e2e` (23/23 pass, incl. "all 3 manager rooms report complete" + jam/human-exit); Playwright preview screenshots of idle + a full run (real AI plan, 3x7 items cleared, final report) with zero console/page errors | pass | Two-call OpenAI boundary, fallbacks, and human-escalation unchanged. `npm run build` clobbers the live dev server's `.next` — stop the preview before building, then `rm -rf .next` and restart. AI summary prose can phrase a manager-resolved tangle as "human input"; underlying data (neededHuman=false) is correct. |
+| 2026-06-21 | Upgrade `/warehouse` Boss flow to v1: local authored mess scenarios render immediately with bounded randomized quantities/traits/pile positions; new `/api/boss-plan` makes the single OpenAI call for Manager assignments, priority, workload, rationale, and escalation notes; Boss decision dropdown and thinking states added; final report now generated locally from actual completed work; old `boss-decompose` and `boss-summary` routes removed. | `npx tsc --noEmit`; `npm run lint`; `npm run build`; `npm run test:e2e` (25/25 pass); Browser plugin interaction check reached `/warehouse` but screenshot capture timed out, so standalone Playwright visual QA captured `/tmp/ai-boss-warehouse-qa/{laptop,projector}-{initial,decision}.png` at 1440 x 900 and 1920 x 1080 with no overlay, no horizontal overflow, fixed instruction visible, scenario visible, decision panel visible, and zero console/page errors | pass | First E2E run exposed a real hydration bug from random initial scenario generation; fixed by making initial SSR/client scenario deterministic and randomizing only on Submit/Reset. Existing dependency advisories remain separate. |
+| 2026-06-21 | Smooth `/warehouse` pawn movement: agents now route through room doorways, hallway waypoints, and the living-room doorway before pickup; pickup/drop timing is separated from transit; movement is distance-based with small interpolated steps and chore pauses so agents look like they are walking household chores instead of jumping between stations. | `npx tsc --noEmit`; `npm run lint`; focused Browser QA at `http://localhost:3008/warehouse` (decision ~2.5s, final report ~32.1s, sampled agent positions changed over time, zero browser warn/error logs); visual QA screenshots saved at `/tmp/ai-agents-warehouse-movement/tuned-{laptop,projector}-{initial,midrun}.png`; `/room` and `/warehouse` checked at 1440 x 900 and 1920 x 1080 with no horizontal overflow or framework overlay; `E2E_BASE=http://localhost:3008 npm run test:e2e` (25/25 pass); final `npm run build` | pass | Full smoke test runtime is long because the existing room busy-state check waits through its timeout before the warehouse flow; movement pacing stayed within warehouse completion budget. |
+| 2026-06-21 | Apply dark palette and remove emoji UI: added local SVG icons for landing cards, hierarchy badges, Boss/Manager/Agent controls, report status, jam/escalation markers, legacy clutter/character components, and favicon; moved page chrome/forms/panels to the `VISUAL_DESIGN.md` Onyx/Carbon/Cerulean palette; updated `Reported` selector and README presenter wording. | Red check: `rg -nP "[\x{1F000}-\x{1FAFF}\x{2600}-\x{27BF}]" app components tests README.md BLUEPRINT.md ROADMAP.md RUNBOOK.md AGENTS.md VISUAL_DESIGN.md` found emoji/glyph UI leftovers; green checks: same `rg` returned no matches; `npx tsc --noEmit`; `npm run lint`; `npm run build`; Browser QA at `http://localhost:3010` for `/room` and `/warehouse` at 1440 x 900 and 1920 x 1080 with no overlay, zero console warn/error logs, no emoji text, room agent completion, and warehouse Boss decision; `E2E_BASE=http://localhost:3010 npm run test:e2e` (25/25 pass). | pass | Scene interior art intentionally keeps warm wood/floor colors for readability; this pass changed the app chrome, controls, status markers, and emoji replacements rather than repainting every drawn furniture sprite. |
+| 2026-06-21 | Cut the local v1.2.0 release checkpoint: aligned package metadata, README, BLUEPRINT, RUNBOOK, AGENTS, and current ROADMAP state to the one-call Boss planning architecture and current top-down room/warehouse goals before committing to `presentation_v1`. | `npx tsc --noEmit`; `npm run lint`; `npm run build`; first `E2E_BASE=http://localhost:3020 npm run test:e2e` passed all behavior checks but failed on a cold Next dev RSC fetch warning; warm rerun `E2E_BASE=http://localhost:3020 npm run test:e2e` passed 25/25 with no console errors. | pass | Dependency advisory triage, deployment env sync, and production deployment remain deferred user-approved tasks. |

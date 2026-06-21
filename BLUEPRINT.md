@@ -2,6 +2,7 @@
 
 **Last reviewed:** 2026-06-21  
 **Status:** active  
+**Current release:** v1.2.0
 **Source root:** `/Users/kayden/GPT_OS/Projects/AI_Agents_Presentation`
 
 This is the stable reference for what the project is. Keep it factual, source-backed, and short.
@@ -14,7 +15,7 @@ The current presentation layer uses shared top-down scene primitives for tiled f
 
 Core promise:
 
-> A presenter can explain "AI agent" and "agent swarm" live in a browser using simple visual workflows, predictable fallbacks, and only two optional server-side AI calls.
+> A presenter can explain "AI agent" and "agent swarm" live in a browser using simple visual workflows, predictable fallbacks, and one optional server-side AI call.
 
 Primary users:
 
@@ -28,8 +29,8 @@ This project is not trying to:
 - store shared session state or use a database;
 - provide multiplayer sync between browser tabs;
 - require login by default;
-- make more than two real AI calls per full warehouse run;
-- support an `ACCESS_CODE` passcode gate in v1.
+- make more than one real AI call per full warehouse run;
+- support an `ACCESS_CODE` passcode gate in v1.2.
 
 ## Current Product Shape
 
@@ -37,8 +38,8 @@ When the project is working, a user can:
 
 - open the landing page and choose Single Room or Swarm Warehouse;
 - use `/room` to compare manual repeated submits against one self-terminating agent loop;
-- use `/warehouse` to watch a Boss decompose one instruction into zone plans, Managers assign Agents, review progress, surface jams, and return a final report;
-- run without an OpenAI key by using deterministic server-side fallbacks.
+- use `/warehouse` to watch a local mess scenario render, a Boss assign work to Managers, Agents work through queues, progress reviewed, jams surfaced, and a local final report returned;
+- run without an OpenAI key by using deterministic server-side fallback planning.
 
 The most important quality bar is:
 
@@ -87,19 +88,19 @@ Front-end metaphor rule: this scene stays a household-cleaning story. Do not rei
 
 The swarm scene (`/warehouse`) is a top-down house being tidied by a team, laid out around a vertical central hallway:
 
-- a Boss office at the top splits the job across the three worker rooms;
+- a Boss office at the top assigns a locally generated mess scenario across the three worker rooms;
 - four rooms: one large **Living room** on the left is the mess source — several endless piles of clothes, dishes, books, and trash (no pile is a single object); stacked on the right are the three rooms where work actually gets done — **Kitchen**, **Laundry room**, and **Office** — each a walled box with a doorway to the hallway;
 - the org chart is a strict **1 Boss · 3 Managers · 6 Agents** (10 total). Each of the three worker rooms has one Manager running two Agents in parallel; agents within a room split the queue so they don't double-handle an item;
 - chores are multi-step and cross rooms: the Kitchen crew carries dishes (plates, forks, cups) from the living room, washes them at the sink, and puts them in the cupboard; the Laundry crew carries clothes (shirts, socks, towels) to the washer then folds them into the matching basket by type (a tangled load escalates to the Manager, who resolves it); the Office crew shelves books sorted by color; trash that can vs. cannot be recycled appears in every room and is sorted and carried out to the "outside" recycle/landfill bins at the bottom;
 - report paths carry the flow up (Agent -> Manager -> Boss -> Human), with a human-exit marker that lights up on escalation.
 
-The Boss -> rooms -> agents hierarchy, the two-call OpenAI boundary, and the human-escalation exit are unchanged. Agent movement follows per-item waypoint routes. The route/scene is still branded "Swarm Warehouse". A previous small-swarm 3-room version is preserved at `components/templates/ManagerFewAgentsHouse.template.tsx`.
+The Boss -> rooms -> agents hierarchy, the one-call OpenAI planning boundary, and the human-escalation exit are unchanged. Agent movement follows per-item waypoint routes. The route/scene is still branded "Swarm Warehouse". A previous small-swarm 3-room version is preserved at `components/templates/ManagerFewAgentsHouse.template.tsx`.
 
 Warehouse layout contract:
 
 - one boss hub, three manager rooms, and three visible agent work zones;
 - clear paths between zones and the boss hub for dispatch and report flow;
-- each zone should show distinct work types so the Boss decomposition visibly matters;
+- each zone should show distinct work types so the Boss assignment visibly matters;
 - agent progress, manager review, report delivery, and escalation should be readable on the map before reading the side panels;
 - escalation markers should trace Agent -> Manager -> Boss -> Human without requiring a new AI call.
 
@@ -109,9 +110,9 @@ Warehouse layout contract:
 |---|---|---|
 | Runtime | Node.js via Next.js 14 App Router | `package.json`, `app/` |
 | Frontend | React 18 + TypeScript + Tailwind CSS | `app/page.tsx`, `app/room/page.tsx`, `app/warehouse/page.tsx`, `components/` |
-| Backend | Next.js serverless route handlers | `app/api/boss-decompose/route.ts`, `app/api/boss-summary/route.ts` |
+| Backend | Next.js serverless route handler | `app/api/boss-plan/route.ts` |
 | Database/storage | None | README says each browser tab is isolated and no database is used. |
-| Auth | None by default | Optional shared `ACCESS_CODE` is out of scope for v1. |
+| Auth | None by default | Optional shared `ACCESS_CODE` is out of scope for v1.2. |
 | AI provider | OpenAI SDK, server-side only | `openai`; API key read from `process.env.OPENAI_API_KEY` in API routes. |
 | Testing | Playwright smoke test + Next lint/build | `tests/e2e.mjs`, `package.json` scripts |
 | Deployment/runtime | Vercel target | README deployment section |
@@ -120,7 +121,7 @@ Architecture constraints:
 
 - The live demo must continue with fallbacks if OpenAI fails, times out, or returns malformed output.
 - `OPENAI_API_KEY` must remain server-side and must never be exposed to client code.
-- A full warehouse run should make at most two real AI calls: boss decomposition and boss summary.
+- A full warehouse run should make at most one real AI call: Boss planning. The final report is local.
 - Client-side agent and manager behavior is intentionally scripted for predictable cost and latency.
 
 Visual redesign constraints:
@@ -128,7 +129,7 @@ Visual redesign constraints:
 - Render with reusable SVG / `<div>` sprite and tile primitives inside the existing Next.js / React / Tailwind app; do not introduce a game engine unless CSS/React becomes a hard blocker.
 - The redesign is visual-layer first: do not rewrite the room/warehouse state machines unless required.
 - Keep accessible labels and stable test selectors; any audience-facing wording change must be paired with a `tests/e2e.mjs` update in the same change.
-- No new paid services, database, auth, multiplayer, or extra AI calls; the two-calls-per-warehouse-run and server-side-key rules stay unchanged.
+- No new paid services, database, auth, multiplayer, or extra AI calls; the one-call-per-warehouse-run and server-side-key rules stay unchanged.
 - Do not copy RimWorld, Focus Friend, or branded character designs or assets.
 - Prefer one shared scene-primitive layer for tiles, walls, station labels, workers, tickets, report paths, and escalation markers; only split components when reuse is real.
 
@@ -161,8 +162,7 @@ AI_Agents_Presentation/
 
 | Method | Path | Auth | Purpose | Status | Source |
 |---|---|---|---|---|---|
-| `POST` | `/api/boss-decompose` | no user auth; optional server-side OpenAI key | Convert a warehouse prompt and zone state into one instruction per zone, with fallback. | working by source inspection | `app/api/boss-decompose/route.ts` |
-| `POST` | `/api/boss-summary` | no user auth; optional server-side OpenAI key | Produce the final boss report from zone results, with fallback. | working by source inspection | `app/api/boss-summary/route.ts` |
+| `POST` | `/api/boss-plan` | no user auth; optional server-side OpenAI key | Assign local scenario work groups to Managers, including priority, workload, rationale, and escalation notes, with fallback. | working by source inspection | `app/api/boss-plan/route.ts` |
 
 ### Commands
 
@@ -176,22 +176,23 @@ AI_Agents_Presentation/
 
 ## Core Logic And Invariants
 
-The core demo logic lives in `components/RoomScene.tsx`, `components/WarehouseScene.tsx`, and the two API route handlers.
+The core demo logic lives in `components/RoomScene.tsx`, `components/WarehouseScene.tsx`, and the Boss planning API route handler.
 
 Rules:
 
 - Manual mode puts away exactly one clutter item per submit.
 - Agent mode clears the full room from one submit and self-terminates when complete.
 - The visible nouns are household clutter and cleaning destinations, but the manual and agent loop counts must not change.
-- Warehouse decomposition creates one instruction per zone.
-- Warehouse completion returns a final report after all zones report complete.
+- Warehouse scenario generation creates bounded local mess JSON before the API call.
+- Boss planning creates one Manager assignment per zone.
+- Warehouse completion returns a local final report after all zones report complete.
 - Jams must have a visible human-escalation exit point.
 - API route failures must fall back server-side rather than breaking the audience-facing demo.
 
 Do not duplicate this logic in:
 
 - README-only scripts or ad hoc demo code;
-- client code that bypasses the two API route contracts;
+- client code that bypasses the Boss planning API route contract;
 - tests that reimplement different business rules than the components.
 
 ## Trust, Privacy, And Safety Boundaries
@@ -206,16 +207,16 @@ Rules:
 
 - Keep secrets in `.env.local`, Vercel environment variables, or other local/server-side secret stores.
 - Do not commit real `.env` files, tokens, API responses containing secrets, traces, or screenshots with private data.
-- Do not send hidden personal data to OpenAI; the current routes should only send the explicit warehouse prompt and zone/result state.
+- Do not send hidden personal data to OpenAI; the current route should only send the fixed house-cleaning instruction, generated scenario state, and manager roster.
 - Adding authentication, persistent data, or extra real AI calls requires explicit user approval.
 
 ## Known Risks
 
 | Risk | Impact | Mitigation / owner |
 |---|---|---|
-| OpenAI latency or outage during a live presentation | The centerpiece AI moment could stall. | Keep 12-second timeout and deterministic fallbacks in API routes. |
+| OpenAI latency or outage during a live presentation | The Boss decision could stall. | Render the local scenario immediately, show thinking states, keep 12-second timeout and deterministic fallback planning. |
 | E2E timing drift from animation changes | Browser smoke test can become flaky. | Preserve stable accessible names and update waits only with evidence. |
-| Model output format drift | Boss decomposition could return malformed JSON. | Keep tolerant JSON extraction and full-zone backfill. |
+| Model output format drift | Boss planning could return malformed JSON. | Keep tolerant JSON extraction and full-manager fallback assignments. |
 | Next lint command deprecation/drift | Verification command may need update on newer Next versions. | Verify scripts before claiming lint coverage. |
 | Current Next.js/PostCSS advisories | `npm audit --omit=dev` reports production vulnerability groups; npm's suggested fix is a breaking Next 16 upgrade. | Triage dependency upgrade separately and rerun lint/build/E2E after any package change. |
 
@@ -224,10 +225,10 @@ Rules:
 | Decision | Rationale | Date / Source |
 |---|---|---|
 | Use no database and keep each browser tab isolated. | Simplifies live presentation and avoids shared-state failures. | README, reviewed 2026-06-19 |
-| Make only two real AI calls per warehouse run. | Keeps cost and latency predictable. | README, API routes, reviewed 2026-06-19 |
-| Use server-side fallbacks for both AI routes. | The audience should never see an API failure during the demo. | API routes, reviewed 2026-06-19 |
+| Make only one real AI call per warehouse run. | Keeps cost and latency predictable while making the AI moment more meaningful. | README, API route, reviewed 2026-06-21 |
+| Use server-side fallback for the Boss planning route. | The audience should never see an API failure during the demo. | API route, reviewed 2026-06-21 |
 | Default model is `gpt-5.4-mini`. | Fast live-demo default with lower cost, configurable through `OPENAI_MODEL`. | API routes, `.env.example`, reviewed 2026-06-20 |
-| Adopt a top-down SVG redesign with an agent-using-tools metaphor. | Matches the intended "RimWorld-level clarity" mental model and shows an agent using real tools, while preserving behavior and the two-call boundary. | ROADMAP redesign phase, 2026-06-20 |
+| Adopt a top-down SVG redesign with a household-cleaning metaphor. | Matches the intended "RimWorld-level clarity" mental model while preserving behavior and the one-call planning boundary. | ROADMAP redesign phase, updated 2026-06-21 |
 
 ## Health Criteria
 
@@ -238,7 +239,7 @@ The project is healthy when:
 - `npm run test:e2e` passes against a running local server;
 - `/room` demonstrates manual vs agent behavior correctly;
 - `/warehouse` produces zone reports, handles jams, and returns a final report;
-- the app still works without `OPENAI_API_KEY` through fallbacks;
+- the app still works without `OPENAI_API_KEY` through fallback Boss planning;
 - secrets and local data are not exposed in committed or built output.
 
 Verification commands live in `RUNBOOK.md`. Proof of past runs lives in the `ROADMAP.md` Verification Log.

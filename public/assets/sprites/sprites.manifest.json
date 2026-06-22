@@ -1,0 +1,162 @@
+{
+  "items": {
+    "trash": {
+      "src": "/assets/sprites/item-trash.png",
+      "w": 64,
+      "h": 64
+    },
+    "cup": {
+      "src": "/assets/sprites/item-cup.png",
+      "w": 64,
+      "h": 64
+    },
+    "can": {
+      "src": "/assets/sprites/item-can.png",
+      "w": 64,
+      "h": 64
+    },
+    "book": {
+      "src": "/assets/sprites/item-book.png",
+      "w": 64,
+      "h": 64
+    },
+    "sock": {
+      "src": "/assets/sprites/item-sock.png",
+      "w": 64,
+      "h": 64
+    },
+    "toy": {
+      "src": "/assets/sprites/item-toy.png",
+      "w": 64,
+      "h": 64
+    },
+    "plate": {
+      "src": "/assets/sprites/item-plate.png",
+      "w": 64,
+      "h": 64
+    },
+    "fork": {
+      "src": "/assets/sprites/item-fork.png",
+      "w": 64,
+      "h": 64
+    },
+    "shirt": {
+      "src": "/assets/sprites/item-shirt.png",
+      "w": 64,
+      "h": 64
+    },
+    "towel": {
+      "src": "/assets/sprites/item-towel.png",
+      "w": 64,
+      "h": 64
+    }
+  },
+  "itemVariants": {
+    "book": {
+      "#c0413b": {
+        "src": "/assets/sprites/item-book-c0413b.png",
+        "w": 64,
+        "h": 64
+      },
+      "#2f6db0": {
+        "src": "/assets/sprites/item-book-2f6db0.png",
+        "w": 64,
+        "h": 64
+      },
+      "#3b8f4e": {
+        "src": "/assets/sprites/item-book-3b8f4e.png",
+        "w": 64,
+        "h": 64
+      },
+      "#d99a2a": {
+        "src": "/assets/sprites/item-book-d99a2a.png",
+        "w": 64,
+        "h": 64
+      }
+    }
+  },
+  "furniture": {
+    "trashcan": {
+      "src": "/assets/sprites/furniture-trashcan.png",
+      "w": 128,
+      "h": 128
+    },
+    "sink": {
+      "src": "/assets/sprites/furniture-sink.png",
+      "w": 128,
+      "h": 128
+    },
+    "recycling": {
+      "src": "/assets/sprites/furniture-recycling.png",
+      "w": 128,
+      "h": 128
+    },
+    "bookshelf": {
+      "src": "/assets/sprites/furniture-bookshelf.png",
+      "w": 128,
+      "h": 128
+    },
+    "hamper": {
+      "src": "/assets/sprites/furniture-hamper.png",
+      "w": 128,
+      "h": 128
+    },
+    "toybox": {
+      "src": "/assets/sprites/furniture-toybox.png",
+      "w": 128,
+      "h": 128
+    },
+    "washer": {
+      "src": "/assets/sprites/furniture-washer.png",
+      "w": 128,
+      "h": 128
+    },
+    "stove": {
+      "src": "/assets/sprites/furniture-stove.png",
+      "w": 128,
+      "h": 128
+    },
+    "bed": {
+      "src": "/assets/sprites/furniture-bed.png",
+      "w": 128,
+      "h": 128
+    },
+    "toilet": {
+      "src": "/assets/sprites/furniture-toilet.png",
+      "w": 128,
+      "h": 128
+    },
+    "cupboard": {
+      "src": "/assets/sprites/furniture-cupboard.png",
+      "w": 128,
+      "h": 128
+    },
+    "dresser": {
+      "src": "/assets/sprites/furniture-dresser.png",
+      "w": 128,
+      "h": 128
+    },
+    "couch": {
+      "src": "/assets/sprites/furniture-couch.png",
+      "w": 128,
+      "h": 128
+    },
+    "basket": {
+      "src": "/assets/sprites/furniture-basket.png",
+      "w": 128,
+      "h": 128
+    }
+  },
+  "actors": {
+    "worker": {
+      "src": "/assets/sprites/actor-worker.png",
+      "w": 80,
+      "h": 92
+    },
+    "hand": {
+      "src": "/assets/sprites/actor-hand.png",
+      "w": 68,
+      "h": 80
+    }
+  }
+}

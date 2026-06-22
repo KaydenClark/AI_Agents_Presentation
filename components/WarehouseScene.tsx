@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import ReportPanel, { ReportLine } from "./ReportPanel";
 import EscalationBanner from "./EscalationBanner";
-import { Marker, ReportPath } from "./ScenePrimitives";
+import { Marker } from "./ScenePrimitives";
 import {
   AgentIcon,
   BossIcon,
@@ -11,13 +11,21 @@ import {
   ThoughtIcon,
   WarningIcon,
 } from "./UiIcons";
+import { FurnitureKind, ItemKind, ItemSprite } from "./RoomSprites";
+import SpriteRenderer from "./sprites/SpriteRenderer";
+import { SpriteEngine } from "./sprites/SpriteEngine";
 import {
-  Furniture,
-  FurnitureKind,
-  ItemKind,
-  ItemSprite,
-  RoomWorker,
-} from "./RoomSprites";
+  PALETTE_ITEMS,
+  chooseLiveAgent,
+  fallbackManagerPlan,
+  paletteItemById,
+  rebalanceQueues,
+  type ManagerId,
+  type ManagerPlanResult,
+  type PaletteItemId,
+  type PaletteItemRule,
+  type WorkCategory,
+} from "@/lib/warehouseRules";
 
 type Phase =
   | "idle"
@@ -63,11 +71,13 @@ interface ZoneRuntime {
   name: string;
   instruction: string | null;
   assignment: BossAssignment | null;
+  managerPlanSource: "ai" | "fallback" | null;
   managerActive: boolean;
   agents: AgentRuntime[];
   report: ReportLine[];
   status: "idle" | "working" | "delivered";
   itemsCleared: number;
+  playerAdded: number;
   escalationsResolved: number;
   neededHuman: boolean;
   escalationPaused: boolean;
@@ -76,7 +86,7 @@ interface ZoneRuntime {
 interface ScenarioItemGroup {
   id: string;
   label: string;
-  managerId: "KITCHEN" | "LAUNDRY" | "OFFICE";
+  managerId: ManagerId;
   room: string;
   pile: string;
   sprite: ItemKind;
@@ -84,6 +94,7 @@ interface ScenarioItemGroup {
   workUnits: number;
   traits: string[];
   tint?: string;
+  workflow?: WorkCategory;
 }
 
 interface ScenarioPile {
@@ -102,7 +113,7 @@ interface Scenario {
 }
 
 interface ManagerPlan {
-  id: "KITCHEN" | "LAUNDRY" | "OFFICE";
+  id: ManagerId;
   name: string;
   specialty: string;
   agentCount: number;
@@ -110,6 +121,8 @@ interface ManagerPlan {
 
 interface BossAssignment {
   managerId: string;
+  /** Authoritative: which mess-group ids this manager is responsible for. */
+  groupIds: string[];
   workGroups: string[];
   priority: number;
   workload: number;
@@ -271,6 +284,18 @@ const MANAGERS: ManagerPlan[] = [
     specialty: "books, papers, toys, visible clutter, and office trash",
     agentCount: 2,
   },
+];
+
+// Actor ids on the canvas engine.
+const BOSS_ID = "BOSS";
+const mgrId = (zoneId: string) => `MGR_${zoneId}`;
+
+// Static furniture for the whole house (outside bins + every room). Scenarios
+// only change the piles, so this list is set on the engine once.
+const FURNITURE_LIST: FurnDef[] = [
+  { kind: "recycling", x: 46, y: 94, label: "Recycle", scale: 0.45 },
+  { kind: "trashcan", x: 54, y: 94, label: "Landfill", scale: 0.45 },
+  ...Object.values(ROOMS).flatMap((def) => def.furniture),
 ];
 
 // Pile anchor points. Scenarios add small bounded jitter to these so the map
@@ -555,8 +580,8 @@ function returnFromLiving(
   ];
 }
 
-function dishRoute(scenario: Scenario): Waypoint[] {
-  const P = findPile(scenario, "lr-dishes");
+function dishRoute(scenario: Scenario, pileId = "lr-dishes"): Waypoint[] {
+  const P = findPile(scenario, pileId);
   const pickup = livingPickupRoute("KITCHEN", P);
   return [
     ...pickup.route,
@@ -568,8 +593,12 @@ function dishRoute(scenario: Scenario): Waypoint[] {
 }
 
 // Clothes: living-room pile -> washer (wash) -> folding basket (by type).
-function clothesRoute(scenario: Scenario, type: string): Waypoint[] {
-  const P = findPile(scenario, "lr-clothes");
+function clothesRoute(
+  scenario: Scenario,
+  type: string,
+  pileId = "lr-clothes",
+): Waypoint[] {
+  const P = findPile(scenario, pileId);
   const basket = BASKETS[type] ?? BASKETS.shirt;
   const pickup = livingPickupRoute("LAUNDRY", P);
   return [
@@ -582,12 +611,21 @@ function clothesRoute(scenario: Scenario, type: string): Waypoint[] {
 }
 
 // Books: living-room pile -> bookshelf, shelved by color.
-function bookRoute(scenario: Scenario, shelf: string): Waypoint[] {
-  const P = findPile(scenario, "lr-books");
+function bookRoute(scenario: Scenario, shelf: string, pileId = "lr-books"): Waypoint[] {
+  const P = findPile(scenario, pileId);
   const pickup = livingPickupRoute("OFFICE", P);
   return [
     ...pickup.route,
     ...returnFromLiving("OFFICE", [wp(87, 80, shelf)]),
+  ];
+}
+
+function toyRoute(scenario: Scenario, pileId: string): Waypoint[] {
+  const P = findPile(scenario, pileId);
+  const pickup = livingPickupRoute("OFFICE", P);
+  return [
+    ...pickup.route,
+    ...returnFromLiving("OFFICE", [wp(87, 80, "the visible-clutter shelf")]),
   ];
 }
 
@@ -632,14 +670,28 @@ function sortedTrashRoute(
 function jobsForGroup(scenario: Scenario, group: ScenarioItemGroup): Job[] {
   const pile = findPile(scenario, group.pile);
   const jobs: Job[] = [];
+  const workflow =
+    group.workflow ??
+    (group.id === "dishes"
+      ? "dish"
+      : group.id === "clothes"
+        ? "laundry"
+        : group.id === "books"
+          ? "book"
+          : group.traits.includes("recyclable") || group.id === "recycling"
+            ? "recycling"
+            : "trash");
 
   for (let i = 0; i < group.quantity; i++) {
     const jammed = i === 0 && group.traits.includes("jam-risk");
 
-    if (group.id === "dishes") {
-      const sprite: ItemKind = (["plate", "fork", "cup"] as ItemKind[])[i % 3];
+    if (workflow === "dish") {
+      const sprite: ItemKind =
+        group.sprite === "plate" || group.sprite === "fork" || group.sprite === "cup"
+          ? group.sprite
+          : (["plate", "fork", "cup"] as ItemKind[])[i % 3];
       jobs.push(
-        job(sprite, group.pile, dishRoute(scenario), {
+        job(sprite, group.pile, dishRoute(scenario, group.pile), {
           jammed,
           pickupIndex: LIVING_PICKUP_INDEX,
         }),
@@ -647,10 +699,13 @@ function jobsForGroup(scenario: Scenario, group: ScenarioItemGroup): Job[] {
       continue;
     }
 
-    if (group.id === "clothes") {
-      const sprite: ItemKind = (["shirt", "sock", "towel"] as ItemKind[])[i % 3];
+    if (workflow === "laundry") {
+      const sprite: ItemKind =
+        group.sprite === "shirt" || group.sprite === "sock" || group.sprite === "towel"
+          ? group.sprite
+          : (["shirt", "sock", "towel"] as ItemKind[])[i % 3];
       jobs.push(
-        job(sprite, group.pile, clothesRoute(scenario, sprite), {
+        job(sprite, group.pile, clothesRoute(scenario, sprite, group.pile), {
           jammed,
           pickupIndex: LIVING_PICKUP_INDEX,
         }),
@@ -658,10 +713,10 @@ function jobsForGroup(scenario: Scenario, group: ScenarioItemGroup): Job[] {
       continue;
     }
 
-    if (group.id === "books") {
+    if (workflow === "book") {
       const color = BOOK_COLORS[i % BOOK_COLORS.length];
       jobs.push(
-        job("book", group.pile, bookRoute(scenario, color.shelf), {
+        job("book", group.pile, bookRoute(scenario, color.shelf, group.pile), {
           tint: color.tint,
           jammed,
           pickupIndex: LIVING_PICKUP_INDEX,
@@ -670,7 +725,18 @@ function jobsForGroup(scenario: Scenario, group: ScenarioItemGroup): Job[] {
       continue;
     }
 
+    if (workflow === "toy") {
+      jobs.push(
+        job("toy", group.pile, toyRoute(scenario, group.pile), {
+          jammed,
+          pickupIndex: LIVING_PICKUP_INDEX,
+        }),
+      );
+      continue;
+    }
+
     const isRecycling =
+      workflow === "recycling" ||
       group.traits.includes("recyclable") ||
       group.id === "recycling" ||
       group.sprite === "can";
@@ -692,12 +758,27 @@ function jobsForGroup(scenario: Scenario, group: ScenarioItemGroup): Job[] {
   return jobs;
 }
 
-function buildZones(scenario: Scenario): ZoneRuntime[] {
+// Build the per-manager job queues. When the Boss has produced an allocation
+// it is authoritative — each group's jobs go to the manager the Boss assigned
+// it to (falling back to the group's default specialty manager otherwise).
+function buildZones(
+  scenario: Scenario,
+  assignments?: BossAssignment[],
+): ZoneRuntime[] {
   jobSeq = 0;
+  const ownerOf = new Map<string, string>();
+  if (assignments) {
+    for (const a of assignments) {
+      for (const gid of a.groupIds ?? []) {
+        if (!ownerOf.has(gid)) ownerOf.set(gid, a.managerId);
+      }
+    }
+  }
   const jobsByManager = new Map<string, Job[]>();
   for (const manager of MANAGERS) jobsByManager.set(manager.id, []);
   for (const group of scenario.groups) {
-    jobsByManager.get(group.managerId)?.push(...jobsForGroup(scenario, group));
+    const managerId = ownerOf.get(group.id) ?? group.managerId;
+    jobsByManager.get(managerId)?.push(...jobsForGroup(scenario, group));
   }
 
   const split = (items: Job[]): [Job[], Job[]] => {
@@ -733,6 +814,7 @@ function buildZones(scenario: Scenario): ZoneRuntime[] {
       name: room.name,
       instruction: null,
       assignment: null,
+      managerPlanSource: null,
       managerActive: false,
       agents: [
         mkAgent(`${id}1`, `${room.name} · Agent 1`, 0, homes[0], q1),
@@ -741,6 +823,7 @@ function buildZones(scenario: Scenario): ZoneRuntime[] {
       report: [],
       status: "idle",
       itemsCleared: 0,
+      playerAdded: 0,
       escalationsResolved: 0,
       neededHuman: false,
       escalationPaused: false,
@@ -786,6 +869,7 @@ function localAssignments(scenario: Scenario): BossAssignment[] {
 
     return {
       managerId: manager.id,
+      groupIds: groups.map((g) => g.id),
       workGroups: labels,
       priority: index + 1,
       workload,
@@ -805,8 +889,58 @@ function instructionFromAssignment(assignment: BossAssignment): string {
   )}. ${assignment.rationale}`;
 }
 
+function managerPlanJobs(zone: ZoneRuntime) {
+  return zone.agents.flatMap((agent) =>
+    agent.queue.map((job) => ({
+      id: job.id,
+      workUnits: Math.max(1, job.route.length - job.pickupIndex),
+      jammed: !!job.jammed,
+    })),
+  );
+}
+
+function applyManagerQueuePlan(zone: ZoneRuntime, plan: ManagerPlanResult) {
+  const allJobs = zone.agents.flatMap((agent) => agent.queue);
+  const byId = new Map(allJobs.map((job) => [job.id, job]));
+  const assigned = new Set<string>();
+
+  for (const agent of zone.agents) {
+    const queue = plan.agentQueues.find((q) => q.agentId === agent.id);
+    agent.queue =
+      queue?.jobIds
+        .map((jobId) => {
+          const job = byId.get(jobId);
+          if (job) assigned.add(jobId);
+          return job;
+        })
+        .filter((job): job is Job => Boolean(job)) ?? [];
+    agent.total = agent.queue.length;
+    agent.cleared = 0;
+    agent.state = "idle";
+    agent.carrying = null;
+    agent.carryingTint = undefined;
+  }
+
+  const leftovers = allJobs.filter((job) => !assigned.has(job.id));
+  for (const job of leftovers) {
+    const target = zone.agents
+      .slice()
+      .sort((a, b) => a.queue.length - b.queue.length || a.id.localeCompare(b.id))[0];
+    target.queue.push(job);
+    target.total += 1;
+  }
+
+  zone.managerPlanSource = plan.source;
+}
+
 function localFinalReport(zones: ZoneRuntime[], scenario: Scenario): string {
   const lines = zones.map((z) => {
+    const added =
+      z.playerAdded > 0
+        ? ` Included ${z.playerAdded} player-added item${
+            z.playerAdded === 1 ? "" : "s"
+          }.`
+        : "";
     const human = z.neededHuman ? " Human help was needed." : "";
     const escalations =
       z.escalationsResolved > 0
@@ -817,7 +951,7 @@ function localFinalReport(zones: ZoneRuntime[], scenario: Scenario): string {
     return `${z.name}: ${z.itemsCleared}/${z.agents.reduce(
       (sum, a) => sum + a.total,
       0,
-    )} items cleared.${escalations}${human}`;
+    )} items cleared.${added}${escalations}${human}`;
   });
   const anyHuman = zones.some((z) => z.neededHuman);
   lines.push(
@@ -826,6 +960,29 @@ function localFinalReport(zones: ZoneRuntime[], scenario: Scenario): string {
       : `Boss report: ${scenario.title} finished without human input.`,
   );
   return lines.join("\n");
+}
+
+function isInLivingDropZone(x: number, y: number) {
+  const r = ROOMS.LIVING.rect;
+  return x >= r.x + 2 && x <= r.x + r.w - 2 && y >= r.y + 5 && y <= r.y + r.h - 5;
+}
+
+function spawnedGroupForPalette(
+  item: PaletteItemRule,
+  pileId: string,
+): ScenarioItemGroup {
+  return {
+    id: `spawn-group-${pileId}`,
+    label: `player-dropped ${item.label.toLowerCase()}`,
+    managerId: item.managerId,
+    room: "Living room",
+    pile: pileId,
+    sprite: item.item as ItemKind,
+    quantity: 1,
+    workUnits: item.category === "dish" || item.category === "laundry" ? 2 : 1,
+    traits: item.traits,
+    workflow: item.category,
+  };
 }
 
 function sceneDistance(a: { x: number; y: number }, b: Waypoint) {
@@ -856,10 +1013,18 @@ export default function WarehouseScene() {
   } | null>(null);
   const [showJam, setShowJam] = useState(false);
   const [thinkingStep, setThinkingStep] = useState<string | null>(null);
+  const [armedItemId, setArmedItemId] = useState<PaletteItemId | null>(null);
+  const [dropHint, setDropHint] = useState("Pick an item, then click the Living room to add work.");
+  const [lowPower, setLowPower] = useState(false);
 
   const scenarioRef = useRef(scenario);
   const zonesRef = useRef(zones);
+  const phaseRef = useRef(phase);
   const runningRef = useRef(false);
+  const engineRef = useRef<SpriteEngine | null>(null);
+  const activeAgentsRef = useRef(new Set<string>());
+  const activeZonesRef = useRef(new Set<string>());
+  const spawnSeqRef = useRef(0);
 
   const commit = useCallback(() => {
     setZones(
@@ -870,6 +1035,138 @@ export default function WarehouseScene() {
       })),
     );
   }, []);
+
+  useEffect(() => {
+    phaseRef.current = phase;
+  }, [phase]);
+
+  useEffect(() => {
+    const media = window.matchMedia("(prefers-reduced-motion: reduce)");
+    setLowPower(media.matches);
+    const onChange = () => setLowPower(media.matches);
+    media.addEventListener("change", onChange);
+    return () => media.removeEventListener("change", onChange);
+  }, []);
+
+  useEffect(() => {
+    engineRef.current?.setLowPower(lowPower);
+  }, [lowPower]);
+
+  // ---- Engine bridges (imperative, no React render) --------------------- //
+
+  // Push one agent's live position/state to the canvas. Called every walk
+  // frame so movement never triggers a React render (Task 4 decoupling).
+  const syncAgentToEngine = useCallback((agent: AgentRuntime) => {
+    engineRef.current?.updateActor(agent.id, {
+      x: agent.pos.x,
+      y: agent.pos.y,
+      state: agent.state,
+      carrying: agent.carrying,
+      carryingTint: agent.carryingTint,
+    });
+  }, []);
+
+  // Recompute the shrinking clutter piles from what's still queued.
+  const syncPiles = useCallback(() => {
+    const engine = engineRef.current;
+    if (!engine) return;
+    const remaining = remainingByPile(zonesRef.current);
+    engine.setPiles(
+      scenarioRef.current.piles.map((p) => {
+        const jobs = remaining.get(p.id) ?? [];
+        return {
+          id: p.id,
+          x: p.x,
+          y: p.y,
+          count: jobs.length,
+          items: jobs.slice(0, 8).map((j) => ({ sprite: j.sprite, tint: j.tint })),
+        };
+      }),
+    );
+  }, []);
+
+  // (Re)register every actor for the current run: Boss, 3 Managers, 6 Agents.
+  const resyncEngine = useCallback(() => {
+    const engine = engineRef.current;
+    if (!engine) return;
+    const actors: Parameters<SpriteEngine["setActors"]>[0] = [
+      { id: BOSS_ID, x: 50, y: 10, label: "Boss", state: "sitting" },
+    ];
+    for (const zone of zonesRef.current) {
+      const mgr = ROOMS[zone.id].manager!;
+      actors.push({
+        id: mgrId(zone.id),
+        x: mgr.x,
+        y: mgr.y,
+        label: `${zone.name} mgr`,
+        state: "idle",
+      });
+      for (const agent of zone.agents) {
+        actors.push({
+          id: agent.id,
+          x: agent.pos.x,
+          y: agent.pos.y,
+          label: agent.name.replace(`${zone.name} · `, ""),
+          state: "idle",
+        });
+      }
+    }
+    engine.setActors(actors);
+    syncPiles();
+    engine.setPaths([]);
+  }, [syncPiles]);
+
+  const handleReady = useCallback(
+    (engine: SpriteEngine) => {
+      engineRef.current = engine;
+      engine.setLowPower(lowPower);
+      engine.setFurniture(FURNITURE_LIST);
+      resyncEngine();
+    },
+    [resyncEngine, lowPower],
+  );
+
+  // Boss/Manager states + report paths follow discrete React state, not frames.
+  useEffect(() => {
+    const engine = engineRef.current;
+    if (!engine) return;
+    const reportActive =
+      phase === "working" || phase === "summarizing" || phase === "done";
+
+    engine.updateActor(BOSS_ID, {
+      state: phase === "deciding" || reportActive ? "working" : "sitting",
+      thought: thinkingStep ?? null,
+    });
+
+    const paths: {
+      x1: number;
+      y1: number;
+      x2: number;
+      y2: number;
+      active: boolean;
+    }[] = [];
+    for (const zone of zones) {
+      const managerState = zone.managerActive
+        ? zone.status === "delivered"
+          ? "done"
+          : "working"
+        : "idle";
+      engine.updateActor(mgrId(zone.id), { state: managerState });
+
+      const mgr = ROOMS[zone.id].manager!;
+      paths.push({
+        x1: mgr.x,
+        y1: mgr.y,
+        x2: 50,
+        y2: 12,
+        active: reportActive && zone.status !== "idle",
+      });
+      if (humanNeeded?.zoneId === zone.id) {
+        paths.push({ x1: mgr.x, y1: mgr.y, x2: 62, y2: 9, active: true });
+      }
+    }
+    engine.setPaths(paths);
+  }, [zones, phase, thinkingStep, humanNeeded]);
 
   const getZone = useCallback(
     (id: string) => zonesRef.current.find((z) => z.id === id)!,
@@ -889,35 +1186,41 @@ export default function WarehouseScene() {
       const frames = Math.max(1, Math.ceil(sceneDistance(start, target) / WALK_STRIDE));
 
       agent.state = "walking";
+      commit(); // panel state -> "moving" once; movement itself is engine-only
+      syncAgentToEngine(agent);
       for (let frame = 1; frame <= frames; frame++) {
         const eased = easeInOut(frame / frames);
         agent.pos = {
           x: start.x + (target.x - start.x) * eased,
           y: start.y + (target.y - start.y) * eased,
         };
-        commit();
+        syncAgentToEngine(agent);
         await sleep(WALK_FRAME_MS);
       }
 
       agent.pos = { x: target.x, y: target.y };
-      commit();
+      syncAgentToEngine(agent);
     },
-    [commit],
+    [commit, syncAgentToEngine],
   );
 
   // ---- One agent works its queue, following each job's multi-step route ----
   const runAgent = useCallback(
     async (zoneId: string, agentId: string) => {
+      if (activeAgentsRef.current.has(agentId)) return;
+      activeAgentsRef.current.add(agentId);
       const zone = getZone(zoneId);
       const agent = zone.agents.find((a) => a.id === agentId)!;
       const off = agent.lane === 0 ? -3 : 3;
 
-      while (agent.queue.length > 0) {
-        while (getZone(zoneId).escalationPaused) {
-          agent.state = "idle";
-          commit();
-          await sleep(250);
-        }
+      try {
+        while (agent.queue.length > 0) {
+          while (getZone(zoneId).escalationPaused) {
+            agent.state = "idle";
+            commit();
+            syncAgentToEngine(agent);
+            await sleep(250);
+          }
 
         const j = agent.queue[0];
         const name = j.sprite;
@@ -952,6 +1255,7 @@ export default function WarehouseScene() {
           if (shouldPause) {
             agent.state = "working";
             commit();
+            syncAgentToEngine(agent);
             await sleep(isPickup ? PICKUP_PAUSE : CHORE_PAUSE);
           }
 
@@ -959,6 +1263,7 @@ export default function WarehouseScene() {
             agent.carrying = j.sprite;
             agent.carryingTint = j.tint;
             commit();
+            syncAgentToEngine(agent);
             await sleep(REPORT_PAUSE * 0.35);
           }
         }
@@ -974,41 +1279,250 @@ export default function WarehouseScene() {
           text: `${agent.name} took a ${name} to ${dest} → Manager reviewed.`,
           reviewed: true,
         });
+
+        if (agent.queue.length === 0) {
+          agent.state = "idle";
+          const rebalance = rebalanceQueues({
+            agents: zone.agents.map((a) => ({
+              id: a.id,
+              queueLength: a.queue.length,
+              state: a.id === agent.id ? "idle" : a.state,
+            })),
+          });
+          if (rebalance?.toAgentId === agent.id) {
+            const donor = zone.agents.find((a) => a.id === rebalance.fromAgentId);
+            const moved = donor?.queue.pop();
+            if (donor && moved) {
+              donor.total = Math.max(donor.cleared + donor.queue.length, donor.total - 1);
+              agent.queue.push(moved);
+              agent.total += 1;
+              addLine(zoneId, {
+                text: `Manager reassigned 1 item to ${agent.name}.`,
+                tone: "escalation",
+                reviewed: true,
+              });
+            }
+          }
+        }
+
         commit();
+        syncAgentToEngine(agent);
+        syncPiles();
         await sleep(REPORT_PAUSE);
       }
 
-      await walkTo(agent, { ...agent.home, label: "home station" });
-      agent.state = "done";
-      commit();
+        await walkTo(agent, { ...agent.home, label: "home station" });
+        agent.state = "done";
+        commit();
+        syncAgentToEngine(agent);
+      } finally {
+        activeAgentsRef.current.delete(agentId);
+      }
     },
-    [commit, addLine, getZone, walkTo],
+    [commit, addLine, getZone, walkTo, syncAgentToEngine, syncPiles],
   );
 
   const runZone = useCallback(
     async (zoneId: string) => {
+      if (activeZonesRef.current.has(zoneId)) return;
+      activeZonesRef.current.add(zoneId);
       const zone = getZone(zoneId);
       zone.status = "working";
       zone.managerActive = true;
       commit();
 
-      await Promise.all(zone.agents.map((a) => runAgent(zoneId, a.id)));
+      try {
+        for (const agent of zone.agents) {
+          if (agent.queue.length > 0) void runAgent(zoneId, agent.id);
+        }
 
-      addLine(zoneId, {
-        text: `All done. Manager delivered the ${zone.name} report to the Boss.`,
-        tone: "success",
-        reviewed: true,
-      });
-      zone.status = "delivered";
-      commit();
-      await sleep(REPORT_PAUSE);
+        while (
+          zone.agents.some((agent) => agent.queue.length > 0) ||
+          zone.agents.some((agent) => activeAgentsRef.current.has(agent.id)) ||
+          zone.escalationPaused
+        ) {
+          for (const agent of zone.agents) {
+            if (agent.queue.length > 0 && !activeAgentsRef.current.has(agent.id)) {
+              void runAgent(zoneId, agent.id);
+            }
+          }
+          await sleep(250);
+        }
+
+        addLine(zoneId, {
+          text: `All done. Manager delivered the ${zone.name} report to the Boss.`,
+          tone: "success",
+          reviewed: true,
+        });
+        zone.status = "delivered";
+        commit();
+        await sleep(REPORT_PAUSE);
+      } finally {
+        activeZonesRef.current.delete(zoneId);
+      }
     },
     [commit, runAgent, addLine, getZone],
+  );
+
+  const planManagerQueues = useCallback(
+    async (zone: ZoneRuntime) => {
+      const jobs = managerPlanJobs(zone);
+      if (jobs.length === 0) return;
+
+      const agents = zone.agents.map((agent) => ({
+        id: agent.id,
+        name: agent.name,
+        queueLength: agent.queue.length,
+        state: agent.state,
+      }));
+
+      let plan: ManagerPlanResult;
+      try {
+        const res = await fetch("/api/manager-plan", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            managerId: zone.id,
+            managerName: `${zone.name} Manager`,
+            instruction: zone.instruction ?? "Clean the house",
+            jobs,
+            agents,
+          }),
+        });
+        plan = (await res.json()) as ManagerPlanResult;
+        if (!plan.agentQueues?.length) {
+          plan = fallbackManagerPlan({
+            managerId: zone.id as ManagerId,
+            jobs,
+            agents,
+          });
+        }
+      } catch (err) {
+        console.error("[warehouse] manager plan request failed:", err);
+        plan = fallbackManagerPlan({
+          managerId: zone.id as ManagerId,
+          jobs,
+          agents,
+        });
+      }
+
+      applyManagerQueuePlan(zone, plan);
+      addLine(zone.id, {
+        text: `Manager assigned ${jobs.length} item${
+          jobs.length === 1 ? "" : "s"
+        } across two Agents. ${plan.rationale}`,
+        reviewed: true,
+      });
+    },
+    [addLine],
+  );
+
+  const finishWhenNoWork = useCallback(async () => {
+    while (
+      activeZonesRef.current.size > 0 ||
+      activeAgentsRef.current.size > 0 ||
+      zonesRef.current.some((zone) =>
+        zone.agents.some((agent) => agent.queue.length > 0),
+      )
+    ) {
+      await sleep(250);
+    }
+    setPhase("summarizing");
+    setBossNote("Every room reported in. Boss is assembling the final report...");
+    await sleep(500);
+    setFinalReport(localFinalReport(zonesRef.current, scenarioRef.current));
+    setBossNote("Done.");
+    setPhase("done");
+    runningRef.current = false;
+  }, []);
+
+  const dropSpawnedItem = useCallback(
+    async (itemId: PaletteItemId, x: number, y: number) => {
+      const item = paletteItemById(itemId);
+      if (!item) return;
+      if (phaseRef.current === "idle") {
+        setDropHint("Click Submit to start the swarm, then drop items while Agents are working.");
+        return;
+      }
+      if (phaseRef.current === "deciding" || phaseRef.current === "summarizing") {
+        setDropHint("Wait for the current decision step to finish, then drop the item.");
+        return;
+      }
+      if (!isInLivingDropZone(x, y)) {
+        setDropHint("Drop items inside the Living room so the swarm can see them.");
+        return;
+      }
+
+      const seq = ++spawnSeqRef.current;
+      const pileId = `lr-spawn-${seq}`;
+      const pile: ScenarioPile = {
+        id: pileId,
+        x,
+        y,
+        label: `the player-dropped ${item.label.toLowerCase()}`,
+      };
+      const group = spawnedGroupForPalette(item, pileId);
+      const nextScenario: Scenario = {
+        ...scenarioRef.current,
+        piles: [...scenarioRef.current.piles, pile],
+        groups: [...scenarioRef.current.groups, group],
+      };
+      scenarioRef.current = nextScenario;
+      setScenario(nextScenario);
+      setArmedItemId(null);
+      setFinalReport(null);
+      setDropHint(`${item.label} dropped. The ${item.managerId.toLowerCase()} Manager added it to the queue.`);
+
+      engineRef.current?.dropItem(`drop-${seq}`, item.item as ItemKind, x, y);
+      await sleep(620);
+
+      const job = jobsForGroup(nextScenario, group)[0];
+      const zone = getZone(item.managerId);
+      const target = chooseLiveAgent(
+        zone.agents.map((agent) => ({
+          id: agent.id,
+          name: agent.name,
+          queueLength: agent.queue.length,
+          state: agent.state,
+        })),
+      );
+      const agent = zone.agents.find((a) => a.id === target?.id) ?? zone.agents[0];
+
+      zone.playerAdded += 1;
+      zone.status = "working";
+      zone.managerActive = true;
+      agent.queue.push(job);
+      agent.total += 1;
+      addLine(zone.id, {
+        text: `Player dropped a ${item.label.toLowerCase()}; Manager added it to ${agent.name}.`,
+        reviewed: true,
+      });
+      commit();
+      syncPiles();
+
+      const wasRunning = runningRef.current;
+      if (!wasRunning) {
+        runningRef.current = true;
+        setPhase("working");
+        setBossNote("Player added new work. The responsible Manager is dispatching an Agent.");
+      }
+
+      if (!activeZonesRef.current.has(zone.id)) {
+        void runZone(zone.id);
+      }
+
+      if (!wasRunning) {
+        void finishWhenNoWork();
+      }
+    },
+    [addLine, commit, finishWhenNoWork, getZone, runZone, syncPiles],
   );
 
   const run = useCallback(async () => {
     if (runningRef.current) return;
     runningRef.current = true;
+    activeAgentsRef.current.clear();
+    activeZonesRef.current.clear();
 
     lineSeq = 0;
     const nextRun = createWarehouseRun();
@@ -1016,10 +1530,13 @@ export default function WarehouseScene() {
     zonesRef.current = nextRun.zones;
     setScenario(nextRun.scenario);
     commit();
+    resyncEngine();
     setFinalReport(null);
     setHumanNeeded(null);
     setDecompSource(null);
     setThinkingStep("Scanning the mess...");
+    setArmedItemId(null);
+    setDropHint("Pick an item, then click the Living room to add work.");
 
     setPhase("deciding");
     setBossNote("Boss is deciding how to split the work...");
@@ -1036,6 +1553,7 @@ export default function WarehouseScene() {
       setThinkingStep(thoughts[thoughtIndex]);
     }, 950);
 
+    let assignments: BossAssignment[];
     try {
       const res = await fetch("/api/boss-plan", {
         method: "POST",
@@ -1051,30 +1569,31 @@ export default function WarehouseScene() {
         source: "ai" | "fallback";
       };
       setDecompSource(data.source);
-      const assignments = data.assignments?.length
+      assignments = data.assignments?.length
         ? data.assignments
         : localAssignments(nextRun.scenario);
-      for (const assignment of assignments) {
-        const zone = zonesRef.current.find((z) => z.id === assignment.managerId);
-        if (zone) {
-          zone.assignment = assignment;
-          zone.instruction = instructionFromAssignment(assignment);
-        }
-      }
     } catch (err) {
       console.error("[warehouse] boss plan request failed:", err);
-      for (const assignment of localAssignments(nextRun.scenario)) {
-        const zone = zonesRef.current.find((z) => z.id === assignment.managerId);
-        if (zone) {
-          zone.assignment = assignment;
-          zone.instruction = instructionFromAssignment(assignment);
-        }
-      }
+      assignments = localAssignments(nextRun.scenario);
       setDecompSource("fallback");
     } finally {
       window.clearInterval(thinkingTimer);
       setThinkingStep(null);
     }
+
+    // The Boss's allocation is authoritative: rebuild the crews around it so the
+    // assigned Manager's agents actually carry out each group's work.
+    zonesRef.current = buildZones(nextRun.scenario, assignments);
+    for (const assignment of assignments) {
+      const zone = zonesRef.current.find((z) => z.id === assignment.managerId);
+      if (zone) {
+        zone.assignment = assignment;
+        zone.instruction = instructionFromAssignment(assignment);
+      }
+    }
+    await Promise.all(zonesRef.current.map((zone) => planManagerQueues(zone)));
+    commit();
+    resyncEngine();
 
     const decideElapsed = Date.now() - decideStart;
     if (decideElapsed < 1800) await sleep(1800 - decideElapsed);
@@ -1086,32 +1605,41 @@ export default function WarehouseScene() {
 
     setPhase("working");
     await Promise.all(zonesRef.current.map((z) => runZone(z.id)));
-
-    setPhase("summarizing");
-    setBossNote("Every room reported in. Boss is assembling the final report…");
-    await sleep(700);
-    setFinalReport(localFinalReport(zonesRef.current, scenarioRef.current));
-
-    setBossNote("Done.");
-    setPhase("done");
-    runningRef.current = false;
-  }, [commit, runZone]);
+    await finishWhenNoWork();
+  }, [commit, runZone, resyncEngine, planManagerQueues, finishWhenNoWork]);
 
   const reset = useCallback(() => {
     if (runningRef.current) return;
     lineSeq = 0;
     const nextRun = createWarehouseRun();
+    activeAgentsRef.current.clear();
+    activeZonesRef.current.clear();
+    spawnSeqRef.current = 0;
     scenarioRef.current = nextRun.scenario;
     zonesRef.current = nextRun.zones;
     setScenario(nextRun.scenario);
     commit();
+    resyncEngine();
     setPhase("idle");
     setBossNote(null);
     setFinalReport(null);
     setHumanNeeded(null);
     setDecompSource(null);
     setThinkingStep(null);
-  }, [commit]);
+    setArmedItemId(null);
+    setDropHint("Pick an item, then click the Living room to add work.");
+  }, [commit, resyncEngine]);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setArmedItemId(null);
+        setDropHint("Item canceled. Pick another item to drop.");
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   const triggerJam = useCallback(
     (zoneId: string) => {
@@ -1161,6 +1689,20 @@ export default function WarehouseScene() {
 
   return (
     <div className="flex flex-col gap-4">
+      <ItemPalette
+        selectedId={armedItemId}
+        hint={dropHint}
+        onSelect={(id) => {
+          setArmedItemId(id);
+          const item = paletteItemById(id);
+          setDropHint(
+            item
+              ? `${item.label} armed. Click inside the Living room to drop one item.`
+              : "Pick an item, then click the Living room to add work.",
+          );
+        }}
+      />
+
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -1194,6 +1736,15 @@ export default function WarehouseScene() {
           Reset
         </button>
         <label className="ml-auto flex items-center gap-2 text-xs text-zinc-500">
+          <input
+            className="accent-[#3A7CA5]"
+            type="checkbox"
+            checked={lowPower}
+            onChange={(e) => setLowPower(e.target.checked)}
+          />
+          Low Power
+        </label>
+        <label className="flex items-center gap-2 text-xs text-zinc-500">
           <input
             className="accent-[#3A7CA5]"
             type="checkbox"
@@ -1294,10 +1845,11 @@ export default function WarehouseScene() {
 
       <HouseMap
         zones={zones}
-        scenario={scenario}
         phase={phase}
         humanNeeded={humanNeeded}
-        bossThought={thinkingStep}
+        onReady={handleReady}
+        armedItem={armedItemId ? paletteItemById(armedItemId) ?? null : null}
+        onDropItem={dropSpawnedItem}
       />
 
       {/* Room / Manager panels */}
@@ -1314,7 +1866,28 @@ export default function WarehouseScene() {
                   <p className="text-sm font-bold text-[#F7F7F7]">
                     {zone.name} · Manager
                   </p>
-                  <StatusBadge zone={zone} />
+                  <div className="flex flex-wrap items-center gap-2">
+                    <StatusBadge zone={zone} />
+                    {zone.managerPlanSource ? (
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                          zone.managerPlanSource === "ai"
+                            ? "bg-[#4DAA57]/15 text-[#95df9d]"
+                            : "bg-[#E0BD3E]/15 text-[#f1d977]"
+                        }`}
+                      >
+                        {zone.managerPlanSource === "ai"
+                          ? "Manager AI"
+                          : "Manager fallback"}
+                      </span>
+                    ) : null}
+                    {zone.playerAdded > 0 ? (
+                      <span className="rounded-full bg-[#3A7CA5]/20 px-2 py-0.5 text-[11px] font-semibold text-[#8cc7e6]">
+                        +{zone.playerAdded} player item
+                        {zone.playerAdded === 1 ? "" : "s"}
+                      </span>
+                    ) : null}
+                  </div>
                 </div>
               </div>
               {showJam ? (
@@ -1376,39 +1949,46 @@ function StatusBadge({ zone }: { zone: ZoneRuntime }) {
   );
 }
 
-// Tight cluster offsets (px) so each pile reads as a heap, not a single object.
-const PILE_OFFSETS: [number, number][] = [
-  [-9, -3],
-  [1, -6],
-  [10, -2],
-  [-6, 5],
-  [4, 5],
-  [-1, 12],
-  [-12, 7],
-  [12, 7],
-];
-
-function Pile({ x, y, jobs }: { x: number; y: number; jobs: Job[] }) {
-  if (jobs.length === 0) return null;
-  const shown = jobs.slice(0, PILE_OFFSETS.length);
+function ItemPalette({
+  selectedId,
+  hint,
+  onSelect,
+}: {
+  selectedId: PaletteItemId | null;
+  hint: string;
+  onSelect: (id: PaletteItemId) => void;
+}) {
   return (
-    <div
-      className="absolute z-20 -translate-x-1/2 -translate-y-1/2"
-      style={{ left: `${x}%`, top: `${y}%` }}
-      aria-hidden
-    >
-      {shown.map((j, i) => (
-        <span
-          key={j.id}
-          className="absolute"
-          style={{ left: PILE_OFFSETS[i][0], top: PILE_OFFSETS[i][1] }}
-        >
-          <ItemSprite item={j.sprite} size={18} tint={j.tint} />
-        </span>
-      ))}
-      <span className="absolute -left-3 -top-5 rounded-full bg-black/55 px-1.5 py-0.5 text-[9px] font-bold text-white shadow">
-        ×{jobs.length}
-      </span>
+    <div className="rounded-lg border border-[#474747] bg-[#191919] p-3 shadow-sm">
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-wide text-[#1ABCBD]">
+            Drop one item
+          </p>
+          <p className="text-sm text-zinc-300">
+            Pick an object, then click the Living room. The swarm keeps working.
+          </p>
+        </div>
+        <p className="text-xs text-zinc-500">{hint}</p>
+      </div>
+      <div className="flex flex-wrap gap-2" role="toolbar" aria-label="Item palette">
+        {PALETTE_ITEMS.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            onClick={() => onSelect(item.id)}
+            aria-pressed={selectedId === item.id}
+            className={`flex h-14 min-w-[76px] items-center justify-center gap-2 rounded-md border px-2 text-xs font-semibold transition ${
+              selectedId === item.id
+                ? "border-[#1ABCBD] bg-[#3A7CA5]/30 text-[#F7F7F7] ring-2 ring-[#1ABCBD]/30"
+                : "border-[#474747] bg-[#0A0A0A] text-zinc-300 hover:border-[#3A7CA5]"
+            }`}
+          >
+            <ItemSprite item={item.item as ItemKind} size={24} />
+            {item.label}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
@@ -1469,27 +2049,33 @@ function RoomBox({ def }: { def: RoomDef }) {
 
 function HouseMap({
   zones,
-  scenario,
   phase,
   humanNeeded,
-  bossThought,
+  onReady,
+  armedItem,
+  onDropItem,
 }: {
   zones: ZoneRuntime[];
-  scenario: Scenario;
   phase: Phase;
   humanNeeded: { zoneId: string; message: string } | null;
-  bossThought: string | null;
+  onReady: (engine: SpriteEngine) => void;
+  armedItem: PaletteItemRule | null;
+  onDropItem: (itemId: PaletteItemId, x: number, y: number) => void;
 }) {
   const hasStarted = phase !== "idle";
-  const dispatched =
-    phase === "dispatched" ||
-    phase === "working" ||
-    phase === "summarizing" ||
-    phase === "done";
-  const reportActive =
-    phase === "working" || phase === "summarizing" || phase === "done";
+  const [hoverPoint, setHoverPoint] = useState<{ x: number; y: number } | null>(null);
 
-  const piles = remainingByPile(zones);
+  const pointerPoint = (event: {
+    currentTarget: HTMLDivElement;
+    clientX: number;
+    clientY: number;
+  }) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    return {
+      x: clamp(((event.clientX - rect.left) / rect.width) * 100, 0, 100),
+      y: clamp(((event.clientY - rect.top) / rect.height) * 100, 0, 100),
+    };
+  };
 
   return (
     <div className="flex flex-col gap-2">
@@ -1500,7 +2086,15 @@ function HouseMap({
       <div
         aria-label="Top-down swarm facility"
         className="relative aspect-[16/9] w-full overflow-hidden rounded-lg shadow-xl ring-2 ring-[#241f18]"
+        onPointerMove={(event) => setHoverPoint(pointerPoint(event))}
+        onPointerLeave={() => setHoverPoint(null)}
+        onClick={(event) => {
+          if (!armedItem) return;
+          const point = pointerPoint(event);
+          onDropItem(armedItem.id, point.x, point.y);
+        }}
         style={{
+          cursor: armedItem ? "none" : undefined,
           backgroundColor: FLOOR,
           backgroundImage:
             "repeating-linear-gradient(0deg, rgba(74,48,22,0.16) 0 2px, transparent 2px 44px), repeating-linear-gradient(90deg, rgba(74,48,22,0.07) 0 1px, transparent 1px 132px)",
@@ -1534,23 +2128,20 @@ function HouseMap({
         <div className="absolute z-[1]" style={{ left: "4%", top: "90%", width: "42%", height: 6, transform: "translateY(-6px)", backgroundColor: WALL, backgroundImage: seamH }} aria-hidden />
         <div className="absolute z-[1]" style={{ left: "54%", top: "90%", width: "42%", height: 6, transform: "translateY(-6px)", backgroundColor: WALL, backgroundImage: seamH }} aria-hidden />
 
-        {/* ---- Boss hub contents ---- */}
+        {/* Sprite layer: furniture, clutter piles, Boss/Managers/Agents, and
+            report paths are all drawn on the canvas by the SpriteEngine. */}
+        <SpriteRenderer onReady={onReady} ariaLabel="Top-down swarm facility sprites" />
+
+        {/* ---- Boss hub label + human exit marker ---- */}
         <div
           className="absolute left-1/2 top-[5%] z-30 -translate-x-1/2 rounded bg-black/50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white"
           aria-hidden
         >
           Boss office
         </div>
-        <RoomWorker
-          x={50}
-          y={10}
-          state={phase === "deciding" ? "working" : reportActive ? "working" : "sitting"}
-          label="Boss"
-          thought={bossThought ?? undefined}
-        />
         <Marker x={62} y={9} tone="rose" label="Human exit" active={!!humanNeeded} />
 
-        {/* ---- Outside trash spot ---- */}
+        {/* ---- Outside trash label ---- */}
         <div
           className="absolute top-[91.5%] z-30 rounded bg-black/55 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white shadow-sm"
           style={{ left: "7%" }}
@@ -1558,73 +2149,46 @@ function HouseMap({
         >
           Outside
         </div>
-        <Furniture x={46} y={94} kind="recycling" label="Recycle" scale={0.45} />
-        <Furniture x={54} y={94} kind="trashcan" label="Landfill" scale={0.45} />
 
-        {/* ---- Room names + furniture (all four rooms) ---- */}
+        {/* ---- Room name labels (the furniture itself is on the canvas) ---- */}
         {Object.values(ROOMS).map((def) => (
-          <div key={`room-${def.id}`}>
-            <div
-              className="absolute z-30 rounded bg-black/55 px-1.5 py-0.5 text-[10px] font-semibold text-white shadow-sm"
-              style={{ left: `${def.label.x}%`, top: `${def.label.y}%` }}
-              aria-hidden
-            >
-              {def.name}
-            </div>
-            {def.furniture.map((f, i) => (
-              <Furniture key={i} x={f.x} y={f.y} kind={f.kind} label={f.label} scale={f.scale ?? 0.6} />
-            ))}
+          <div
+            key={`room-${def.id}`}
+            className="absolute z-30 rounded bg-black/55 px-1.5 py-0.5 text-[10px] font-semibold text-white shadow-sm"
+            style={{ left: `${def.label.x}%`, top: `${def.label.y}%` }}
+            aria-hidden
+          >
+            {def.name}
           </div>
         ))}
 
-        {/* ---- Clutter piles (living room + every room's trash) ---- */}
-        {scenario.piles.map((p) => (
-          <Pile key={p.id} x={p.x} y={p.y} jobs={piles.get(p.id) ?? []} />
-        ))}
-
-        {/* ---- Managers, agents, and report paths (the three crews) ---- */}
-        {zones.map((zone) => {
-          const def = ROOMS[zone.id];
-          const mgr = def.manager!;
-          const managerState = zone.managerActive
-            ? zone.status === "delivered"
-              ? "done"
-              : "working"
-            : "idle";
-
-          return (
-            <div key={zone.id}>
-              <ReportPath x1={mgr.x} y1={mgr.y} x2={50} y2={12} active={reportActive && zone.status !== "idle"} />
-              {humanNeeded?.zoneId === zone.id ? (
-                <ReportPath x1={mgr.x} y1={mgr.y} x2={62} y2={9} active />
-              ) : null}
-
-              {/* manager near the doorway */}
-              <RoomWorker x={mgr.x} y={mgr.y} label={`${zone.name} mgr`} state={managerState} />
-
-              {/* agents on their routes */}
-              {zone.agents.map((agent) => (
-                <RoomWorker
-                  key={agent.id}
-                  x={agent.pos.x}
-                  y={agent.pos.y}
-                  label={agent.name.replace(`${zone.name} · `, "")}
-                  state={dispatched ? agent.state : "idle"}
-                  carrying={agent.carrying}
-                  carryingTint={agent.carryingTint}
-                />
-              ))}
-
-              {zone.neededHuman ? (
-                <Marker x={mgr.x} y={mgr.y - 6} tone="rose" label="Needs human" active />
-              ) : null}
-            </div>
-          );
-        })}
+        {/* ---- Per-room "needs human" markers ---- */}
+        {zones.map((zone) =>
+          zone.neededHuman ? (
+            <Marker
+              key={zone.id}
+              x={ROOMS[zone.id].manager!.x}
+              y={ROOMS[zone.id].manager!.y - 6}
+              tone="rose"
+              label="Needs human"
+              active
+            />
+          ) : null,
+        )}
 
         <div className="absolute left-3 top-3 z-40 rounded bg-white/90 px-3 py-1 text-xs font-semibold text-slate-600 shadow">
           {hasStarted ? "Swarm tidying the house" : "Waiting for a house instruction"}
         </div>
+
+        {armedItem && hoverPoint ? (
+          <div
+            className="pointer-events-none absolute z-[60] -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/70 p-1 shadow-lg ring-2 ring-[#1ABCBD]"
+            style={{ left: `${hoverPoint.x}%`, top: `${hoverPoint.y}%` }}
+            aria-hidden
+          >
+            <ItemSprite item={armedItem.item as ItemKind} size={28} />
+          </div>
+        ) : null}
       </div>
     </div>
   );

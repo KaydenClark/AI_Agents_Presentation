@@ -1,8 +1,8 @@
 # AI_Agents_Presentation - Runbook
 
-**Last reviewed:** 2026-06-21
+**Last reviewed:** 2026-06-22
 **Runtime owner:** Kayden / agent  
-**Environment:** local development and Vercel production target
+**Environment:** local development, GitHub release branch/tag, and Vercel production target
 
 This file explains how to operate the project. It should be boring, exact, and executable.
 
@@ -24,6 +24,13 @@ Required local files:
 
 - `.env.local` - optional local environment file created from `.env.example`; keep it uncommitted.
 
+Current release:
+
+- v2.1.0 is the five-scene ladder release.
+- Local play and GitHub publication are in scope for v2.1.
+- Vercel deployment is intentionally separate and should only happen after a
+  fresh explicit request.
+
 ## Environment Configuration
 
 Create local config from the example:
@@ -36,8 +43,8 @@ Required variables:
 
 | Variable | Purpose | Secret? | Example / Notes |
 |---|---|---|---|
-| `OPENAI_API_KEY` | Enables the live Boss planning call. | yes | Optional for fallback-only dry runs. |
-| `OPENAI_MODEL` | Overrides the model used by the Boss planning route. | no | Defaults to `gpt-5.4-mini`. |
+| `OPENAI_API_KEY` | Enables live Boss and Manager planning calls. | yes | Optional for fallback-only dry runs. |
+| `OPENAI_MODEL` | Overrides the model used by the Boss and Manager planning routes. | no | Defaults to `gpt-5.4-mini`. |
 
 Rules:
 
@@ -64,14 +71,41 @@ npm run dev
 Open:
 
 - `http://localhost:3000`
-- `http://localhost:3000/room`
-- `http://localhost:3000/warehouse`
+- `http://localhost:3000/manual`
+- `http://localhost:3000/chat`
+- `http://localhost:3000/agent`
+- `http://localhost:3000/team`
+- `http://localhost:3000/swarm`
 
 Expected result:
 
-- Landing page links to both scenes.
-- `/room` supports Manual and Agent modes.
-- `/warehouse` runs with either `real AI decision` when a valid key is configured or `fallback decision` when not.
+- Landing page links to all five scenes.
+- `/manual` clears one item per Submit.
+- `/chat` returns text output without changing the room state.
+- `/agent` clears the full room from one Submit and stops.
+- `/team` splits work across two Agents and returns a team report.
+- `/swarm` runs with either `real AI decision` / `Manager AI` when a valid key is configured or fallback badges when not.
+- In `/swarm`, click Submit before using the item palette. Then pick one item and click inside the Living room to drop new live work.
+
+## Sprite Assets
+
+The canvas scenes render PNG sprites on the canvas engine. The PNGs are generated from
+the SVG definitions in `components/RoomSprites.tsx` and committed under
+`public/assets/sprites/`. You do not need to regenerate them for normal dev.
+
+Regenerate them only after changing those SVG definitions:
+
+```bash
+npm run sprites
+```
+
+Expected result:
+
+- `scripts/rasterize-sprites.mjs` (uses the `sharp` devDependency) writes the
+  item/furniture/actor PNGs and `sprites.manifest.json` into
+  `public/assets/sprites/`, then prints the sprite count.
+- Note: canvas PNGs are not runtime-tintable; only books have pre-baked color
+  variants. New tinted clutter needs new variants added to the rasterizer.
 
 ## Test And Build
 
@@ -79,12 +113,14 @@ Fast check:
 
 ```bash
 npm run lint
+npm run test:unit
 ```
 
 Full verification:
 
 ```bash
 npm run lint
+npm run test:unit
 npm run build
 npm run dev
 ```
@@ -105,6 +141,7 @@ E2E_BASE=http://localhost:3100 npm run test:e2e
 Expected result:
 
 - Lint passes.
+- Unit tests pass.
 - Production build completes.
 - Playwright smoke test reports all checks passed.
 
@@ -121,21 +158,29 @@ npm run dev
 
 Check these URLs:
 
-- `http://localhost:3000/room`
-- `http://localhost:3000/warehouse`
+- `http://localhost:3000/manual`
+- `http://localhost:3000/chat`
+- `http://localhost:3000/agent`
+- `http://localhost:3000/team`
+- `http://localhost:3000/swarm`
 
 Viewport checks:
 
 | View | Size | What to verify |
 |---|---:|---|
+| Constrained laptop | 1366 x 768 | Palette, controls, Low Power mode, map, and Manager panels remain usable with vertical scrolling and no horizontal overflow. |
 | Laptop | 1440 x 900 | Controls, labels, scene, and report panels fit without overlap. |
 | Projector | 1920 x 1080 | Worker movement, station labels, report flow, and escalation markers are readable from presentation distance. |
 
 Top-down redesign checks:
 
-- `/room` reads as a room: walls, floor tiles, doorway, central rug, worker, scattered clutter, and labelled destinations (trash can, kitchen sink, recycling, bookshelf, laundry hamper, toy box) are visible. No developer-tool / MCP language appears.
-- `/room` still demonstrates Manual = one item per submit and Agent = one self-terminating loop.
-- `/warehouse` reads as one facility: boss hub, manager rooms, agent work zones, paths, reports, and escalation markers are visible.
+- `/manual` reads as a room and demonstrates Manual = one item per submit.
+- `/chat` reads as a prompt/output scene and leaves the item counter unchanged after Submit.
+- `/agent` reads as a room and demonstrates one self-terminating loop.
+- `/team` shows one Manager, two Agents, split queues, and a final team report.
+- `/swarm` reads as one facility: boss hub, manager rooms, agent work zones, paths, reports, and escalation markers are visible.
+- `/swarm` shows the item palette; after Submit, selecting a palette item and clicking inside the Living room drops one item, routes it to the responsible Manager, and includes it in the final report.
+- The Low Power checkbox caps the canvas loop for older laptops and should not blank the sprite layer.
 - Labels do not overlap props, workers, controls, report panels, or each other.
 - Motion is clear enough to follow without reading the code or console.
 - Any screenshots or recordings used as proof must avoid secrets, private URLs, and real `.env` values.
@@ -173,14 +218,16 @@ vercel --prod
 Expected healthy state:
 
 - Public URL loads without login by default.
-- A rehearsal warehouse run shows `real AI decision` with a configured key.
+- A rehearsal swarm run shows `real AI decision` with a configured key.
 - The app still completes using fallbacks if the live call fails.
 
 ## Troubleshooting
 
 | Symptom | Likely cause | Check | Fix |
 |---|---|---|---|
-| Warehouse shows `fallback decision` | Missing key, OpenAI failure, timeout, or malformed response | Check server console for `[boss-plan] falling back:` | Add/fix `OPENAI_API_KEY`, lower latency, or accept fallback for dry run. |
+| Warehouse shows `fallback decision` or `Manager fallback` | Missing key, OpenAI failure, timeout, or malformed response | Check server console for `[boss-plan] falling back:` or `[manager-plan] falling back:` | Add/fix `OPENAI_API_KEY`, lower latency, or accept fallback for dry run. |
+| Dropped item does not spawn | The swarm has not started, the Boss is still deciding, or the click was outside the Living room | Check the item-palette hint text | Click Submit first, wait for Manager panels, then drop inside the Living room. |
+| Low Power scene looks blank | Canvas was resized/toggled before the sprite layer repainted | Wait briefly, then rerun Visual QA; current engine repaints on resize/toggle | If it persists, inspect `SpriteEngine.setLowPower` and image preload state. |
 | `npm run test:e2e` cannot connect | Dev server is not running or base URL differs | `curl http://localhost:3000` or check terminal running `npm run dev` | Start server or set `E2E_BASE`. |
 | Playwright complains browser is missing | Chromium has not been installed locally | `npx playwright install chromium` | Install Chromium and rerun the E2E test. |
 | Lint command fails before linting | Next lint/version drift | `npm run lint` output | Update lint script or config with evidence. |
@@ -201,3 +248,18 @@ Do not delete data, reset repositories, rewrite history, rotate secrets, or depl
 ## Operational Proof
 
 If a command in this runbook changed durable project state, append a row to the `ROADMAP.md` Verification Log. For routine local runs that do not change state, a final response note is enough.
+
+## v2.1 GitHub Publish Checklist
+
+Use this when preparing or auditing the v2.1 GitHub state:
+
+1. Confirm `.env.local` and real secrets are not staged.
+2. Remove local generated noise such as `.DS_Store`, `.next`, screenshots, traces,
+   or videos from the worktree.
+3. Run `npm run lint`, `npm run test:unit`, `npm run build`, and a warm
+   `npm run test:e2e` against a local dev server.
+4. Confirm the landing page links to `/manual`, `/chat`, `/agent`, `/team`, and
+   `/swarm`.
+5. Confirm `package.json`, `package-lock.json`, `README.md`, `BLUEPRINT.md`,
+   `ROADMAP.md`, `RUNBOOK.md`, and `AGENTS.md` all describe v2.1 as current.
+6. Commit with a v2.1 release message, push the branch, and push the `v2.1` tag.

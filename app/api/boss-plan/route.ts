@@ -38,6 +38,9 @@ interface BossPlanRequest {
 
 interface BossAssignment {
   managerId: string;
+  /** Authoritative: which mess-group ids this manager is responsible for. */
+  groupIds: string[];
+  /** Human-readable labels for those groups (for the decision panel). */
   workGroups: string[];
   priority: number;
   workload: number;
@@ -59,6 +62,7 @@ function fallbackAssignments(
 
     return {
       managerId: manager.id,
+      groupIds: groups.map((g) => g.id),
       workGroups: labels,
       priority: index + 1,
       workload,
@@ -92,7 +96,7 @@ function buildPrompt(
     )
     .join("\n");
 
-  return `You are the Boss in a live demo about AI agent swarms.
+  return `You are the Boss in a game about AI agent swarms. Your plan actually drives the workers, so assign carefully.
 
 The human instruction is fixed: "${instruction}".
 
@@ -102,13 +106,18 @@ Urgency: ${scenario.urgency}
 Available Managers:
 ${managerLines}
 
-Mess groups:
+Mess groups (assign by id):
 ${groupLines}
 
-Assign work to the Managers. Keep each Manager near their specialty unless another choice is clearly better. Balance urgency, workload, and escalation risk. Explain the decision in plain language for a non-technical audience.
+Assign EVERY mess group to exactly one Manager, by its group id. Rules:
+- Every Manager must get at least one group — nobody sits idle.
+- Every group must be assigned exactly once. Do not drop or duplicate a group.
+- Prefer each Manager's specialty, but move flexible work (trash, recycling, room bins) between Managers to balance the total work units so nobody is overloaded.
+- Order the Managers by priority (most urgent first).
+- Explain each choice in plain language for a non-technical audience.
 
 Respond with ONLY a JSON object in this exact shape, no markdown:
-{"assignments":[{"managerId":"KITCHEN","workGroups":["dishes","recycling"],"priority":1,"workload":7,"rationale":"short reason","escalationNotes":"short note"}]}`;
+{"assignments":[{"managerId":"KITCHEN","groups":["dishes","recycling","kitchen-bin"],"priority":1,"rationale":"short reason","escalationNotes":"short note"}]}`;
 }
 
 function extractJson(text: string): unknown {
@@ -120,44 +129,106 @@ function extractJson(text: string): unknown {
   return JSON.parse(candidate.slice(start, end + 1));
 }
 
+interface RawAssignment {
+  managerId?: unknown;
+  groups?: unknown;
+  groupIds?: unknown;
+  workGroups?: unknown;
+  priority?: unknown;
+  rationale?: unknown;
+  escalationNotes?: unknown;
+}
+
+function asStringArray(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((v): v is string => typeof v === "string")
+    : [];
+}
+
 function normalizeAssignments(
   parsed: unknown,
   scenario: ScenarioState,
   managers: ManagerState[],
 ): BossAssignment[] {
-  const fallback = fallbackAssignments(scenario, managers);
-  const byManager = new Map(fallback.map((a) => [a.managerId, a]));
-  const raw = (parsed as { assignments?: unknown[] }).assignments ?? [];
+  const groupById = new Map(scenario.groups.map((g) => [g.id, g]));
+  const validIds = new Set(scenario.groups.map((g) => g.id));
+  const managerIds = new Set(managers.map((m) => m.id));
 
+  // 1) Read the model's group-id assignment (first claim wins per group).
+  const ownerOf = new Map<string, string>();
+  const rawByManager = new Map<string, RawAssignment>();
+  const raw = (parsed as { assignments?: unknown[] }).assignments ?? [];
   for (const item of raw) {
-    const a = item as Partial<BossAssignment>;
-    if (
-      !a ||
-      typeof a.managerId !== "string" ||
-      !managers.some((m) => m.id === a.managerId)
-    ) {
-      continue;
+    const a = item as RawAssignment;
+    if (typeof a?.managerId !== "string" || !managerIds.has(a.managerId)) continue;
+    rawByManager.set(a.managerId, a);
+    const ids = [
+      ...asStringArray(a.groups),
+      ...asStringArray(a.groupIds),
+      ...asStringArray(a.workGroups),
+    ];
+    for (const gid of ids) {
+      if (validIds.has(gid) && !ownerOf.has(gid)) ownerOf.set(gid, a.managerId);
     }
-    byManager.set(a.managerId, {
-      managerId: a.managerId,
-      workGroups: Array.isArray(a.workGroups)
-        ? a.workGroups.filter((g): g is string => typeof g === "string")
-        : byManager.get(a.managerId)?.workGroups ?? [],
-      priority: typeof a.priority === "number" ? a.priority : 3,
-      workload: typeof a.workload === "number" ? a.workload : 0,
-      rationale:
-        typeof a.rationale === "string" && a.rationale.trim()
-          ? a.rationale.trim()
-          : byManager.get(a.managerId)?.rationale ?? "Assigned by fallback.",
-      escalationNotes:
-        typeof a.escalationNotes === "string" && a.escalationNotes.trim()
-          ? a.escalationNotes.trim()
-          : byManager.get(a.managerId)?.escalationNotes ??
-            "No special escalation risk expected.",
-    });
   }
 
-  return managers.map((m) => byManager.get(m.id)!).sort((a, b) => a.priority - b.priority);
+  // 2) Any unclaimed group falls back to its default (specialty) manager.
+  for (const g of scenario.groups) {
+    if (!ownerOf.has(g.id)) ownerOf.set(g.id, g.managerId);
+  }
+
+  const groupsOf = (managerId: string) =>
+    [...ownerOf.entries()]
+      .filter(([, m]) => m === managerId)
+      .map(([gid]) => gid);
+
+  // 3) Everyone contributes: no Manager may end up with zero work. Steal the
+  //    lightest group from the busiest Manager that can spare one.
+  for (const m of managers) {
+    if (groupsOf(m.id).length > 0) continue;
+    const donor = managers
+      .map((d) => ({ id: d.id, groups: groupsOf(d.id) }))
+      .filter((d) => d.groups.length > 1)
+      .sort((x, y) => y.groups.length - x.groups.length)[0];
+    if (!donor) continue;
+    const lightest = donor.groups
+      .map((gid) => ({ gid, wu: groupById.get(gid)?.workUnits ?? 0 }))
+      .sort((a, b) => a.wu - b.wu)[0];
+    ownerOf.set(lightest.gid, m.id);
+  }
+
+  // 4) Build each Manager's assignment with labels/workload from real groups.
+  return managers
+    .map((m, index) => {
+      const gids = groupsOf(m.id);
+      const groups = gids
+        .map((gid) => groupById.get(gid))
+        .filter((g): g is ScenarioGroup => Boolean(g));
+      const labels = groups.map((g) => g.label);
+      const workload = groups.reduce((sum, g) => sum + g.workUnits, 0);
+      const risky = groups
+        .flatMap((g) => g.traits)
+        .filter((t) => ["wet", "fragile", "unknown", "jam-risk", "sticky"].includes(t));
+      const aiRaw = rawByManager.get(m.id);
+      return {
+        managerId: m.id,
+        groupIds: gids,
+        workGroups: labels,
+        priority: typeof aiRaw?.priority === "number" ? aiRaw.priority : index + 1,
+        workload,
+        rationale:
+          typeof aiRaw?.rationale === "string" && aiRaw.rationale.trim()
+            ? aiRaw.rationale.trim()
+            : `${m.name} handles ${labels.join(", ") || "support work"}.`,
+        escalationNotes:
+          typeof aiRaw?.escalationNotes === "string" && aiRaw.escalationNotes.trim()
+            ? aiRaw.escalationNotes.trim()
+            : risky.length
+              ? `Watch for ${Array.from(new Set(risky)).join(", ")}.`
+              : "No special escalation risk expected.",
+      };
+    })
+    .sort((a, b) => a.priority - b.priority);
 }
 
 export async function POST(req: Request) {

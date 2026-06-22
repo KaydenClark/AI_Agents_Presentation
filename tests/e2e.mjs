@@ -64,12 +64,15 @@ async function run() {
 
   // ---------- Landing ----------
   await page.goto(BASE, { waitUntil: "networkidle" });
-  check("Landing has both scene links",
-    (await page.getByRole("link", { name: /Single Room/i }).count()) > 0 &&
-    (await page.getByRole("link", { name: /Swarm Warehouse/i }).count()) > 0);
+  check("Landing has all five ladder links",
+    (await page.getByRole("link", { name: /Manual Task/i }).count()) > 0 &&
+    (await page.getByRole("link", { name: /Chat Window/i }).count()) > 0 &&
+    (await page.getByRole("link", { name: /Single Agent/i }).count()) > 0 &&
+    (await page.getByRole("link", { name: /Small Team/i }).count()) > 0 &&
+    (await page.getByRole("link", { name: /Swarm House/i }).count()) > 0);
 
   // ---------- Scene 1: Manual ----------
-  await page.goto(`${BASE}/room`, { waitUntil: "networkidle" });
+  await page.goto(`${BASE}/manual`, { waitUntil: "networkidle" });
   await page.waitForTimeout(400);
 
   const startCount = await itemsLeft(page);
@@ -113,10 +116,22 @@ async function run() {
   check("Manual: nudge to try Agent mode appears after repeated submits",
     (await page.getByText(/Getting repetitive/i).count()) > 0);
 
-  // ---------- Scene 1: Agent ----------
-  await page.getByRole("button", { name: "agent" }).click();
+  // ---------- Scene 2: Chat Window ----------
+  await page.goto(`${BASE}/chat`, { waitUntil: "networkidle" });
+  await page.waitForTimeout(300);
+  const chatStartCount = await itemsLeft(page);
+  await page.getByLabel(/Prompt/i).fill("tidy the room");
+  await page.getByRole("button", { name: "Submit" }).click();
+  check("Chat: produces an answer",
+    (await page.getByText(/Here is a plan/i).count()) > 0);
+  check("Chat: room state does not change from output alone",
+    (await itemsLeft(page)) === chatStartCount,
+    `started ${chatStartCount}, now ${await itemsLeft(page)}`);
+
+  // ---------- Scene 3: Single Agent ----------
+  await page.goto(`${BASE}/agent`, { waitUntil: "networkidle" });
   await page.waitForTimeout(500);
-  check("Agent: switching mode resets to full room", (await itemsLeft(page)) === startCount);
+  check("Agent: starts with a full room", (await itemsLeft(page)) === startCount);
   check("Agent: agent worker is present",
     (await page.getByText(/Agent worker/i).count()) > 0);
 
@@ -138,14 +153,40 @@ async function run() {
   await page.waitForTimeout(300);
   await page.getByRole("button", { name: "Submit" }).click();
   await page.waitForTimeout(900);
-  check("Agent: mode toggle is disabled mid-run (prevents broken state)",
-    await page.getByRole("button", { name: "manual" }).isDisabled());
+  check("Agent: dedicated route has no manual-mode toggle",
+    (await page.getByRole("button", { name: "manual" }).count()) === 0);
   check("Agent: Reset is disabled mid-run",
     await page.getByRole("button", { name: /Reset room/i }).isDisabled());
-  await waitSubmitEnabled(page);
+  let lockRunCleared = false;
+  const lockRunStart = Date.now();
+  while (Date.now() - lockRunStart < 45000) {
+    if ((await page.getByText(/Room clean/i).count()) > 0 && (await itemsLeft(page)) === 0) {
+      lockRunCleared = true; break;
+    }
+    await sleep(300);
+  }
+  check("Agent: locked busy run still completes", lockRunCleared);
 
-  // ---------- Scene 2: Warehouse ----------
-  await page.goto(`${BASE}/warehouse`, { waitUntil: "networkidle" });
+  // ---------- Scene 4: Small Team ----------
+  await page.goto(`${BASE}/team`, { waitUntil: "networkidle" });
+  await page.waitForTimeout(400);
+  check("Team shows manager and two agents",
+    (await page.getByText(/1 Manager/i).count()) > 0 &&
+    (await page.getByText(/2 Agents/i).count()) > 0);
+  await page.getByRole("button", { name: "Submit" }).click();
+  let teamDone = false;
+  const teamStart = Date.now();
+  while (Date.now() - teamStart < 30000) {
+    if ((await page.getByText(/Team report delivered/i).count()) > 0) { teamDone = true; break; }
+    await sleep(300);
+  }
+  check("Team: one manager splits work across two agents", teamDone);
+  check("Team: both agents report complete",
+    (await page.getByText(/Agent [AB]: complete/i).count()) === 2,
+    `${await page.getByText(/Agent [AB]: complete/i).count()} agents`);
+
+  // ---------- Scene 5: Swarm ----------
+  await page.goto(`${BASE}/swarm`, { waitUntil: "networkidle" });
   await page.waitForTimeout(400);
   check("Warehouse shows top-down facility map",
     (await page.getByLabel(/Top-down swarm facility/i).count()) > 0 &&
@@ -165,6 +206,26 @@ async function run() {
     await sleep(300);
   }
   check("Warehouse: Boss decision panel appears", bossDecision);
+  check("Warehouse: Managers produce per-agent plans",
+    (await page.getByText(/Manager (AI|fallback)/).count()) === 3,
+    `${await page.getByText(/Manager (AI|fallback)/).count()} manager badges`);
+
+  await page.getByRole("button", { name: /Plate/i }).click();
+  const map = page.getByLabel(/Top-down swarm facility/i).first();
+  const box = await map.boundingBox();
+  if (box) {
+    await map.click({
+      position: { x: box.width * 0.25, y: box.height * 0.48 },
+    });
+  }
+  let spawnedWork = false;
+  const spawnStart = Date.now();
+  while (Date.now() - spawnStart < 12000) {
+    spawnedWork = (await page.getByText(/Player dropped a plate/i).count()) > 0;
+    if (spawnedWork) break;
+    await sleep(250);
+  }
+  check("Warehouse: player can spawn one palette item into the live room", spawnedWork);
 
   const whStart = Date.now();
   let finalReport = false;
@@ -173,6 +234,8 @@ async function run() {
     await sleep(400);
   }
   check("Warehouse: produces a final report", finalReport);
+  check("Warehouse: final report includes player-added work",
+    (await page.getByText(/player-added item/i).count()) > 0);
   check("Warehouse: all 3 manager rooms report complete",
     (await page.getByText(/^Reported$/).count()) === 3,
     `${await page.getByText(/^Reported$/).count()} rooms`);

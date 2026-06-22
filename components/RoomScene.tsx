@@ -1,31 +1,24 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Clutter, ClutterKind } from "./ClutterItem";
-import {
-  FloorItem,
-  Furniture,
-  FurnitureKind,
-  HandSprite,
-  ItemKind,
-  RoomCanvas,
-  RoomWorker,
-  Rug,
-} from "./RoomSprites";
+import { FurnitureKind, ItemKind, RoomCanvas } from "./RoomSprites";
+import SpriteRenderer from "./sprites/SpriteRenderer";
+import { SpriteEngine } from "./sprites/SpriteEngine";
 
 type Mode = "manual" | "agent";
 type SpotKind = "trash" | "dishes" | "bottles" | "books" | "laundry" | "toys";
 
-type Tone =
-  | "rose"
-  | "sky"
-  | "teal"
-  | "amber"
-  | "violet"
-  | "emerald";
+type Tone = "rose" | "sky" | "teal" | "amber" | "violet" | "emerald";
+
+interface RoomSceneProps {
+  fixedMode?: Mode;
+}
 
 const HOME = { x: 50, y: 52 };
 const TOP_CENTER = { x: 50, y: 0 };
+const HAND_PARK = { x: 50, y: -15 };
 
 // Where each kind of mess belongs, drawn as furniture around the room edge.
 // `furn` picks the furniture sprite, `item` the clutter sprite, `word` the
@@ -76,53 +69,74 @@ function nearest(items: Clutter[], to: { x: number; y: number }): Clutter {
   }, items[0]);
 }
 
-export default function RoomScene() {
+// Translate the React-owned game state into the flat {id,type,x,y} objects the
+// engine draws. The engine never sees React; this is the one bridge.
+function itemsForEngine(list: Clutter[]) {
+  return list.map((it) => ({
+    id: it.id,
+    kind: spotFor(it.kind).item,
+    x: it.xPercent,
+    y: it.yPercent,
+  }));
+}
+
+export default function RoomScene({ fixedMode }: RoomSceneProps = {}) {
   const [items, setItems] = useState<Clutter[]>(initialClutter);
-  const [mode, setMode] = useState<Mode>("manual");
+  const [mode, setMode] = useState<Mode>(fixedMode ?? "manual");
   const [command, setCommand] = useState("");
   const [lastCommand, setLastCommand] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [manualActions, setManualActions] = useState(0);
   const [announcement, setAnnouncement] = useState("");
 
-  const [workerPos, setWorkerPos] = useState(HOME);
-  const [workerState, setWorkerState] = useState<
-    "sitting" | "walking" | "working"
-  >("sitting");
-  const [workerCarry, setWorkerCarry] = useState<ItemKind | null>(null);
-  const [thought, setThought] = useState<string | undefined>();
-
-  const [pointer, setPointer] = useState({
-    x: 50,
-    y: -15,
-    visible: false,
-    carrying: null as ItemKind | null,
-  });
-  const [removingId, setRemovingId] = useState<string | null>(null);
-  const [poof, setPoof] = useState<{ x: number; y: number; key: number } | null>(
-    null,
-  );
-
+  // Engine handle + plain refs. None of these drive renders: worker/hand
+  // movement lives entirely inside the engine's rAF loop (Task 4).
+  const engineRef = useRef<SpriteEngine | null>(null);
   const itemsRef = useRef(items);
   itemsRef.current = items;
+  const modeRef = useRef(mode);
+  modeRef.current = mode;
   const busyRef = useRef(false);
-  const workerPosRef = useRef(workerPos);
-  workerPosRef.current = workerPos;
+  const workerPosRef = useRef(HOME);
 
   const startCount = 7;
   const allClean = items.length === 0;
   const cleared = startCount - items.length;
+  const modeLocked = fixedMode !== undefined;
 
   const removeItem = useCallback((id: string) => {
     setItems((prev) => prev.filter((i) => i.id !== id));
   }, []);
 
-  const showPoof = useCallback((x: number, y: number) => {
-    setPoof({ x, y, key: Date.now() });
+  // One-time engine setup: static scene + initial actor placement.
+  const handleReady = useCallback((engine: SpriteEngine) => {
+    engineRef.current = engine;
+    engine.setRug(HOME.x, HOME.y);
+    engine.setFurniture(
+      Object.values(SPOTS).map((s) => ({
+        kind: s.furn,
+        x: s.x,
+        y: s.y,
+        label: s.label,
+      })),
+    );
+    engine.setItems(itemsForEngine(itemsRef.current));
+    engine.placeActor("worker", HOME.x, HOME.y);
+    engine.setActorLabel("worker", "Agent worker");
+    engine.setActorVisible("worker", modeRef.current === "agent");
+    engine.placeActor("hand", HAND_PARK.x, HAND_PARK.y);
+    engine.setActorVisible("hand", false);
   }, []);
 
+  // Keep the engine's clutter in sync with React state (discrete updates only:
+  // an item is added/removed, never per frame).
+  useEffect(() => {
+    engineRef.current?.setItems(itemsForEngine(items));
+  }, [items]);
+
   const runManualStep = useCallback(async () => {
-    if (busyRef.current) return;
+    const engine = engineRef.current;
+    if (busyRef.current || !engine) return;
     const current = itemsRef.current;
     if (current.length === 0) return;
 
@@ -132,36 +146,28 @@ export default function RoomScene() {
     const item = nearest(current, TOP_CENTER);
     const spot = spotFor(item.kind);
 
-    setPointer({ x: item.xPercent, y: -15, visible: true, carrying: null });
+    engine.setActorCarry("hand", null);
+    engine.placeActor("hand", item.xPercent, HAND_PARK.y);
+    engine.setActorVisible("hand", true);
     await sleep(80);
-    setPointer({
-      x: item.xPercent,
-      y: item.yPercent,
-      visible: true,
-      carrying: null,
-    });
+    engine.moveActor("hand", item.xPercent, item.yPercent, 560);
     await sleep(650);
 
-    setRemovingId(item.id);
-    setPointer((h) => ({ ...h, carrying: spot.item }));
+    engine.setRemoving(item.id);
+    engine.setActorCarry("hand", spot.item);
     await sleep(320);
     removeItem(item.id);
-    setRemovingId(null);
 
-    setPointer({
-      x: spot.x,
-      y: spot.y,
-      visible: true,
-      carrying: spot.item,
-    });
+    engine.moveActor("hand", spot.x, spot.y, 640);
     await sleep(720);
-    setPointer((h) => ({ ...h, carrying: null }));
-    showPoof(spot.x, spot.y);
+    engine.setActorCarry("hand", null);
+    engine.poof(spot.x, spot.y);
     setAnnouncement(`Put the ${spot.word} in the ${spot.label}.`);
     await sleep(320);
 
-    setPointer({ x: spot.x, y: -15, visible: false, carrying: null });
+    engine.moveActor("hand", spot.x, HAND_PARK.y, 460);
     await sleep(520);
+    engine.setActorVisible("hand", false);
 
     setManualActions((n) => n + 1);
     busyRef.current = false;
@@ -169,60 +175,63 @@ export default function RoomScene() {
     if (itemsRef.current.length === 0) {
       setAnnouncement("Room clean. That took several separate submits.");
     }
-  }, [removeItem, showPoof]);
+  }, [removeItem]);
 
   const runAgentLoop = useCallback(async () => {
-    if (busyRef.current) return;
+    const engine = engineRef.current;
+    if (busyRef.current || !engine) return;
     busyRef.current = true;
     setBusy(true);
-    setThought(undefined);
+    engine.setActorThought("worker", null);
 
     while (itemsRef.current.length > 0) {
       const item = nearest(itemsRef.current, workerPosRef.current);
       const spot = spotFor(item.kind);
 
-      setWorkerState("walking");
-      setWorkerPos({ x: item.xPercent, y: item.yPercent });
+      engine.setActorState("worker", "walking");
+      engine.moveActor("worker", item.xPercent, item.yPercent, 600);
+      workerPosRef.current = { x: item.xPercent, y: item.yPercent };
       await sleep(650);
 
-      setWorkerState("working");
-      setRemovingId(item.id);
+      engine.setActorState("worker", "working");
+      engine.setRemoving(item.id);
       await sleep(320);
-      setWorkerCarry(spot.item);
+      engine.setActorCarry("worker", spot.item);
       removeItem(item.id);
-      setRemovingId(null);
 
-      setWorkerState("walking");
-      setWorkerPos({ x: spot.x, y: spot.y });
+      engine.setActorState("worker", "walking");
+      engine.moveActor("worker", spot.x, spot.y, 650);
+      workerPosRef.current = { x: spot.x, y: spot.y };
       await sleep(700);
 
-      setWorkerState("working");
+      engine.setActorState("worker", "working");
       await sleep(300);
-      setWorkerCarry(null);
-      showPoof(spot.x, spot.y);
+      engine.setActorCarry("worker", null);
+      engine.poof(spot.x, spot.y);
       setAnnouncement(`Agent put the ${spot.word} in the ${spot.label}.`);
 
-      setWorkerState("walking");
-      setWorkerPos(HOME);
+      engine.setActorState("worker", "walking");
+      engine.moveActor("worker", HOME.x, HOME.y, 650);
+      workerPosRef.current = HOME;
       await sleep(700);
-      setWorkerState("sitting");
+      engine.setActorState("worker", "sitting");
 
       if (itemsRef.current.length > 0) {
-        setThought("What's next?");
+        engine.setActorThought("worker", "What's next?");
         await sleep(550);
-        setThought(undefined);
+        engine.setActorThought("worker", null);
       }
     }
 
-    setWorkerState("sitting");
-    setWorkerPos(HOME);
-    setThought(undefined);
+    engine.setActorState("worker", "sitting");
+    engine.placeActor("worker", HOME.x, HOME.y);
+    engine.setActorThought("worker", null);
     setAnnouncement(
       "Room clean. The agent reached the goal and stopped itself.",
     );
     busyRef.current = false;
     setBusy(false);
-  }, [removeItem, showPoof]);
+  }, [removeItem]);
 
   const handleSubmit = useCallback(
     (e: React.FormEvent) => {
@@ -240,22 +249,34 @@ export default function RoomScene() {
 
   const reset = useCallback(() => {
     if (busyRef.current) return;
-    setItems(initialClutter());
+    const fresh = initialClutter();
+    setItems(fresh);
     setManualActions(0);
-    setWorkerPos(HOME);
-    setWorkerState("sitting");
-    setWorkerCarry(null);
-    setThought(undefined);
-    setPointer({ x: 50, y: -15, visible: false, carrying: null });
-    setRemovingId(null);
-    setPoof(null);
     setAnnouncement("Room reset.");
+    workerPosRef.current = HOME;
+
+    const engine = engineRef.current;
+    if (engine) {
+      engine.setItems(itemsForEngine(fresh));
+      engine.placeActor("worker", HOME.x, HOME.y);
+      engine.setActorState("worker", "sitting");
+      engine.setActorCarry("worker", null);
+      engine.setActorThought("worker", null);
+      engine.setActorVisible("worker", modeRef.current === "agent");
+      engine.placeActor("hand", HAND_PARK.x, HAND_PARK.y);
+      engine.setActorCarry("hand", null);
+      engine.setActorVisible("hand", false);
+    }
   }, []);
 
   useEffect(() => {
     reset();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode]);
+
+  useEffect(() => {
+    if (fixedMode && mode !== fixedMode) setMode(fixedMode);
+  }, [fixedMode, mode]);
 
   const remaining = items.length;
   const placeholder = useMemo(() => "Type a goal, e.g. tidy the room", []);
@@ -270,28 +291,34 @@ export default function RoomScene() {
         onSubmit={handleSubmit}
         className="flex flex-wrap items-center gap-3 rounded-lg border border-[#474747] bg-[#191919] p-3 shadow-sm"
       >
-        <div
-          className="inline-flex overflow-hidden rounded-md border border-[#474747]"
-          role="group"
-          aria-label="Mode"
-        >
-          {(["manual", "agent"] as Mode[]).map((m) => (
-            <button
-              key={m}
-              type="button"
-              onClick={() => setMode(m)}
-              disabled={busy}
-              aria-pressed={mode === m}
-              className={`px-4 py-2 text-sm font-semibold capitalize transition disabled:cursor-not-allowed ${
-                mode === m
-                  ? "bg-[#3A7CA5] text-[#F7F7F7]"
-                  : "bg-[#0A0A0A] text-zinc-300 enabled:hover:bg-[#474747]/40 disabled:opacity-50"
-              }`}
-            >
-              {m}
-            </button>
-          ))}
-        </div>
+        {modeLocked ? (
+          <div className="rounded-md border border-[#474747] bg-[#0A0A0A] px-4 py-2 text-sm font-semibold text-[#F7F7F7]">
+            {mode === "manual" ? "Manual task" : "Single agent"}
+          </div>
+        ) : (
+          <div
+            className="inline-flex overflow-hidden rounded-md border border-[#474747]"
+            role="group"
+            aria-label="Mode"
+          >
+            {(["manual", "agent"] as Mode[]).map((m) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => setMode(m)}
+                disabled={busy}
+                aria-pressed={mode === m}
+                className={`px-4 py-2 text-sm font-semibold capitalize transition disabled:cursor-not-allowed ${
+                  mode === m
+                    ? "bg-[#3A7CA5] text-[#F7F7F7]"
+                    : "bg-[#0A0A0A] text-zinc-300 enabled:hover:bg-[#474747]/40 disabled:opacity-50"
+                }`}
+              >
+                {m}
+              </button>
+            ))}
+          </div>
+        )}
 
         <input
           value={command}
@@ -351,8 +378,20 @@ export default function RoomScene() {
 
       {mode === "manual" && manualActions >= 3 && remaining > 0 ? (
         <div className="animate-fade-in rounded-lg border border-[#4DAA57]/50 bg-[#4DAA57]/15 px-4 py-2 text-sm text-[#d5f4d8]">
-          Getting repetitive? That is the point. Switch to{" "}
-          <strong>Agent</strong> mode and give the same goal once.
+          Getting repetitive? That is the point.{" "}
+          {modeLocked ? (
+            <>
+              Play the{" "}
+              <Link href="/agent" className="font-semibold underline">
+                Single Agent
+              </Link>{" "}
+              scene and give the same goal once.
+            </>
+          ) : (
+            <>
+              Switch to <strong>Agent</strong> mode and give the same goal once.
+            </>
+          )}
         </div>
       ) : null}
 
@@ -402,73 +441,13 @@ export default function RoomScene() {
           Living room
         </div>
 
-        <Rug x={HOME.x} y={HOME.y} />
+        <SpriteRenderer onReady={handleReady} ariaLabel="Top-down cleaning room" />
 
-        {Object.values(SPOTS).map((spot) => (
-          <Furniture
-            key={spot.label}
-            x={spot.x}
-            y={spot.y}
-            kind={spot.furn}
-            label={spot.label}
-          />
-        ))}
-
-        {items.map((item) => {
-          const spot = spotFor(item.kind);
-          return (
-            <FloorItem
-              key={item.id}
-              x={item.xPercent}
-              y={item.yPercent}
-              item={spot.item}
-              removing={removingId === item.id}
-            />
-          );
-        })}
-
-        {poof ? (
-          <div
-            key={poof.key}
-            className="pointer-events-none absolute z-40 -translate-x-1/2 -translate-y-1/2 animate-poof rounded-full bg-emerald-500 px-2 py-1 text-xs font-bold text-white"
-            style={{ left: `${poof.x}%`, top: `${poof.y}%` }}
-            aria-hidden
-          >
-            done
-          </div>
-        ) : null}
-
+        {/* The worker is painted on the canvas, which is opaque to screen
+            readers; surface its presence as text so assistive tech (and the
+            e2e suite) can tell manual mode from agent mode. */}
         {mode === "agent" ? (
-          <RoomWorker
-            x={workerPos.x}
-            y={workerPos.y}
-            state={workerState}
-            carrying={workerCarry}
-            thought={thought}
-            label="Agent worker"
-          />
-        ) : null}
-
-        {mode === "manual" && pointer.visible ? (
-          <>
-            {pointer.y > 0 ? (
-              <div
-                className="actor-move absolute z-20 w-[3px] -translate-x-1/2 bg-gradient-to-b from-slate-900/0 to-slate-900/40"
-                style={{
-                  left: `${pointer.x}%`,
-                  top: 0,
-                  height: `${pointer.y}%`,
-                }}
-                aria-hidden
-              />
-            ) : null}
-            <div
-              className="actor-move absolute z-30 -translate-x-1/2 -translate-y-2"
-              style={{ left: `${pointer.x}%`, top: `${pointer.y}%` }}
-            >
-              <HandSprite carrying={pointer.carrying} />
-            </div>
-          </>
+          <span className="sr-only">Agent worker is in the room.</span>
         ) : null}
 
         {allClean ? (

@@ -54,7 +54,7 @@ If the correct change requires leaving this scope, stop and explain the smallest
 
 ## Agent Job
 
-Maintain and improve the AI Agent Swarm Demo without changing its purpose: a live presentation tool that teaches non-technical coworkers what an AI agent and an agent swarm are.
+Maintain and improve the AI Agent Swarm game without changing its purpose: a top-down game that teaches the difference between a chat window and an AI agent — players give one instruction and watch the AI drive the workers (pawns). The agreed architecture is "AI plans, engine executes."
 
 Default responsibilities:
 
@@ -94,24 +94,41 @@ Use command results, browser checks, API probes, screenshots, or documented manu
 
 Never claim work is complete unless verification ran. If it could not run, say exactly why and record the gap in `ROADMAP.md`.
 
-## Visual Redesign Guardrails
+## v2.1 Release Context
 
-The active phase is a top-down colony-sim visual redesign (see `BLUEPRINT.md` -> Visual North Star and `ROADMAP.md`). While it runs:
+The current release target is **v2.1**: a five-scene ladder that teaches:
 
-- Preserve teaching behavior before improving visuals: manual = one task per submit, agent = one self-terminating loop, Boss -> zones -> agents, and the human-escalation exit must all still work.
-- Do not rewrite the room/warehouse state machines unless the change strictly requires it; the redesign is visual-layer first.
-- Keep accessible labels and stable selectors so `tests/e2e.mjs` stays reliable. If you change audience-facing wording that a selector depends on, update the test in the same change.
-- Do not introduce new paid services, a database, auth, multiplayer, or extra AI calls; keep the one-call-per-warehouse-run and server-side-key rules intact.
-- Make small visual-layer changes first; reuse shared sprite/tile primitives rather than duplicating scene markup.
-- Prefer geometric top-down props and workers over emoji-first visuals; labels should clarify stations without becoming the main artwork.
-- Keep fixed, responsive scene bounds so labels, workers, paths, and controls do not shift or overlap at laptop/projector sizes.
+1. `/manual` - human does one task per submit.
+2. `/chat` - prompt produces output but does not change room state.
+3. `/agent` - one agent completes the whole room from one goal.
+4. `/team` - one Manager splits work across two Agents.
+5. `/swarm` - Boss, Managers, and Agents plan, execute, report, and absorb live
+   new work.
+
+When touching the release shape, keep `package.json`, `package-lock.json`,
+`README.md`, `BLUEPRINT.md`, `ROADMAP.md`, and `RUNBOOK.md` synchronized. Do not
+deploy to Vercel unless the user explicitly asks for deployment.
+
+## Game Rebuild Guardrails
+
+The active phase is v2.1: canvas sprite engine (done), five-scene ladder (done), Boss authority (done), Manager API + self-correction (done), and live swarm item spawning (done). See `BLUEPRINT.md` and `ROADMAP.md`. While it runs:
+
+- Preserve teaching behavior: manual = one task per submit, agent = one self-terminating loop, Boss -> Managers -> Agents, and the human-escalation exit must all still work. Runs must stay completable and legible.
+- The sprite layer renders on `components/sprites/SpriteEngine.ts`. Keep movement decoupled from React (mutate the engine imperatively; never trigger a React render per animation frame). React state is for discrete events + side panels.
+- PNG sprites are generated, not hand-edited. Change the SVG in `components/RoomSprites.tsx` and re-run `npm run sprites`; canvas PNGs can't be runtime-tinted (only books have pre-baked color variants).
+- AI calls are allowed under "AI plans, engine executes": the Boss makes a real allocation call (authoritative), and each Manager may make one real queue-split call. Keep calls bounded (~1 Boss + 3 Managers per run) and every one fallback-backed; do not add AI calls beyond that plan without approval. Keep the OpenAI key server-side.
+- Preserve warehouse item spawning as a one-at-a-time player action: select a supported palette item, click inside the Living room while the swarm is active, append that one item to the responsible Manager queue, and do not reset the scenario.
+- Preserve Low Power mode for constrained laptops; canvas changes should keep the frame cap/DPR behavior working.
+- Keep accessible labels and stable selectors so `tests/e2e.mjs` stays reliable. If you change audience-facing wording a selector depends on, update the test in the same change.
+- Do not introduce new paid services, a database, auth, or multiplayer.
+- Keep fixed, responsive scene bounds so labels, paths, and controls do not overlap at laptop/projector sizes.
 - Do not copy RimWorld, Focus Friend, or branded character designs or assets.
 
 ## Design Verification
 
 - Behavior-affecting changes: run `npm run lint`, `npm run build`, and `npm run test:e2e` (see `RUNBOOK.md` -> Test And Build).
 - Pure layout/visual changes: use manual browser checks or screenshots.
-- Verify both `/room` and `/warehouse` at projector and laptop sizes before claiming a visual task done; use `RUNBOOK.md` -> Visual QA as the checklist.
+- Verify `/manual`, `/chat`, `/agent`, `/team`, and `/swarm` at projector and laptop sizes before claiming a visual task done; use `RUNBOOK.md` -> Visual QA as the checklist.
 
 ## Day-One Checklist
 
@@ -150,7 +167,7 @@ Keep the response concise. Flag uncertainty instead of hiding it.
 - Do not add paid services unless the user explicitly approves them.
 - Do not expose `OPENAI_API_KEY` or any real environment values to client code, logs, docs, or commits.
 - Do not add a database, multiplayer sync, login, or shared state unless the user explicitly asks.
-- Do not increase the number of real AI calls in a full warehouse run without approval.
+- Do not add real AI calls beyond the approved "AI plans, engine executes" plan (~1 Boss + 3 Managers per run) without approval; keep each call fallback-backed.
 - Do not leave unexplained TODOs or placeholder logic.
 - Do not treat prior session notes or ROADMAP history as current truth without verifying source state.
 - Do not rewrite existing rows in `ROADMAP.md`; only append new rows.

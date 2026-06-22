@@ -1,6 +1,6 @@
 # AI_Agents_Presentation - Roadmap
 
-**Current phase:** v2.1 release cleanup — five-scene ladder split locally; Vercel deployment deferred by user request
+**Current phase:** v2.1 release cleanup — six-mode ladder split locally; Vercel deployment deferred by user request
 **Owner:** Kayden / agent
 
 This is the active work plan. Keep it forward-looking and proof-oriented. Do not use it as a dumping ground for old session history.
@@ -11,12 +11,12 @@ The repo is a Next.js 14 App Router app at **v2.1.0**. The project is now framed
 
 Done so far in the rebuild:
 
-- **v2.1 — five-scene ladder.** Landing page and routes are split into `/manual`, `/chat`, `/agent`, `/team`, and `/swarm`; legacy `/room` and `/warehouse` redirect to the nearest current scene. The docs and E2E suite now treat those five scenes as the durable product shape.
+- **v2.1 — six-mode ladder.** Landing page and routes are split into `/manual`, `/chat`, `/tool-use`, `/agent`, `/team`, and `/swarm`; legacy `/room` and `/warehouse` redirect to the nearest current mode. The docs and E2E suite now treat those six modes as the durable product shape.
 - **Phase 1 — canvas rendering.** The playable scenes render sprite layers on a raw HTML5 `<canvas>` engine (`components/sprites/SpriteEngine.ts` + `SpriteRenderer.tsx` + `spriteManifest.ts`), drawing rasterized PNGs produced by `scripts/rasterize-sprites.mjs` (`npm run sprites`, `sharp`) into `public/assets/sprites/`. Movement is decoupled from React (no per-frame re-renders). CSS shells + DOM panels/overlays sit over the canvas for accessibility. All user-facing copy reframed to "game"/"Scene".
 - **Phase 2 — Boss authority.** `/api/boss-plan` now assigns every mess group to a Manager authoritatively; `buildZones(scenario, assignments)` consumes that mapping so the chosen crew actually does the work. Normalization guarantees full coverage and that every Manager gets work (nobody idle). Verified in-browser: the live model reassigned room bins across crews to balance load, and all 3 managers reported complete.
 - **Phase 3 — Manager authority.** `/api/manager-plan` now lets each Manager split its own assigned jobs across two Agents, with deterministic fallback and visible `Manager AI` / `Manager fallback` badges. Managers also rebalance one queued item when an Agent empties while a sibling is backed up.
-- **Five-scene ladder.** The app now exposes the intended teaching arc as separate playable routes: `/manual` (human does every task), `/chat` (prompt returns output only), `/agent` (one self-terminating agent), `/team` (one Manager + two Agents), and `/swarm` (Boss + Managers + Agents with live item spawning). Legacy `/room` and `/warehouse` redirect to the nearest new route.
-- **Playable swarm alpha loop.** `/swarm` has a supported item palette above the room. The player can arm one item, click the Living room while the swarm is running, see the item drop onto the floor, and watch the responsible Manager add it to a live Agent queue without resetting the house. The final report includes player-added work. A Low Power toggle caps the canvas loop and DPR for constrained laptops.
+- **Six-mode ladder.** The app now exposes the intended teaching arc as separate playable routes: `/manual` (player-as-agent drag game), `/chat` (prompt returns output only), `/tool-use` (one tool action per submit), `/agent` (one self-terminating agent), `/team` (one Manager + two Agents), and `/swarm` (Boss + Managers + Agents with live item spawning). Legacy `/room` and `/warehouse` redirect to the nearest current route.
+- **Playable swarm alpha loop.** `/swarm` has a supported item palette above the room. The player can arm one item, click anywhere inside the house while the swarm is running, see the item drop onto the floor, and watch the responsible Manager add it to a live Agent queue without resetting the house or reselecting the item. The final report includes player-added work. A Low Power toggle caps the canvas loop and DPR for constrained laptops.
 
 Important drift or uncertainty:
 
@@ -32,7 +32,7 @@ Cleanly publish v2.1 to GitHub: document the release across project docs, remove
 Done when:
 
 - release metadata says v2.1.0 in package files and docs;
-- `README.md`, `BLUEPRINT.md`, `ROADMAP.md`, `RUNBOOK.md`, and `AGENTS.md` describe the five-scene v2.1 release consistently;
+- `README.md`, `BLUEPRINT.md`, `ROADMAP.md`, `RUNBOOK.md`, and `AGENTS.md` describe the six-mode v2.1 release consistently;
 - `.DS_Store` and other local generated noise are removed from the worktree;
 - lint, unit tests, build, and E2E pass; no console/page errors in a warm browser run;
 - the v2.1 commit and `v2.1` tag are pushed to GitHub.
@@ -41,7 +41,7 @@ Done when:
 
 1. **Dependency advisory triage** - Revisit after the v2.1 release is pushed. Proof: `npm audit --omit=dev`, selected upgrade path, then lint/build/E2E.
 2. **Public deploy.** Deferred until the user asks for deployment again. When approved, deploy to Vercel, set `OPENAI_API_KEY` and `OPENAI_MODEL`, then smoke-test the public URL from a clean browser.
-3. **Presentation polish pass.** Rehearse all five scenes in order and tighten any copy or spacing that feels unclear in live play. Proof: browser QA at laptop/projector sizes and updated screenshots if needed.
+3. **Presentation polish pass.** Rehearse all six game modes in order and tighten any copy or spacing that feels unclear in live play. Proof: browser QA at laptop/projector sizes and updated screenshots if needed.
 
 ## Blocked Or Deferred
 
@@ -61,7 +61,7 @@ Do not start these until their prerequisite is met.
 - Capture a known-good fallback-only smoke result after local verification.
 - Revisit mobile layout only if the presentation audience needs phone-first use.
 - Add screenshots or short GIFs to the README after the visual redesign lands.
-- Add a dedicated rehearsal/skip control if the five-scene ladder feels too long in live presentation.
+- Add a dedicated rehearsal/skip control if the six-mode ladder feels too long in live presentation.
 
 ## Release Checks
 
@@ -72,10 +72,10 @@ Project-specific release and checkpoint checks:
 - Confirm `.env.local` is not committed and no real OpenAI key appears in source.
 - Confirm a fallback-only run completes when `OPENAI_API_KEY` is absent.
 - For live presentations, confirm the Boss panel shows `real AI decision` after a rehearsal run with a valid key.
-- Confirm all five landing cards navigate to the right scene.
+- Confirm all six landing cards navigate to the right game mode.
 - Confirm the swarm Manager panels show `Manager AI` or `Manager fallback`.
 - Confirm a player-dropped item is included in the final report.
-- Reset all scenes before presenting.
+- Reset all game modes before presenting.
 
 ## Verification Log
 
@@ -104,3 +104,4 @@ Append a row when a task changes durable project state. Use actual results, not 
 | 2026-06-22 | Playable warehouse alpha: added `/api/manager-plan`, shared warehouse rules + unit tests, Manager AI/fallback queue assignment, visible rebalance, item palette, one-at-a-time player item dropping into the Living room, live queue pickup, player-added final-report accounting, and Low Power canvas mode. | `npm run test:unit`; `npx tsc --noEmit`; `npm run lint`; `npm run build`; warm `E2E_BASE=http://localhost:3044 npm run test:e2e` (all checks pass, including Manager badges, live spawned item, final report includes player-added work); screenshot QA at 1440 x 900, 1920 x 1080, and 1366 x 768 Low Power with no horizontal overflow or browser errors | pass | Public Vercel deploy and full five-route scene ladder remain separate next tasks. |
 | 2026-06-22 | Split the teaching arc into five polished playable routes: `/manual`, `/chat`, `/agent`, `/team`, and `/swarm`; kept `/room` and `/warehouse` as redirects; updated docs and E2E coverage. | Red check: updated `tests/e2e.mjs` failed on missing `/manual` item counter (404). Green checks: `npx tsc --noEmit`; `npm run lint`; `npm run test:unit`; `npm run build`; warm `E2E_BASE=http://localhost:3055 npm run test:e2e` (all checks pass); visual QA screenshots at `/tmp/ai-agents-five-scene-qa` for all five routes at 1440 x 900 and 1920 x 1080 with no horizontal overflow, no Next overlay, and no browser errors. | pass | Vercel deployment intentionally not run per user request; dependency advisory triage remains separate. |
 | 2026-06-22 | Prepare v2.1 GitHub release state: bumped package metadata to `2.1.0`, synchronized `README.md`, `BLUEPRINT.md`, `ROADMAP.md`, `RUNBOOK.md`, and `AGENTS.md`, removed local `.DS_Store` noise, and confirmed no real OpenAI/GitHub token patterns were staged. | `git diff --check`; local noise scan; secret-pattern scan (only dependency URL false positive); `npx tsc --noEmit`; `npm run lint`; `npm run test:unit`; `npm run build`; cold `E2E_BASE=http://localhost:3055 npm run test:e2e` passed behavior but hit the known Next dev RSC warning; warm rerun passed all checks with no console errors. | pass | Vercel deployment intentionally not run; dependency advisory triage remains separate. |
+| 2026-06-22 | Add requested v2.1 layer: `/manual` drag game, `/tool-use` one-action tool metaphor, six-mode navigation, warehouse-style `/team`, and repeated anywhere-in-house `/swarm` item drops. | Red check: updated `tests/e2e.mjs` failed on missing `Trash item` in old `/manual`; green checks: `npx tsc --noEmit`; `npm run lint`; `npm run test:unit`; `npm run build`; cold `E2E_BASE=http://localhost:3001 npm run test:e2e` passed all behavior but hit the known Next dev RSC warning; warm rerun passed all checks with no console errors; production visual QA at 1440 x 900 and 1920 x 1080 for `/manual`, `/chat`, `/tool-use`, `/agent`, `/team`, and `/swarm` found no horizontal overflow or Next overlay. | pass | Historical ROADMAP log rows still contain old "pawn"/five-scene wording by design; current docs/routes/tests use six game modes and agent language. |

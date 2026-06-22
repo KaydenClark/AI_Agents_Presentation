@@ -14,19 +14,19 @@ export default function ChatPage() {
           href="/manual"
           className="text-sm font-semibold text-[#1ABCBD] hover:underline"
         >
-          Scene 1: Manual Task
+          Previous mode: Manual Game
         </Link>
         <Link
-          href="/agent"
+          href="/tool-use"
           className="text-sm font-semibold text-[#1ABCBD] hover:underline"
         >
-          Scene 3: Single Agent
+          Next mode: Tool Use
         </Link>
       </nav>
 
       <header>
         <p className="text-sm font-semibold uppercase tracking-widest text-[#1ABCBD]">
-          Scene 2
+          Game mode 2
         </p>
         <h1 className="text-3xl font-bold tracking-tight">Chat Window</h1>
         <p className="mt-2 max-w-3xl text-zinc-300">

@@ -54,7 +54,7 @@ If the correct change requires leaving this scope, stop and explain the smallest
 
 ## Agent Job
 
-Maintain and improve the AI Agent Swarm game without changing its purpose: a top-down game that teaches the difference between a chat window and an AI agent — players give one instruction and watch the AI drive the workers (pawns). The agreed architecture is "AI plans, engine executes."
+Maintain and improve the AI Agent Swarm game without changing its purpose: a top-down game that teaches the difference between a chat window and an AI agent — players give one instruction and watch the AI drive the agents. The agreed architecture is "AI plans, engine executes."
 
 Default responsibilities:
 
@@ -96,13 +96,14 @@ Never claim work is complete unless verification ran. If it could not run, say e
 
 ## v2.1 Release Context
 
-The current release target is **v2.1**: a five-scene ladder that teaches:
+The current release target is **v2.1**: a six-mode ladder that teaches:
 
-1. `/manual` - human does one task per submit.
+1. `/manual` - human plays the agent by dragging items to their destinations.
 2. `/chat` - prompt produces output but does not change room state.
-3. `/agent` - one agent completes the whole room from one goal.
-4. `/team` - one Manager splits work across two Agents.
-5. `/swarm` - Boss, Managers, and Agents plan, execute, report, and absorb live
+3. `/tool-use` - chat uses external tools, one action per submit.
+4. `/agent` - one agent completes the whole room from one goal.
+5. `/team` - one Manager splits work across two Agents.
+6. `/swarm` - Boss, Managers, and Agents plan, execute, report, and absorb live
    new work.
 
 When touching the release shape, keep `package.json`, `package-lock.json`,
@@ -111,24 +112,24 @@ deploy to Vercel unless the user explicitly asks for deployment.
 
 ## Game Rebuild Guardrails
 
-The active phase is v2.1: canvas sprite engine (done), five-scene ladder (done), Boss authority (done), Manager API + self-correction (done), and live swarm item spawning (done). See `BLUEPRINT.md` and `ROADMAP.md`. While it runs:
+The active phase is v2.1: canvas sprite engine (done), six-mode ladder (done), Boss authority (done), Manager API + self-correction (done), and live swarm item spawning (done). See `BLUEPRINT.md` and `ROADMAP.md`. While it runs:
 
-- Preserve teaching behavior: manual = one task per submit, agent = one self-terminating loop, Boss -> Managers -> Agents, and the human-escalation exit must all still work. Runs must stay completable and legible.
+- Preserve teaching behavior: manual drag game = player is the agent, tool use = one action per submit, agent = one self-terminating loop, Boss -> Managers -> Agents, and the human-escalation exit must all still work. Runs must stay completable and legible.
 - The sprite layer renders on `components/sprites/SpriteEngine.ts`. Keep movement decoupled from React (mutate the engine imperatively; never trigger a React render per animation frame). React state is for discrete events + side panels.
 - PNG sprites are generated, not hand-edited. Change the SVG in `components/RoomSprites.tsx` and re-run `npm run sprites`; canvas PNGs can't be runtime-tinted (only books have pre-baked color variants).
 - AI calls are allowed under "AI plans, engine executes": the Boss makes a real allocation call (authoritative), and each Manager may make one real queue-split call. Keep calls bounded (~1 Boss + 3 Managers per run) and every one fallback-backed; do not add AI calls beyond that plan without approval. Keep the OpenAI key server-side.
-- Preserve warehouse item spawning as a one-at-a-time player action: select a supported palette item, click inside the Living room while the swarm is active, append that one item to the responsible Manager queue, and do not reset the scenario.
+- Preserve warehouse item spawning as a repeatable player action: select a supported palette item, click anywhere in the house while the swarm is active, append that item to the responsible Manager queue, keep the item selected for repeated drops, and do not reset the scenario.
 - Preserve Low Power mode for constrained laptops; canvas changes should keep the frame cap/DPR behavior working.
 - Keep accessible labels and stable selectors so `tests/e2e.mjs` stays reliable. If you change audience-facing wording a selector depends on, update the test in the same change.
 - Do not introduce new paid services, a database, auth, or multiplayer.
-- Keep fixed, responsive scene bounds so labels, paths, and controls do not overlap at laptop/projector sizes.
+- Keep fixed, responsive game-mode bounds so labels, paths, and controls do not overlap at laptop/projector sizes.
 - Do not copy RimWorld, Focus Friend, or branded character designs or assets.
 
 ## Design Verification
 
 - Behavior-affecting changes: run `npm run lint`, `npm run build`, and `npm run test:e2e` (see `RUNBOOK.md` -> Test And Build).
 - Pure layout/visual changes: use manual browser checks or screenshots.
-- Verify `/manual`, `/chat`, `/agent`, `/team`, and `/swarm` at projector and laptop sizes before claiming a visual task done; use `RUNBOOK.md` -> Visual QA as the checklist.
+- Verify `/manual`, `/chat`, `/tool-use`, `/agent`, `/team`, and `/swarm` at projector and laptop sizes before claiming a visual task done; use `RUNBOOK.md` -> Visual QA as the checklist.
 
 ## Day-One Checklist
 

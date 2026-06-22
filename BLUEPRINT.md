@@ -1,15 +1,15 @@
 # AI_Agents_Presentation - Blueprint
 
 **Last reviewed:** 2026-06-22
-**Status:** active — v2.1 five-scene ladder release
-**Current release:** v2.1.0 (five-scene ladder + canvas + Boss/Manager authority + live item spawning)
+**Status:** active — v2.1 six-mode ladder release
+**Current release:** v2.1.0 (six-mode ladder + canvas + Boss/Manager authority + live item spawning)
 **Source root:** `/Users/kayden/GPT_OS/Projects/AI_Agents_Presentation`
 
 This is the stable reference for what the project is. Keep it factual, source-backed, and short.
 
 ## What This Project Is
 
-AI_Agents_Presentation is a Next.js **game** that teaches the difference between doing work yourself, typing into a chat window, and delegating to agents. You give one instruction, then watch when a worker, team, or swarm actually takes the controls. It uses five top-down scenes: manual task, chat window, single agent, small team, and swarm house.
+AI_Agents_Presentation is a Next.js **game** that teaches the difference between doing work yourself, typing into a chat window, giving that chat window tools, and delegating to agents. You give one instruction, then watch when an agent, team, or swarm actually takes the controls. It uses six top-down game modes: manual game, chat window, tool use, single agent, small team, and swarm house.
 
 The canvas scenes render their sprite layer on an **HTML5 `<canvas>` engine** (`components/sprites/SpriteEngine.ts`) that draws rasterized PNG sprites in a `requestAnimationFrame` loop, with movement decoupled from React (no per-frame re-renders). The PNGs are produced from the original SVG definitions by an offline pipeline (`scripts/rasterize-sprites.mjs` → `public/assets/sprites/`). CSS room shells and all DOM panels/overlays (forms, logs, legends, aria-live regions) sit over the canvas, preserving accessibility. The front end stays a relatable household-cleaning story — no developer-tool framing (no MCP / computer-use / terminal language).
 
@@ -37,13 +37,14 @@ Note on AI calls: the old v1.2 rule was "at most one real AI call per swarm run"
 
 When the project is working, a user can:
 
-- open the landing page and choose `/manual`, `/chat`, `/agent`, `/team`, or `/swarm`;
-- use `/manual` to experience one input producing exactly one human action;
+- open the landing page and choose `/manual`, `/chat`, `/tool-use`, `/agent`, `/team`, or `/swarm`;
+- use `/manual` as a drag-and-drop game where the player is the agent and places each item where it belongs;
 - use `/chat` to get a helpful text answer while the room state stays unchanged;
+- use `/tool-use` to see the chat window gain external tools while still producing one tool action per Submit;
 - use `/agent` to give one goal to a self-terminating agent loop, rendered on the canvas engine;
-- use `/team` to watch one Manager split a goal across two Agents;
+- use `/team` to watch one Manager in a hallway split work from a left messy room across two Agents in a right work room;
 - use `/swarm` to watch a local mess scenario render, a Boss **really allocate** the work across Managers (the allocation drives which crew does what, and guarantees every Manager contributes), Managers split queues across Agents, Agents work through queues, jams surfaced, and a local final report returned;
-- while `/swarm` is running, pick a supported palette item, click inside the Living room, and drop one new object into the live queue without resetting the run;
+- while `/swarm` is running, pick a supported palette item once, click anywhere in the house repeatedly, and drop new live work without resetting the run;
 - run without an OpenAI key by using deterministic server-side fallback planning.
 
 The most important quality bar is:
@@ -57,15 +58,16 @@ playable mini games instead of being compressed into two levels.
 
 Included:
 
-- `/manual`, `/chat`, `/agent`, `/team`, and `/swarm` as first-class routes.
+- `/manual`, `/chat`, `/tool-use`, `/agent`, `/team`, and `/swarm` as first-class routes.
 - Legacy redirects from `/room` to `/agent` and `/warehouse` to `/swarm`.
-- `RoomScene` reusable in fixed manual or fixed agent mode.
+- `ManualDragGame` for the player-as-agent drag mode.
 - `ChatWindowScene` showing prompt/output without state mutation.
-- `SmallTeamScene` showing one Manager splitting work across two Agents.
+- `RoomScene` reusable in tool-use or fixed agent mode.
+- `SmallTeamScene` showing one Manager splitting work across two Agents in a small warehouse layout.
 - `WarehouseScene` as the full Boss/Manager/Agent swarm with live item drops.
-- `tests/e2e.mjs` updated to drive all five scenes and the swarm escalation path.
+- `tests/e2e.mjs` updated to drive all six game modes and the swarm escalation path.
 - `README.md`, `ROADMAP.md`, `RUNBOOK.md`, and `AGENTS.md` updated to make the
-  five-scene ladder the current source of truth.
+  six-mode ladder the current source of truth.
 
 Not included:
 
@@ -85,14 +87,15 @@ The visual language should feel like a readable operations map, not a decorative
 - high-contrast labels placed outside props when possible, never overlapping motion paths;
 - visible worker movement between named stations, with enough pause time for a live audience to follow the loop.
 
-## Scene Ladder
+## Game Mode Ladder
 
-The five routes form one teaching ladder:
+The six routes form one teaching ladder:
 
 | Route | Lesson | Runtime |
 |---|---|---|
-| `/manual` | Doing the work yourself means one input produces one action. | `RoomScene` locked to manual mode |
+| `/manual` | Doing the work yourself means dragging items to the right destinations. | `ManualDragGame` |
 | `/chat` | Chat output is useful but does not change external state. | `ChatWindowScene` |
+| `/tool-use` | Tool access lets chat affect the sandbox, but still one action at a time. | `RoomScene` locked to manual mode with tool-use labels |
 | `/agent` | A single agent keeps acting until the goal is done, then stops. | `RoomScene` locked to agent mode |
 | `/team` | A Manager can split one goal across two Agents. | `SmallTeamScene` |
 | `/swarm` | A Boss/Manager/Agent hierarchy can plan, execute, rebalance, report, and absorb live new work. | `WarehouseScene` |
@@ -101,7 +104,7 @@ Legacy `/room` and `/warehouse` redirect to `/agent` and `/swarm`.
 
 ## Room Metaphor
 
-The manual and single-agent scenes (`/manual` and `/agent`) are small top-down rooms that a worker tidies:
+The tool-use and single-agent modes (`/tool-use` and `/agent`) are small top-down rooms that an agent tidies:
 
 - a worker stands on a central rug (home base) and returns there between items;
 - clutter is scattered across the floor (socks, cups, cans, books, toys, trash);
@@ -114,9 +117,9 @@ Room layout contract:
 - destination props around the perimeter, each labelled with its name and the item it accepts;
 - a doorway or open wall segment so the room reads as a real top-down space;
 - household clutter scattered on the floor, each item bound for one destination;
-- `/manual` puts one item away per submit; `/agent` clears the whole room from one submit and stops.
+- `/tool-use` puts one item away per submit; `/agent` clears the whole room from one submit and stops.
 
-Front-end metaphor rule: this scene stays a household-cleaning story. Do not reintroduce developer-tool framing (MCP, computer use, browser, terminal, files-as-tools); that direction was tried and rejected.
+Tool-use metaphor rule: `/tool-use` can label destinations as tools (bookshelf skill, sink plugin, laundry/trash/recycle MCPs) because the mode is specifically about chat gaining tool access. `/agent` stays a household-cleaning story so autonomy remains visually obvious.
 
 | Element | Cleaning metaphor |
 |---|---|
@@ -134,7 +137,7 @@ The swarm scene (`/swarm`) is a top-down house being tidied by a team, laid out 
 - the org chart is a strict **1 Boss · 3 Managers · 6 Agents** (10 total). Each of the three worker rooms has one Manager running two Agents in parallel; Managers split the queue so agents don't double-handle an item;
 - chores are multi-step and cross rooms: the Kitchen crew carries dishes (plates, forks, cups) from the living room, washes them at the sink, and puts them in the cupboard; the Laundry crew carries clothes (shirts, socks, towels) to the washer then folds them into the matching basket by type (a tangled load escalates to the Manager, who resolves it); the Office crew shelves books sorted by color; trash that can vs. cannot be recycled appears in every room and is sorted and carried out to the "outside" recycle/landfill bins at the bottom;
 - report paths carry the flow up (Agent -> Manager -> Boss -> Human), with a human-exit marker that lights up on escalation;
-- a supported item palette sits above the room. The player can arm one item, click the Living room, see it fall to the floor, and watch the responsible Manager add it to a live Agent queue.
+- a supported item palette sits above the room. The player can arm one item, click anywhere in the house repeatedly, see each item fall to the floor, and watch the responsible Manager add it to a live Agent queue.
 
 The Boss -> rooms -> agents hierarchy and the human-escalation exit are unchanged. The Boss's OpenAI planning call is now **authoritative** (it decides which crew handles each group; see Core Logic). Agent movement follows per-item waypoint routes, drawn on the canvas engine. The route/scene is branded "Swarm House". A previous small-swarm 3-room version is preserved at `components/templates/ManagerFewAgentsHouse.template.tsx`.
 
@@ -151,7 +154,7 @@ Warehouse layout contract:
 | Layer | Choice | Source / Notes |
 |---|---|---|
 | Runtime | Node.js via Next.js 14 App Router | `package.json`, `app/` |
-| Frontend | React 18 + TypeScript + Tailwind CSS | `app/page.tsx`, five scene routes under `app/`, `components/` |
+| Frontend | React 18 + TypeScript + Tailwind CSS | `app/page.tsx`, six game-mode routes under `app/`, `components/` |
 | Rendering | HTML5 `<canvas>` sprite engine + rAF loop | `components/sprites/SpriteEngine.ts`, `SpriteRenderer.tsx`, `spriteManifest.ts` |
 | Sprite assets | Rasterized PNGs from SVG, generated offline | `scripts/rasterize-sprites.mjs` (`sharp`) → `public/assets/sprites/*` + `sprites.manifest.json` |
 | Backend | Next.js serverless route handlers | `app/api/boss-plan/route.ts`, `app/api/manager-plan/route.ts` |
@@ -181,7 +184,7 @@ Rendering / asset constraints:
 
 ```text
 AI_Agents_Presentation/
-├── app/                 <- Next.js routes, five scene pages, global CSS, and server API routes
+├── app/                 <- Next.js routes, six game-mode pages, global CSS, and server API routes
 ├── components/          <- Scenes, sprite source (RoomSprites.tsx), report/escalation UI
 │   └── sprites/         <- Canvas engine: SpriteEngine.ts, SpriteRenderer.tsx, spriteManifest.ts
 ├── lib/                 <- Shared warehouse rules for palette routing, fallback Manager plans, rebalance helpers
@@ -202,11 +205,12 @@ AI_Agents_Presentation/
 
 | Route or screen | Purpose | Status | Source |
 |---|---|---|---|
-| `/` | Landing page linking to all five scenes | working | `app/page.tsx`, `tests/e2e.mjs` |
-| `/manual` | Human-does-the-task loop, canvas-rendered | working, on canvas engine | `app/manual/page.tsx`, `components/RoomScene.tsx`, `components/sprites/*`, `tests/e2e.mjs` |
+| `/` | Landing page linking to all six game modes | working | `app/page.tsx`, `tests/e2e.mjs` |
+| `/manual` | Player-as-agent drag placement game | working | `app/manual/page.tsx`, `components/ManualDragGame.tsx`, `tests/e2e.mjs` |
 | `/chat` | Prompt/output-only scene; room state does not change | working, on canvas engine | `app/chat/page.tsx`, `components/ChatWindowScene.tsx`, `components/sprites/*`, `tests/e2e.mjs` |
+| `/tool-use` | One-submit, one-tool-action room | working, on canvas engine | `app/tool-use/page.tsx`, `components/RoomScene.tsx`, `components/sprites/*`, `tests/e2e.mjs` |
 | `/agent` | Single-agent self-terminating loop, canvas-rendered | working, on canvas engine | `app/agent/page.tsx`, `components/RoomScene.tsx`, `components/sprites/*`, `tests/e2e.mjs` |
-| `/team` | One Manager + two Agents split and finish one room | working, on canvas engine | `app/team/page.tsx`, `components/SmallTeamScene.tsx`, `components/sprites/*`, `tests/e2e.mjs` |
+| `/team` | One Manager + two Agents split work in a small warehouse layout | working, on canvas engine | `app/team/page.tsx`, `components/SmallTeamScene.tsx`, `components/sprites/*`, `tests/e2e.mjs` |
 | `/swarm` | Boss/Managers/Agents swarm, canvas-rendered; Boss/Manager allocation plus live item spawning | working, on canvas engine | `app/swarm/page.tsx`, `components/WarehouseScene.tsx`, `components/sprites/*`, `tests/e2e.mjs` |
 | `/room` | Legacy redirect | working | `app/room/page.tsx` |
 | `/warehouse` | Legacy redirect | working | `app/warehouse/page.tsx` |
@@ -235,15 +239,16 @@ The core demo logic lives in `components/RoomScene.tsx`, `components/WarehouseSc
 
 Rules:
 
-- `/manual` puts away exactly one clutter item per submit.
+- `/manual` lets the player drag each item to its correct destination.
 - `/chat` can produce a useful answer but must not mutate the room state.
+- `/tool-use` puts away exactly one clutter item per submit.
 - `/agent` clears the full room from one submit and self-terminates when complete.
 - `/team` splits one fixed goal into two Agent queues and reports both complete.
 - The visible nouns are household clutter and cleaning destinations, but the manual and agent loop counts must not change.
 - Warehouse scenario generation creates bounded local mess JSON before the API call.
 - Boss planning's allocation is authoritative: `buildZones(scenario, assignments)` routes each group's jobs to the Manager the Boss assigned it to (default specialty manager only as fallback). Normalization guarantees full coverage (every group assigned once) and that **every Manager gets at least one group** — nobody sits idle.
 - Manager planning is authoritative within each room: `/api/manager-plan` returns job ids per Agent; malformed, missing, or failed responses fall back to deterministic balancing.
-- Player-added items are one-at-a-time palette spawns. They are only accepted while the swarm run is active, must be dropped inside the Living room, and are appended to the responsible Manager's live queue without resetting the scenario.
+- Player-added items are repeatable palette spawns. They are accepted while the swarm run is active, may be dropped anywhere inside the house, and are appended to the responsible Manager's live queue without resetting the scenario or clearing the selected palette item.
 - Routes are workflow-fixed (dishes still go to the kitchen sink); reassigning a group only changes which crew executes it, which reads as the Boss sending help across rooms.
 - Warehouse completion returns a local final report after all zones report complete, including player-added work.
 - Jams must have a visible human-escalation exit point.
@@ -288,10 +293,10 @@ Rules:
 | Use server-side fallback for every AI route. | The audience should never see an API failure during the demo. | API route, reviewed 2026-06-21 |
 | Default model is `gpt-5.4-mini`. | Fast live-demo default with lower cost, configurable through `OPENAI_MODEL`. | API routes, `.env.example`, reviewed 2026-06-20 |
 | Adopt a top-down SVG redesign with a household-cleaning metaphor. | Matches the intended "RimWorld-level clarity" mental model while preserving behavior. | ROADMAP redesign phase, updated 2026-06-21 |
-| Reframe the product from "presentation/demo" to a **game** where the AI drives the pawns. | The teaching lands harder when players watch a real AI take the controls, not a scripted demo. | User direction, 2026-06-21 |
+| Reframe the product from "presentation/demo" to a **game** where the AI drives the agents. | The teaching lands harder when players watch a real AI take the controls, not a scripted demo. | User direction, 2026-06-21 |
 | Migrate sprite rendering from DOM/SVG to an HTML5 `<canvas>` engine fed by rasterized PNGs. | DOM nodes don't scale to many dynamic items; canvas + rAF + React-decoupled movement does. | Phase 1, 2026-06-21 |
 | Adopt **"AI plans, engine executes"** and make the Boss authoritative over allocation. | The AI genuinely decides who does what (and balances load) while deterministic animation keeps runs legible and cheap. Supersedes the old one-call rule. | Phase 2, 2026-06-21 |
-| Split the teaching arc into five scenes for v2.1. | Each comparison now has its own playable mini game, making manual work, chat output, single-agent action, small-team delegation, and swarm behavior easier to rehearse and explain. | v2.1, 2026-06-22 |
+| Split the teaching arc into six game modes for v2.1. | The ladder now separates manual drag work, chat output, tool use, single-agent action, small-team delegation, and swarm behavior. | v2.1, updated 2026-06-22 |
 
 ## Health Criteria
 

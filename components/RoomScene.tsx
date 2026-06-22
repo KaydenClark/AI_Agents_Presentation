@@ -8,12 +8,14 @@ import SpriteRenderer from "./sprites/SpriteRenderer";
 import { SpriteEngine } from "./sprites/SpriteEngine";
 
 type Mode = "manual" | "agent";
+type Presentation = "cleaning" | "tool-use";
 type SpotKind = "trash" | "dishes" | "bottles" | "books" | "laundry" | "toys";
 
 type Tone = "rose" | "sky" | "teal" | "amber" | "violet" | "emerald";
 
 interface RoomSceneProps {
   fixedMode?: Mode;
+  presentation?: Presentation;
 }
 
 const HOME = { x: 50, y: 52 };
@@ -29,22 +31,30 @@ const SPOTS: Record<
     x: number;
     y: number;
     label: string;
+    toolLabel: string;
     word: string;
     furn: FurnitureKind;
     item: ItemKind;
     tone: Tone;
   }
 > = {
-  trash: { x: 50, y: 16, label: "Trash can", word: "trash", furn: "trashcan", item: "trash", tone: "rose" },
-  dishes: { x: 16, y: 24, label: "Kitchen sink", word: "cup", furn: "sink", item: "cup", tone: "sky" },
-  bottles: { x: 84, y: 24, label: "Recycling", word: "can", furn: "recycling", item: "can", tone: "teal" },
-  books: { x: 85, y: 64, label: "Bookshelf", word: "book", furn: "bookshelf", item: "book", tone: "amber" },
-  laundry: { x: 15, y: 66, label: "Laundry hamper", word: "sock", furn: "hamper", item: "sock", tone: "violet" },
-  toys: { x: 50, y: 85, label: "Toy box", word: "toy", furn: "toybox", item: "toy", tone: "emerald" },
+  trash: { x: 50, y: 16, label: "Trash can", toolLabel: "Trash MCP", word: "trash", furn: "trashcan", item: "trash", tone: "rose" },
+  dishes: { x: 16, y: 24, label: "Kitchen sink", toolLabel: "Sink plugin", word: "cup", furn: "sink", item: "cup", tone: "sky" },
+  bottles: { x: 84, y: 24, label: "Recycling", toolLabel: "Recycle MCP", word: "can", furn: "recycling", item: "can", tone: "teal" },
+  books: { x: 85, y: 64, label: "Bookshelf", toolLabel: "Bookshelf skill", word: "book", furn: "bookshelf", item: "book", tone: "amber" },
+  laundry: { x: 15, y: 66, label: "Laundry hamper", toolLabel: "Laundry MCP", word: "sock", furn: "hamper", item: "sock", tone: "violet" },
+  toys: { x: 50, y: 85, label: "Toy box", toolLabel: "Toy tool", word: "toy", furn: "toybox", item: "toy", tone: "emerald" },
 };
 
 function spotFor(kind: ClutterKind) {
   return SPOTS[kind as SpotKind] ?? SPOTS.trash;
+}
+
+function displayLabel(
+  spot: (typeof SPOTS)[SpotKind],
+  presentation: Presentation,
+) {
+  return presentation === "tool-use" ? spot.toolLabel : spot.label;
 }
 
 function initialClutter(): Clutter[] {
@@ -80,7 +90,10 @@ function itemsForEngine(list: Clutter[]) {
   }));
 }
 
-export default function RoomScene({ fixedMode }: RoomSceneProps = {}) {
+export default function RoomScene({
+  fixedMode,
+  presentation = "cleaning",
+}: RoomSceneProps = {}) {
   const [items, setItems] = useState<Clutter[]>(initialClutter);
   const [mode, setMode] = useState<Mode>(fixedMode ?? "manual");
   const [command, setCommand] = useState("");
@@ -117,7 +130,7 @@ export default function RoomScene({ fixedMode }: RoomSceneProps = {}) {
         kind: s.furn,
         x: s.x,
         y: s.y,
-        label: s.label,
+        label: displayLabel(s, presentation),
       })),
     );
     engine.setItems(itemsForEngine(itemsRef.current));
@@ -126,7 +139,7 @@ export default function RoomScene({ fixedMode }: RoomSceneProps = {}) {
     engine.setActorVisible("worker", modeRef.current === "agent");
     engine.placeActor("hand", HAND_PARK.x, HAND_PARK.y);
     engine.setActorVisible("hand", false);
-  }, []);
+  }, [presentation]);
 
   // Keep the engine's clutter in sync with React state (discrete updates only:
   // an item is added/removed, never per frame).
@@ -162,7 +175,9 @@ export default function RoomScene({ fixedMode }: RoomSceneProps = {}) {
     await sleep(720);
     engine.setActorCarry("hand", null);
     engine.poof(spot.x, spot.y);
-    setAnnouncement(`Put the ${spot.word} in the ${spot.label}.`);
+    setAnnouncement(
+      `Put the ${spot.word} in the ${displayLabel(spot, presentation)}.`,
+    );
     await sleep(320);
 
     engine.moveActor("hand", spot.x, HAND_PARK.y, 460);
@@ -175,7 +190,7 @@ export default function RoomScene({ fixedMode }: RoomSceneProps = {}) {
     if (itemsRef.current.length === 0) {
       setAnnouncement("Room clean. That took several separate submits.");
     }
-  }, [removeItem]);
+  }, [presentation, removeItem]);
 
   const runAgentLoop = useCallback(async () => {
     const engine = engineRef.current;
@@ -208,7 +223,12 @@ export default function RoomScene({ fixedMode }: RoomSceneProps = {}) {
       await sleep(300);
       engine.setActorCarry("worker", null);
       engine.poof(spot.x, spot.y);
-      setAnnouncement(`Agent put the ${spot.word} in the ${spot.label}.`);
+      setAnnouncement(
+        `Agent put the ${spot.word} in the ${displayLabel(
+          spot,
+          presentation,
+        )}.`,
+      );
 
       engine.setActorState("worker", "walking");
       engine.moveActor("worker", HOME.x, HOME.y, 650);
@@ -231,7 +251,7 @@ export default function RoomScene({ fixedMode }: RoomSceneProps = {}) {
     );
     busyRef.current = false;
     setBusy(false);
-  }, [removeItem]);
+  }, [presentation, removeItem]);
 
   const handleSubmit = useCallback(
     (e: React.FormEvent) => {
@@ -293,7 +313,11 @@ export default function RoomScene({ fixedMode }: RoomSceneProps = {}) {
       >
         {modeLocked ? (
           <div className="rounded-md border border-[#474747] bg-[#0A0A0A] px-4 py-2 text-sm font-semibold text-[#F7F7F7]">
-            {mode === "manual" ? "Manual task" : "Single agent"}
+            {mode === "manual"
+              ? presentation === "tool-use"
+                ? "Tool use"
+                : "Manual task"
+              : "Single agent"}
           </div>
         ) : (
           <div
@@ -358,9 +382,13 @@ export default function RoomScene({ fixedMode }: RoomSceneProps = {}) {
         </span>
         {mode === "manual" ? (
           <span>
-            <strong className="text-[#F7F7F7]">Manual:</strong> one Submit =
-            one item put away. You must resubmit for every remaining item.
-            Submits so far: <strong>{manualActions}</strong>.
+            <strong className="text-[#F7F7F7]">
+              {presentation === "tool-use" ? "Tool Use:" : "Manual:"}
+            </strong>{" "}
+            one Submit = one{" "}
+            {presentation === "tool-use" ? "tool action" : "item put away"}.
+            You must resubmit for every remaining item. Submits so far:{" "}
+            <strong>{manualActions}</strong>.
           </span>
         ) : (
           <span>
@@ -385,7 +413,7 @@ export default function RoomScene({ fixedMode }: RoomSceneProps = {}) {
               <Link href="/agent" className="font-semibold underline">
                 Single Agent
               </Link>{" "}
-              scene and give the same goal once.
+              game mode and give the same goal once.
             </>
           ) : (
             <>
@@ -428,20 +456,42 @@ export default function RoomScene({ fixedMode }: RoomSceneProps = {}) {
                             : "bg-slate-400"
               }`}
             />
-            {spot.word} {"->"} {spot.label}
+            {spot.word} {"->"} {displayLabel(spot, presentation)}
           </span>
         ))}
       </div>
 
-      <RoomCanvas ariaLabel="Top-down cleaning room">
+      <RoomCanvas
+        ariaLabel={
+          presentation === "tool-use"
+            ? "Top-down tool-use room"
+            : "Top-down cleaning room"
+        }
+      >
         <div
           className="absolute left-1/2 top-2 z-30 -translate-x-1/2 rounded bg-black/45 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white"
           aria-hidden
         >
-          Living room
+          {presentation === "tool-use" ? "Sandbox room" : "Living room"}
         </div>
 
-        <SpriteRenderer onReady={handleReady} ariaLabel="Top-down cleaning room" />
+        {presentation === "tool-use" ? (
+          <div
+            className="pointer-events-none absolute left-1/2 top-[52%] z-30 -translate-x-1/2 rounded bg-black/45 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white"
+            aria-hidden
+          >
+            Harness carpet
+          </div>
+        ) : null}
+
+        <SpriteRenderer
+          onReady={handleReady}
+          ariaLabel={
+            presentation === "tool-use"
+              ? "Top-down tool-use room"
+              : "Top-down cleaning room"
+          }
+        />
 
         {/* The worker is painted on the canvas, which is opaque to screen
             readers; surface its presence as text so assistive tech (and the

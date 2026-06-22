@@ -962,9 +962,8 @@ function localFinalReport(zones: ZoneRuntime[], scenario: Scenario): string {
   return lines.join("\n");
 }
 
-function isInLivingDropZone(x: number, y: number) {
-  const r = ROOMS.LIVING.rect;
-  return x >= r.x + 2 && x <= r.x + r.w - 2 && y >= r.y + 5 && y <= r.y + r.h - 5;
+function isInHouseDropZone(x: number, y: number) {
+  return x >= 4 && x <= 96 && y >= 18 && y <= 95;
 }
 
 function spawnedGroupForPalette(
@@ -1014,7 +1013,7 @@ export default function WarehouseScene() {
   const [showJam, setShowJam] = useState(false);
   const [thinkingStep, setThinkingStep] = useState<string | null>(null);
   const [armedItemId, setArmedItemId] = useState<PaletteItemId | null>(null);
-  const [dropHint, setDropHint] = useState("Pick an item, then click the Living room to add work.");
+  const [dropHint, setDropHint] = useState("Pick an item, then click anywhere in the house to add work.");
   const [lowPower, setLowPower] = useState(false);
 
   const scenarioRef = useRef(scenario);
@@ -1448,8 +1447,8 @@ export default function WarehouseScene() {
         setDropHint("Wait for the current decision step to finish, then drop the item.");
         return;
       }
-      if (!isInLivingDropZone(x, y)) {
-        setDropHint("Drop items inside the Living room so the swarm can see them.");
+      if (!isInHouseDropZone(x, y)) {
+        setDropHint("Drop items inside the house so the swarm can see them.");
         return;
       }
 
@@ -1469,9 +1468,8 @@ export default function WarehouseScene() {
       };
       scenarioRef.current = nextScenario;
       setScenario(nextScenario);
-      setArmedItemId(null);
       setFinalReport(null);
-      setDropHint(`${item.label} dropped. The ${item.managerId.toLowerCase()} Manager added it to the queue.`);
+      setDropHint(`${item.label} dropped. Click again to drop another ${item.label.toLowerCase()}, or pick a different item.`);
 
       engineRef.current?.dropItem(`drop-${seq}`, item.item as ItemKind, x, y);
       await sleep(620);
@@ -1536,7 +1534,7 @@ export default function WarehouseScene() {
     setDecompSource(null);
     setThinkingStep("Scanning the mess...");
     setArmedItemId(null);
-    setDropHint("Pick an item, then click the Living room to add work.");
+    setDropHint("Pick an item, then click anywhere in the house to add work.");
 
     setPhase("deciding");
     setBossNote("Boss is deciding how to split the work...");
@@ -1627,7 +1625,7 @@ export default function WarehouseScene() {
     setDecompSource(null);
     setThinkingStep(null);
     setArmedItemId(null);
-    setDropHint("Pick an item, then click the Living room to add work.");
+    setDropHint("Pick an item, then click anywhere in the house to add work.");
   }, [commit, resyncEngine]);
 
   useEffect(() => {
@@ -1697,8 +1695,8 @@ export default function WarehouseScene() {
           const item = paletteItemById(id);
           setDropHint(
             item
-              ? `${item.label} armed. Click inside the Living room to drop one item.`
-              : "Pick an item, then click the Living room to add work.",
+              ? `${item.label} armed. Click anywhere in the house to keep dropping it.`
+              : "Pick an item, then click anywhere in the house to add work.",
           );
         }}
       />
@@ -1966,7 +1964,7 @@ function ItemPalette({
             Drop one item
           </p>
           <p className="text-sm text-zinc-300">
-            Pick an object, then click the Living room. The swarm keeps working.
+            Pick an object once, then click anywhere in the house as many times as you want.
           </p>
         </div>
         <p className="text-xs text-zinc-500">{hint}</p>

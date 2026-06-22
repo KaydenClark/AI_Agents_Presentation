@@ -7,34 +7,42 @@ import {
   ThoughtIcon,
 } from "@/components/UiIcons";
 
-const scenes = [
+const gameModes = [
   {
     href: "/manual",
-    eyebrow: "Scene 1",
-    title: "Manual Task",
+    eyebrow: "Game mode 1",
+    title: "Manual Game",
     icon: HumanIcon,
     color: "text-[#E0BD3E]",
-    text: "You do the work yourself: one Submit moves one item, then the loop stops and waits for you.",
+    text: "You are the agent: drag each item to the destination where it belongs.",
   },
   {
     href: "/chat",
-    eyebrow: "Scene 2",
+    eyebrow: "Game mode 2",
     title: "Chat Window",
     icon: ThoughtIcon,
     color: "text-[#1ABCBD]",
     text: "You type a prompt and get a useful answer, but the room state does not change.",
   },
   {
+    href: "/tool-use",
+    eyebrow: "Game mode 3",
+    title: "Tool Use",
+    icon: HumanIcon,
+    color: "text-[#885A89]",
+    text: "The chat window can use tools, but one Submit still produces one external action.",
+  },
+  {
     href: "/agent",
-    eyebrow: "Scene 3",
+    eyebrow: "Game mode 4",
     title: "Single Agent",
     icon: AgentIcon,
     color: "text-[#4DAA57]",
-    text: "One goal drives a pawn through every next action until the room is actually clean.",
+    text: "One goal drives an agent through every next action until the room is actually clean.",
   },
   {
     href: "/team",
-    eyebrow: "Scene 4",
+    eyebrow: "Game mode 5",
     title: "Small Team",
     icon: ManagerIcon,
     color: "text-[#CF4F84]",
@@ -42,7 +50,7 @@ const scenes = [
   },
   {
     href: "/swarm",
-    eyebrow: "Scene 5",
+    eyebrow: "Game mode 6",
     title: "Swarm House",
     icon: BossIcon,
     color: "text-[#3A7CA5]",
@@ -61,38 +69,38 @@ export default function LandingPage() {
           Chat window, or AI agent?
         </h1>
         <p className="mt-4 text-lg text-zinc-300">
-          Five short scenes make the ladder visible: doing the task yourself,
-          getting chat output, giving one agent a goal, coordinating a small
-          team, and letting a full swarm adapt live.
+          Six short game modes make the ladder visible: doing the task
+          yourself, getting chat output, using tools, giving one agent a goal,
+          coordinating a small team, and letting a full swarm adapt live.
         </p>
       </header>
 
-      <div className="grid w-full max-w-6xl gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        {scenes.map((scene, index) => {
-          const Icon = scene.icon;
+      <div className="grid w-full max-w-6xl gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {gameModes.map((mode, index) => {
+          const Icon = mode.icon;
           return (
             <Link
-              key={scene.href}
-              href={scene.href}
+              key={mode.href}
+              href={mode.href}
               className="group flex min-h-64 flex-col rounded-lg border border-[#474747] bg-[#191919] p-5 shadow-sm transition hover:-translate-y-1 hover:border-[#3A7CA5] hover:shadow-lg"
             >
               <div className="flex items-start justify-between gap-3">
-                <Icon className={`h-10 w-10 ${scene.color}`} />
+                <Icon className={`h-10 w-10 ${mode.color}`} />
                 <span className="rounded-full border border-[#474747] px-2 py-0.5 text-xs font-bold text-zinc-400">
                   {index + 1}
                 </span>
               </div>
               <p className="mt-5 text-xs font-bold uppercase tracking-wide text-[#1ABCBD]">
-                {scene.eyebrow}
+                {mode.eyebrow}
               </p>
               <h2 className="mt-1 text-xl font-semibold text-[#F7F7F7]">
-                {scene.title}
+                {mode.title}
               </h2>
               <p className="mt-2 flex-1 text-sm leading-6 text-zinc-300">
-                {scene.text}
+                {mode.text}
               </p>
               <span className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-[#1ABCBD] group-hover:gap-3">
-                Play scene
+                Play mode
                 <span aria-hidden>→</span>
               </span>
             </Link>

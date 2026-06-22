@@ -14,25 +14,24 @@ export default function TeamPage() {
           href="/agent"
           className="text-sm font-semibold text-[#1ABCBD] hover:underline"
         >
-          Scene 3: Single Agent
+          Previous mode: Single Agent
         </Link>
         <Link
           href="/swarm"
           className="text-sm font-semibold text-[#1ABCBD] hover:underline"
         >
-          Scene 5: Swarm House
+          Next mode: Swarm House
         </Link>
       </nav>
 
       <header>
         <p className="text-sm font-semibold uppercase tracking-widest text-[#1ABCBD]">
-          Scene 4
+          Game mode 5
         </p>
         <h1 className="text-3xl font-bold tracking-tight">Small Team</h1>
         <p className="mt-2 max-w-3xl text-zinc-300">
-          One Manager receives the goal, splits the work, and coordinates two
-          agents. This is more than one agent, but still small enough to watch
-          every handoff.
+          One Manager stands in the hallway, splits the work, and coordinates
+          two agents in a smaller warehouse-style room.
         </p>
       </header>
 

@@ -2,40 +2,43 @@
 
 A top-down **game** that teaches the difference between a chat window and an
 **AI agent**: you give one instruction, then watch the AI take the controls and
-run the workers (pawns) itself. Five scenes, one app. Drive it live, or let a
+run the agents itself. Six game modes, one app. Drive it live, or let a
 coworker open the URL and play on their own laptop — each browser tab is its own
 isolated session (no database, no login, no shared state).
 
-**Current release:** v2.1.0 (five-scene ladder, canvas sprite engine,
+**Current release:** v2.1.0 (six-mode ladder, canvas sprite engine,
 authoritative Boss planning, Manager queue planning, and live swarm item
 spawning).
 
 ## What v2.1 includes
 
-- Five polished mini games: Manual Task, Chat Window, Single Agent, Small Team,
-  and Swarm House.
+- Six polished mini games: Manual Game, Chat Window, Tool Use, Single Agent,
+  Small Team, and Swarm House.
 - Raw `<canvas>` sprite engine for room, team, and swarm movement, with React
   used only for discrete state and panels.
 - Generated PNG sprite assets committed under `public/assets/sprites/`.
 - Server-side OpenAI Boss and Manager planning routes, each fallback-backed.
-- One-at-a-time live item spawning in the swarm scene.
+- Repeatable live item spawning in the swarm house.
 - Full local verification coverage: lint, unit tests, build, E2E, and visual QA
   at laptop/projector sizes.
 
-- **Scene 1 — Manual Task (`/manual`):** You do the work yourself. One Submit
-  moves one item, then the loop stops and waits for you.
-- **Scene 2 — Chat Window (`/chat`):** You type a prompt and get a useful text
+- **Game mode 1 — Manual Game (`/manual`):** You are the agent. Drag trash to
+  the trash can, the cup to the sink, and the book to the bookshelf.
+- **Game mode 2 — Chat Window (`/chat`):** You type a prompt and get a useful text
   answer, but the room state does not change.
-- **Scene 3 — Single Agent (`/agent`):** One goal drives a pawn through every
+- **Game mode 3 — Tool Use (`/tool-use`):** The chat window gets tools, but one
+  Submit still produces one external tool action. The room is the sandbox, the
+  rug is the harness, and destinations stand in for skills, plugins, and MCPs.
+- **Game mode 4 — Single Agent (`/agent`):** One goal drives an agent through every
   next action until the room is clean, then it stops itself.
-- **Scene 4 — Small Team (`/team`):** One Manager splits a goal across two
-  Agents and returns a team report.
-- **Scene 5 — Swarm House (`/swarm`):** A local mess scenario renders instantly,
+- **Game mode 5 — Small Team (`/team`):** One Manager in a hallway splits a goal
+  across two Agents working from a smaller warehouse-style room.
+- **Game mode 6 — Swarm House (`/swarm`):** A local mess scenario renders instantly,
   then a Boss uses real AI to **allocate** the fixed "Clean the house" goal
   across Managers. Each Manager uses a real/fallback plan to split work across
-  two Agents. While the swarm is running, the player can click a palette item,
-  click the Living room, and drop one new object into the live queue without
-  resetting the run.
+  two Agents. While the swarm is running, the player can select a palette item
+  once, click anywhere in the house repeatedly, and keep adding matching live
+  work without resetting the run.
 
 ## Rendering
 
@@ -48,9 +51,10 @@ SVG definitions by `scripts/rasterize-sprites.mjs` (`npm run sprites`, uses
 (forms, logs, legends, aria-live regions) sit over the canvas, so accessibility
 and the teaching chrome are preserved.
 
-Teaching behavior is explicit: Manual = one submit → one action, Chat = output
-only, Agent = one submit → a self-terminating loop, Team = delegated parallel
-work, Swarm = hierarchy plus live adaptation.
+Teaching behavior is explicit: Manual Game = you move items yourself, Chat =
+output only, Tool Use = one submit → one tool action, Agent = one submit → a
+self-terminating loop, Team = delegated parallel work, Swarm = hierarchy plus
+live adaptation.
 
 ## Tech stack
 
@@ -67,8 +71,8 @@ predictable for a live audience.
 
 | Route                  | When it runs                          | What it does                                        |
 | ---------------------- | ------------------------------------- | --------------------------------------------------- |
-| `/api/boss-plan`       | On Submit in Scene 5 (the centerpiece) | Asks the model to **authoritatively assign every mess group to a Manager** — this drives which crew does the work and balances load so nobody is idle — plus priority, rationale, and escalation notes. |
-| `/api/manager-plan`    | After the Boss allocation in Scene 5    | Each Manager splits work across its own two Agents, with fallback and visible rebalance behavior. |
+| `/api/boss-plan`       | On Submit in Swarm House (the centerpiece) | Asks the model to **authoritatively assign every mess group to a Manager** — this drives which crew does the work and balances load so nobody is idle — plus priority, rationale, and escalation notes. |
+| `/api/manager-plan`    | After the Boss allocation in Swarm House    | Each Manager splits work across its own two Agents, with fallback and visible rebalance behavior. |
 
 The final report is generated locally from the actual completed work. If an AI
 call fails, times out, or returns malformed JSON, the route falls back to
@@ -98,15 +102,16 @@ Open <http://localhost:3000>.
 - `OPENAI_MODEL` — model used for the Boss planning call. Defaults to
   `gpt-5.4-mini` for live-demo speed and cost control.
 
-All five scenes are fully functional locally via `npm run dev`.
+All six game modes are fully functional locally via `npm run dev`.
 
 ## Testing
 
 Unit tests cover the shared swarm planning rules. A real-browser end-to-end
-smoke test drives all five scenes and checks the core behaviors (Manual = one
-task per submit, Chat output leaves state unchanged, Agent self-terminates,
-Small Team splits work across two Agents, Manager plans, live item spawning,
-final report accounting, and the jam → human-escalation exit point).
+smoke test drives all six game modes and checks the core behaviors (Manual Game
+drag placement, Chat output leaves state unchanged, Tool Use = one tool action
+per submit, Agent self-terminates, Small Team splits work across two Agents,
+Manager plans, repeated live item spawning, final report accounting, and the jam
+→ human-escalation exit point).
 It uses Playwright.
 
 ```bash
@@ -160,35 +165,41 @@ requested.
 The result is a public URL reachable from any browser in the US or Mexico — no
 VPN, no login required by default.
 
-## Run-of-show (presenting the five-scene ladder)
+## Run-of-show (presenting the six-mode ladder)
 
 **Before you start:** open the local or production URL, confirm the Boss panel
 shows `real AI decision` after a test run when a key is configured, then Reset.
 
-**Scene 1 — Manual Task (~1 min)**
+**Game mode 1 — Manual Game (~1 min)**
 
-1. Go to `/manual`. Type `tidy the room`, hit Submit.
-2. Point out that one item moved and the system stopped. Submit a few more
-   times so the repetition is obvious.
+1. Go to `/manual`.
+2. Drag the trash to the trash can, the cup to the sink, and the book to the
+   bookshelf. Point out that you are acting as the agent.
 
-**Scene 2 — Chat Window (~1 min)**
+**Game mode 2 — Chat Window (~1 min)**
 
 1. Go to `/chat`. Submit the same prompt.
 2. Read the plan, then point to the unchanged item counter: output is not action.
 
-**Scene 3 — Single Agent (~2 min)**
+**Game mode 3 — Tool Use (~1 min)**
+
+1. Go to `/tool-use`. Submit `tidy the room`.
+2. Point out that the sandbox has tools now, but one submit still calls one
+   tool action. The chat window has help, not autonomy.
+
+**Game mode 4 — Single Agent (~2 min)**
 
 1. Go to `/agent`. Submit `tidy the room` once.
-2. Let the pawn choose the next item, move it, return home, and repeat until
+2. Let the agent choose the next item, move it, return home, and repeat until
    "Room clean!" appears. This is the self-finishing loop.
 
-**Scene 4 — Small Team (~2 min)**
+**Game mode 5 — Small Team (~2 min)**
 
 1. Go to `/team`. Submit once.
-2. The Manager splits the room across Agent A and Agent B. Let both finish and
-   read the team report.
+2. The Manager in the hallway splits the left messy room across Agent A and
+   Agent B in the right work room. Let both finish and read the team report.
 
-**Scene 5 — Swarm House (~4 min)**
+**Game mode 6 — Swarm House (~4 min)**
 
 1. Go to `/swarm`. Note the facility map: Boss office, manager rooms, work
    cells, report paths, and escalation markers.
@@ -198,9 +209,9 @@ shows `real AI decision` after a test run when a key is configured, then Reset.
 3. Open the Boss decision dropdown. The per-manager assignments and rationale
    appear. Managers light up, Agents start clearing, and the review log fills —
    *"The Manager is auditing every item."*
-4. Pick **Plate** from the item palette, then click inside the Living room. One
-   plate drops onto the floor, the Kitchen Manager adds it to a live Agent
-   queue, and the swarm keeps moving without a reset.
+4. Pick **Plate** from the item palette, then click anywhere in the house a few
+   times. Each plate drops onto the floor, the Kitchen Manager adds it to a live
+   Agent queue, and the swarm keeps moving without a reset or reselection.
 5. Point out a Manager resolving or rebalancing work: *"A Manager can handle most problems
    without bothering anyone up the chain."*
 6. **(Optional)** Tick **Presenter tools** and click a zone's **Jam** button
@@ -231,20 +242,22 @@ badge.
 
 ```
 app/
-  page.tsx                     Landing page (five-scene ladder)
-  manual/page.tsx              Scene 1
-  chat/page.tsx                Scene 2
-  agent/page.tsx               Scene 3
-  team/page.tsx                Scene 4
-  swarm/page.tsx               Scene 5
+  page.tsx                     Landing page (six-mode ladder)
+  manual/page.tsx              Manual Game
+  chat/page.tsx                Chat Window
+  tool-use/page.tsx            Tool Use
+  agent/page.tsx               Single Agent
+  team/page.tsx                Small Team
+  swarm/page.tsx               Swarm House
   room/page.tsx                Legacy redirect to /agent
   warehouse/page.tsx           Legacy redirect to /swarm
   api/boss-plan/route.ts       Real OpenAI call — authoritative Boss allocation (+ fallback)
   api/manager-plan/route.ts    Real OpenAI call — Manager queue split (+ fallback)
 components/
-  RoomScene.tsx                Manual and single-agent logic + choreography
-  ChatWindowScene.tsx          Prompt/output-only scene
-  SmallTeamScene.tsx           One Manager + two Agents scene
+  ManualDragGame.tsx           Manual drag-and-drop placement game
+  RoomScene.tsx                Tool-use and single-agent logic + choreography
+  ChatWindowScene.tsx          Prompt/output-only mode
+  SmallTeamScene.tsx           One Manager + two Agents mode
   WarehouseScene.tsx           Swarm orchestration (drives the canvas engine)
   RoomSprites.tsx              SVG sprite definitions — source of truth for the rasterizer
   sprites/

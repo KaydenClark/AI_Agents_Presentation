@@ -26,7 +26,7 @@ Required local files:
 
 Current release:
 
-- v2.1.0 is the five-scene ladder release.
+- v2.1.0 is the six-mode ladder release.
 - Local play and GitHub publication are in scope for v2.1.
 - Vercel deployment is intentionally separate and should only happen after a
   fresh explicit request.
@@ -73,19 +73,21 @@ Open:
 - `http://localhost:3000`
 - `http://localhost:3000/manual`
 - `http://localhost:3000/chat`
+- `http://localhost:3000/tool-use`
 - `http://localhost:3000/agent`
 - `http://localhost:3000/team`
 - `http://localhost:3000/swarm`
 
 Expected result:
 
-- Landing page links to all five scenes.
-- `/manual` clears one item per Submit.
+- Landing page links to all six game modes.
+- `/manual` lets the player drag each item to its destination.
 - `/chat` returns text output without changing the room state.
+- `/tool-use` clears one item per Submit using the tool-use metaphor.
 - `/agent` clears the full room from one Submit and stops.
-- `/team` splits work across two Agents and returns a team report.
+- `/team` splits work across two Agents in a smaller warehouse-style layout and returns a team report.
 - `/swarm` runs with either `real AI decision` / `Manager AI` when a valid key is configured or fallback badges when not.
-- In `/swarm`, click Submit before using the item palette. Then pick one item and click inside the Living room to drop new live work.
+- In `/swarm`, click Submit before using the item palette. Then pick one item and click anywhere in the house repeatedly to drop new live work.
 
 ## Sprite Assets
 
@@ -160,6 +162,7 @@ Check these URLs:
 
 - `http://localhost:3000/manual`
 - `http://localhost:3000/chat`
+- `http://localhost:3000/tool-use`
 - `http://localhost:3000/agent`
 - `http://localhost:3000/team`
 - `http://localhost:3000/swarm`
@@ -174,12 +177,13 @@ Viewport checks:
 
 Top-down redesign checks:
 
-- `/manual` reads as a room and demonstrates Manual = one item per submit.
+- `/manual` reads as a room and demonstrates Manual Game = player drags items to destinations.
 - `/chat` reads as a prompt/output scene and leaves the item counter unchanged after Submit.
+- `/tool-use` reads as a sandbox/tool room and demonstrates one tool action per Submit.
 - `/agent` reads as a room and demonstrates one self-terminating loop.
-- `/team` shows one Manager, two Agents, split queues, and a final team report.
+- `/team` shows a left messy room, hallway Manager, right agent work room, split queues, and a final team report.
 - `/swarm` reads as one facility: boss hub, manager rooms, agent work zones, paths, reports, and escalation markers are visible.
-- `/swarm` shows the item palette; after Submit, selecting a palette item and clicking inside the Living room drops one item, routes it to the responsible Manager, and includes it in the final report.
+- `/swarm` shows the item palette; after Submit, selecting a palette item and clicking anywhere in the house drops repeated items, routes them to the responsible Manager, and includes them in the final report.
 - The Low Power checkbox caps the canvas loop for older laptops and should not blank the sprite layer.
 - Labels do not overlap props, workers, controls, report panels, or each other.
 - Motion is clear enough to follow without reading the code or console.
@@ -226,7 +230,7 @@ Expected healthy state:
 | Symptom | Likely cause | Check | Fix |
 |---|---|---|---|
 | Warehouse shows `fallback decision` or `Manager fallback` | Missing key, OpenAI failure, timeout, or malformed response | Check server console for `[boss-plan] falling back:` or `[manager-plan] falling back:` | Add/fix `OPENAI_API_KEY`, lower latency, or accept fallback for dry run. |
-| Dropped item does not spawn | The swarm has not started, the Boss is still deciding, or the click was outside the Living room | Check the item-palette hint text | Click Submit first, wait for Manager panels, then drop inside the Living room. |
+| Dropped item does not spawn | The swarm has not started, the Boss is still deciding, or the click was outside the house | Check the item-palette hint text | Click Submit first, wait for Manager panels, then drop inside the house. |
 | Low Power scene looks blank | Canvas was resized/toggled before the sprite layer repainted | Wait briefly, then rerun Visual QA; current engine repaints on resize/toggle | If it persists, inspect `SpriteEngine.setLowPower` and image preload state. |
 | `npm run test:e2e` cannot connect | Dev server is not running or base URL differs | `curl http://localhost:3000` or check terminal running `npm run dev` | Start server or set `E2E_BASE`. |
 | Playwright complains browser is missing | Chromium has not been installed locally | `npx playwright install chromium` | Install Chromium and rerun the E2E test. |

@@ -109,7 +109,7 @@ export default function ChatWindowScene() {
                 toys.
               </p>
               <p className="font-semibold text-[#f1d977]">
-                Output delivered. No pawn took control.
+                Output delivered. No agent took control.
               </p>
             </div>
           ) : (

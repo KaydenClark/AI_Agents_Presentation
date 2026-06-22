@@ -1,4 +1,4 @@
-// End-to-end smoke test for both scenes, driven with a real browser.
+// End-to-end smoke test for the game modes, driven with a real browser.
 //
 //   1. npm run dev                       # serves on :3000
 //   2. npx playwright install chromium   # one-time, downloads the browser
@@ -64,24 +64,69 @@ async function run() {
 
   // ---------- Landing ----------
   await page.goto(BASE, { waitUntil: "networkidle" });
-  check("Landing has all five ladder links",
-    (await page.getByRole("link", { name: /Manual Task/i }).count()) > 0 &&
+  check("Landing has all six game mode links",
+    (await page.getByRole("link", { name: /Manual Game/i }).count()) > 0 &&
     (await page.getByRole("link", { name: /Chat Window/i }).count()) > 0 &&
+    (await page.getByRole("link", { name: /Tool Use/i }).count()) > 0 &&
     (await page.getByRole("link", { name: /Single Agent/i }).count()) > 0 &&
     (await page.getByRole("link", { name: /Small Team/i }).count()) > 0 &&
     (await page.getByRole("link", { name: /Swarm House/i }).count()) > 0);
 
-  // ---------- Scene 1: Manual ----------
+  // ---------- Mode 1: Manual Game ----------
   await page.goto(`${BASE}/manual`, { waitUntil: "networkidle" });
   await page.waitForTimeout(400);
 
-  const startCount = await itemsLeft(page);
-  check("Room starts with 6-8 messes", startCount >= 6 && startCount <= 8, `got ${startCount}`);
-  check("Room shows top-down cleaning room",
-    (await page.getByLabel(/Top-down cleaning room/i).count()) > 0 &&
+  check("Manual Game shows a drag task list with destinations",
+    (await page.getByText(/Trash -> Trash can/i).count()) > 0 &&
+    (await page.getByText(/Cup -> Sink/i).count()) > 0 &&
+    (await page.getByText(/Book -> Bookshelf/i).count()) > 0);
+  check("Manual Game shows top-down sandbox room",
+    (await page.getByLabel(/Manual drag sandbox/i).count()) > 0 &&
     (await page.getByText(/Trash can/i).count()) > 0 &&
-    (await page.getByText(/Laundry hamper/i).count()) > 0);
-  check("Manual mode: no agent worker present",
+    (await page.getByText(/Bookshelf/i).count()) > 0);
+  check("Manual Game: no agent worker present",
+    (await page.getByText(/Agent worker/i).count()) === 0);
+
+  const manualMoves = [
+    ["Trash", "Trash can"],
+    ["Cup", "Sink"],
+    ["Book", "Bookshelf"],
+  ];
+  for (const [item, dest] of manualMoves) {
+    await page.getByRole("button", { name: new RegExp(`^${item} item`, "i") }).click();
+    await page.getByRole("button", { name: new RegExp(`^${dest} destination`, "i") }).click();
+  }
+  check("Manual Game: player can put every item where it belongs",
+    (await page.getByText(/Manual room complete/i).count()) > 0);
+
+  await page.getByRole("button", { name: /Reset/i }).click();
+  await page.waitForTimeout(200);
+  check("Manual Game: Reset restores three draggable items",
+    (await page.getByText(/3 jobs left/i).count()) > 0);
+
+  // ---------- Mode 2: Chat Window ----------
+  await page.goto(`${BASE}/chat`, { waitUntil: "networkidle" });
+  await page.waitForTimeout(300);
+  const chatStartCount = await itemsLeft(page);
+  await page.getByLabel(/Prompt/i).fill("tidy the room");
+  await page.getByRole("button", { name: "Submit" }).click();
+  check("Chat: produces an answer",
+    (await page.getByText(/Here is a plan/i).count()) > 0);
+  check("Chat: room state does not change from output alone",
+    (await itemsLeft(page)) === chatStartCount,
+    `started ${chatStartCount}, now ${await itemsLeft(page)}`);
+
+  // ---------- Mode 3: Tool Use ----------
+  await page.goto(`${BASE}/tool-use`, { waitUntil: "networkidle" });
+  await page.waitForTimeout(400);
+
+  const startCount = await itemsLeft(page);
+  check("Tool Use starts with 6-8 messes", startCount >= 6 && startCount <= 8, `got ${startCount}`);
+  check("Tool Use shows top-down tool room",
+    (await page.getByLabel(/Top-down tool-use room/i).count()) > 0 &&
+    (await page.getByText(/Bookshelf skill/i).count()) > 0 &&
+    (await page.getByText(/Sink plugin/i).count()) > 0);
+  check("Tool Use: no agent worker present",
     (await page.getByText(/Agent worker/i).count()) === 0);
 
   let prev = startCount;
@@ -95,40 +140,28 @@ async function run() {
     if (now !== prev - 1) stepBugs++;
     prev = now;
   }
-  check("Manual: each submit clears exactly one item (no double-processing)", stepBugs === 0, `${stepBugs} anomalies`);
-  check("Manual: room reaches 0 items", prev === 0, `ended at ${prev}`);
-  check("Manual: 'Room clean' indicator appears",
+  check("Tool Use: each submit clears exactly one item (no double-processing)", stepBugs === 0, `${stepBugs} anomalies`);
+  check("Tool Use: room reaches 0 items", prev === 0, `ended at ${prev}`);
+  check("Tool Use: 'Room clean' indicator appears",
     (await page.getByText(/Room clean/i).count()) > 0);
-  check("Manual: progress bar reads done",
+  check("Tool Use: progress bar reads done",
     (await page.getByText(new RegExp(`${startCount}/${startCount} done`)).count()) > 0);
-  check("Manual: submit disabled when all tasks are done",
+  check("Tool Use: submit disabled when all tasks are done",
     await page.getByRole("button", { name: "Submit" }).isDisabled());
 
   await page.getByRole("button", { name: /Reset room/i }).click();
   await page.waitForTimeout(300);
-  check("Manual: Reset restocks the room", (await itemsLeft(page)) === startCount);
+  check("Tool Use: Reset restocks the room", (await itemsLeft(page)) === startCount);
 
   // Repetition nudge appears after a few manual submits.
   for (let i = 0; i < 3; i++) {
     await page.getByRole("button", { name: "Submit" }).click();
     await waitIdleOrClean(page);
   }
-  check("Manual: nudge to try Agent mode appears after repeated submits",
+  check("Tool Use: nudge to try Agent mode appears after repeated submits",
     (await page.getByText(/Getting repetitive/i).count()) > 0);
 
-  // ---------- Scene 2: Chat Window ----------
-  await page.goto(`${BASE}/chat`, { waitUntil: "networkidle" });
-  await page.waitForTimeout(300);
-  const chatStartCount = await itemsLeft(page);
-  await page.getByLabel(/Prompt/i).fill("tidy the room");
-  await page.getByRole("button", { name: "Submit" }).click();
-  check("Chat: produces an answer",
-    (await page.getByText(/Here is a plan/i).count()) > 0);
-  check("Chat: room state does not change from output alone",
-    (await itemsLeft(page)) === chatStartCount,
-    `started ${chatStartCount}, now ${await itemsLeft(page)}`);
-
-  // ---------- Scene 3: Single Agent ----------
+  // ---------- Mode 4: Single Agent ----------
   await page.goto(`${BASE}/agent`, { waitUntil: "networkidle" });
   await page.waitForTimeout(500);
   check("Agent: starts with a full room", (await itemsLeft(page)) === startCount);
@@ -148,7 +181,7 @@ async function run() {
   check("Agent: loop self-terminates (submit disabled at end)",
     await page.getByRole("button", { name: "Submit" }).isDisabled());
 
-  // ---------- Scene 1: mode toggle locked while busy ----------
+  // ---------- Mode 4: route controls locked while busy ----------
   await page.getByRole("button", { name: /Reset room/i }).click();
   await page.waitForTimeout(300);
   await page.getByRole("button", { name: "Submit" }).click();
@@ -167,7 +200,7 @@ async function run() {
   }
   check("Agent: locked busy run still completes", lockRunCleared);
 
-  // ---------- Scene 4: Small Team ----------
+  // ---------- Mode 5: Small Team ----------
   await page.goto(`${BASE}/team`, { waitUntil: "networkidle" });
   await page.waitForTimeout(400);
   check("Team shows manager and two agents",
@@ -184,8 +217,12 @@ async function run() {
   check("Team: both agents report complete",
     (await page.getByText(/Agent [AB]: complete/i).count()) === 2,
     `${await page.getByText(/Agent [AB]: complete/i).count()} agents`);
+  check("Team uses warehouse-style left mess, hallway manager, right agent room",
+    (await page.getByText(/Messy room/i).count()) > 0 &&
+    (await page.getByText(/Manager hallway/i).count()) > 0 &&
+    (await page.getByText(/Agent work room/i).count()) > 0);
 
-  // ---------- Scene 5: Swarm ----------
+  // ---------- Mode 6: Swarm ----------
   await page.goto(`${BASE}/swarm`, { waitUntil: "networkidle" });
   await page.waitForTimeout(400);
   check("Warehouse shows top-down facility map",
@@ -225,7 +262,20 @@ async function run() {
     if (spawnedWork) break;
     await sleep(250);
   }
-  check("Warehouse: player can spawn one palette item into the live room", spawnedWork);
+  check("Warehouse: player can spawn one palette item into the live house", spawnedWork);
+  if (box) {
+    await map.click({
+      position: { x: box.width * 0.35, y: box.height * 0.62 },
+    });
+  }
+  let secondSpawnedWork = false;
+  const secondSpawnStart = Date.now();
+  while (Date.now() - secondSpawnStart < 12000) {
+    secondSpawnedWork = (await page.getByText(/Player dropped a plate/i).count()) >= 2;
+    if (secondSpawnedWork) break;
+    await sleep(250);
+  }
+  check("Warehouse: selected palette item stays armed for repeated drops", secondSpawnedWork);
 
   const whStart = Date.now();
   let finalReport = false;

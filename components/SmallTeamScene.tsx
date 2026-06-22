@@ -19,17 +19,17 @@ interface TeamTask {
 }
 
 const HOME: Record<AgentId, { x: number; y: number }> = {
-  A: { x: 42, y: 55 },
-  B: { x: 58, y: 55 },
+  A: { x: 69, y: 58 },
+  B: { x: 82, y: 58 },
 };
 
 const TASKS: TeamTask[] = [
-  { id: "team-cup", agent: "A", kind: "cup", label: "cup", x: 32, y: 38, dest: { x: 16, y: 24, label: "Kitchen sink" } },
-  { id: "team-book", agent: "A", kind: "book", label: "book", x: 46, y: 65, dest: { x: 85, y: 64, label: "Bookshelf" } },
-  { id: "team-trash", agent: "A", kind: "trash", label: "trash", x: 40, y: 31, dest: { x: 50, y: 16, label: "Trash can" } },
-  { id: "team-sock", agent: "B", kind: "sock", label: "sock", x: 63, y: 42, dest: { x: 15, y: 66, label: "Laundry hamper" } },
-  { id: "team-can", agent: "B", kind: "can", label: "can", x: 66, y: 32, dest: { x: 84, y: 24, label: "Recycling" } },
-  { id: "team-toy", agent: "B", kind: "toy", label: "toy", x: 60, y: 68, dest: { x: 50, y: 85, label: "Toy box" } },
+  { id: "team-cup", agent: "A", kind: "cup", label: "cup", x: 22, y: 39, dest: { x: 66, y: 35, label: "Kitchen sink" } },
+  { id: "team-book", agent: "A", kind: "book", label: "book", x: 34, y: 65, dest: { x: 88, y: 42, label: "Bookshelf" } },
+  { id: "team-trash", agent: "A", kind: "trash", label: "trash", x: 30, y: 31, dest: { x: 76, y: 32, label: "Trash can" } },
+  { id: "team-sock", agent: "B", kind: "sock", label: "sock", x: 16, y: 60, dest: { x: 66, y: 78, label: "Laundry hamper" } },
+  { id: "team-can", agent: "B", kind: "can", label: "can", x: 34, y: 48, dest: { x: 86, y: 76, label: "Recycling" } },
+  { id: "team-toy", agent: "B", kind: "toy", label: "toy", x: 23, y: 72, dest: { x: 76, y: 78, label: "Toy box" } },
 ];
 
 const FURNITURE: {
@@ -38,12 +38,12 @@ const FURNITURE: {
   y: number;
   label: string;
 }[] = [
-  { kind: "trashcan", x: 50, y: 16, label: "Trash can" },
-  { kind: "sink", x: 16, y: 24, label: "Kitchen sink" },
-  { kind: "recycling", x: 84, y: 24, label: "Recycling" },
-  { kind: "bookshelf", x: 85, y: 64, label: "Bookshelf" },
-  { kind: "hamper", x: 15, y: 66, label: "Laundry hamper" },
-  { kind: "toybox", x: 50, y: 85, label: "Toy box" },
+  { kind: "trashcan", x: 76, y: 32, label: "Trash can" },
+  { kind: "sink", x: 66, y: 35, label: "Kitchen sink" },
+  { kind: "bookshelf", x: 88, y: 42, label: "Bookshelf" },
+  { kind: "hamper", x: 66, y: 78, label: "Laundry hamper" },
+  { kind: "recycling", x: 86, y: 76, label: "Recycling" },
+  { kind: "toybox", x: 76, y: 78, label: "Toy box" },
 ];
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -78,7 +78,7 @@ export default function SmallTeamScene() {
     engine.setItems(itemsForEngine(TASKS));
     engine.setPaths([]);
     engine.setActors([
-      { id: "manager", x: 50, y: 36, label: "Manager", state: "idle", scale: 0.95 },
+      { id: "manager", x: 50, y: 20, label: "Manager", state: "idle", scale: 0.95 },
       { id: "agent-a", x: HOME.A.x, y: HOME.A.y, label: "Agent A", state: "idle", scale: 0.9 },
       { id: "agent-b", x: HOME.B.x, y: HOME.B.y, label: "Agent B", state: "idle", scale: 0.9 },
     ]);
@@ -166,8 +166,8 @@ export default function SmallTeamScene() {
     engine?.setActorState("manager", "working");
     engine?.setActorThought("manager", "Split by nearest stations");
     engine?.setPaths([
-      { x1: HOME.A.x, y1: HOME.A.y, x2: 50, y2: 36, active: true },
-      { x1: HOME.B.x, y1: HOME.B.y, x2: 50, y2: 36, active: true },
+      { x1: HOME.A.x, y1: HOME.A.y, x2: 50, y2: 20, active: true },
+      { x1: HOME.B.x, y1: HOME.B.y, x2: 50, y2: 20, active: true },
     ]);
     await sleep(900);
 
@@ -228,16 +228,40 @@ export default function SmallTeamScene() {
       </form>
 
       <div className="grid gap-4 lg:grid-cols-[1.35fr_0.65fr]">
-        <RoomCanvas ariaLabel="Top-down small team room">
+        <RoomCanvas ariaLabel="Top-down small team warehouse">
           <div
-            className="absolute left-1/2 top-2 z-30 -translate-x-1/2 rounded bg-black/45 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white"
+            className="absolute left-[8%] top-[24%] z-10 h-[60%] w-[34%] rounded-md border-4 border-[#8d8a82] bg-[#8f6541]/30"
+            aria-hidden
+          />
+          <div
+            className="absolute left-[46%] top-[18%] z-10 h-[68%] w-[8%] rounded-md border-2 border-[#8d8a82] bg-black/15"
+            aria-hidden
+          />
+          <div
+            className="absolute left-[58%] top-[24%] z-10 h-[60%] w-[34%] rounded-md border-4 border-[#8d8a82] bg-[#6e7f91]/25"
+            aria-hidden
+          />
+          <div
+            className="absolute left-[25%] top-[26%] z-30 -translate-x-1/2 rounded bg-black/55 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white"
             aria-hidden
           >
-            Small team room
+            Messy room
+          </div>
+          <div
+            className="absolute left-1/2 top-[14%] z-30 -translate-x-1/2 rounded bg-black/55 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white"
+            aria-hidden
+          >
+            Manager hallway
+          </div>
+          <div
+            className="absolute left-[75%] top-[26%] z-30 -translate-x-1/2 rounded bg-black/55 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white"
+            aria-hidden
+          >
+            Agent work room
           </div>
           <SpriteRenderer
             onReady={handleReady}
-            ariaLabel="Top-down small team room"
+            ariaLabel="Top-down small team warehouse"
           />
           <div className="absolute left-3 top-3 z-40 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-slate-600 shadow">
             {remaining.length} item{remaining.length === 1 ? "" : "s"} left

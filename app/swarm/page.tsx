@@ -15,7 +15,7 @@ export default function SwarmPage() {
           href="/team"
           className="text-sm font-semibold text-[#1ABCBD] hover:underline"
         >
-          Scene 4: Small Team
+          Previous mode: Small Team
         </Link>
         <Link
           href="/"
@@ -27,15 +27,15 @@ export default function SwarmPage() {
 
       <header>
         <p className="text-sm font-semibold uppercase tracking-widest text-[#1ABCBD]">
-          Scene 5
+          Game mode 6
         </p>
         <h1 className="text-3xl font-bold tracking-tight">Swarm House</h1>
         <p className="mt-2 max-w-3xl text-zinc-300">
           One instruction, a changing mess, a whole hierarchy, and the AI runs
           all of it. The <strong>Boss</strong> uses real AI or deterministic
           fallback to split work across Managers. Each Manager drives two
-          Agents, and while they work you can drop new items into the Living
-          room so the swarm adapts live.
+          Agents, and while they work you can drop repeated new items anywhere
+          in the house so the swarm adapts live.
         </p>
         <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
           <span className="inline-flex items-center gap-1.5 rounded-full border border-[#3A7CA5]/40 bg-[#3A7CA5]/15 px-3 py-1 font-semibold text-[#8cc7e6]">

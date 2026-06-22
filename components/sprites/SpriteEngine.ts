@@ -1,15 +1,15 @@
-// Raw <canvas> rendering engine for the top-down scenes. Pure TypeScript, no
+// Raw <canvas> rendering engine for the top-down game modes. Pure TypeScript, no
 // React: it owns a requestAnimationFrame loop and draws PNG sprites from
-// game-state objects. Scenes mutate this engine imperatively (set items, move
+// game-state objects. Modes mutate this engine imperatively (set items, move
 // actors, etc.); the engine interpolates motion per frame so React never
 // re-renders during movement (Task 4 decoupling).
 //
 // Coordinates are percentages (0-100) of the canvas, matching the original DOM
-// scenes, so existing layout numbers carry over unchanged. Depth is handled by
+// modes, so existing layout numbers carry over unchanged. Depth is handled by
 // sorting every drawable by its on-screen baseline Y before painting, so items
 // lower on the screen are drawn last and overlap those above (Task 3).
 //
-// Scene 1 (room) uses two fixed actors ("worker"/"hand"). Scene 2 (warehouse)
+// Room modes use two fixed actors ("worker"/"hand"). Swarm mode
 // uses a keyed actor collection (a Boss, 3 Managers, 6 Agents) plus clutter
 // piles and report-path lines.
 

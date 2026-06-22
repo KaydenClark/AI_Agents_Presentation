@@ -11,7 +11,7 @@ This is the stable reference for what the project is. Keep it factual, source-ba
 
 AI_Agents_Presentation is a Next.js **game** that teaches the difference between doing work yourself, typing into a chat window, giving that chat window tools, and delegating to agents. You give one instruction, then watch when an agent, team, or swarm actually takes the controls. It uses six top-down game modes: manual game, chat window, tool use, single agent, small team, and swarm house.
 
-The canvas scenes render their sprite layer on an **HTML5 `<canvas>` engine** (`components/sprites/SpriteEngine.ts`) that draws rasterized PNG sprites in a `requestAnimationFrame` loop, with movement decoupled from React (no per-frame re-renders). The PNGs are produced from the original SVG definitions by an offline pipeline (`scripts/rasterize-sprites.mjs` → `public/assets/sprites/`). CSS room shells and all DOM panels/overlays (forms, logs, legends, aria-live regions) sit over the canvas, preserving accessibility. The front end stays a relatable household-cleaning story — no developer-tool framing (no MCP / computer-use / terminal language).
+The canvas scenes render their sprite layer on an **HTML5 `<canvas>` engine** (`components/sprites/SpriteEngine.ts`) that draws rasterized PNG sprites in a `requestAnimationFrame` loop, with movement decoupled from React (no per-frame re-renders). The PNGs are produced from the original SVG definitions by an offline pipeline (`scripts/rasterize-sprites.mjs` → `public/assets/sprites/`). CSS room shells and all DOM panels/overlays (forms, logs, legends, aria-live regions) sit over the canvas, preserving accessibility. The front end stays a relatable household-cleaning story with plain business-friendly language instead of implementation jargon.
 
 Core promise:
 
@@ -119,7 +119,7 @@ Room layout contract:
 - household clutter scattered on the floor, each item bound for one destination;
 - `/tool-use` puts one item away per submit; `/agent` clears the whole room from one submit and stops.
 
-Tool-use metaphor rule: `/tool-use` can label destinations as plain tools because the mode is specifically about chat gaining tool access. Avoid insider terms like MCP or plugin in audience-facing labels. `/agent` stays a household-cleaning story so autonomy remains visually obvious.
+Tool-use metaphor rule: `/tool-use` can label destinations as plain tools because the mode is specifically about chat gaining tool access. Use plain tool names in audience-facing labels. `/agent` stays a household-cleaning story so autonomy remains visually obvious.
 
 | Element | Cleaning metaphor |
 |---|---|
@@ -164,7 +164,7 @@ Warehouse layout contract:
 | Testing | Unit tests + Playwright smoke test + Next lint/build | `tests/warehouseRules.test.mts`, `tests/e2e.mjs`, `package.json` scripts |
 | Deployment/runtime | Vercel target | README deployment section |
 
-Architecture constraints:
+Architecture guardrails:
 
 - The live demo must continue with fallbacks if OpenAI fails, times out, or returns malformed output.
 - `OPENAI_API_KEY` must remain server-side and must never be exposed to client code.
@@ -172,7 +172,7 @@ Architecture constraints:
 - Movement is decoupled from React: scenes mutate the `SpriteEngine` imperatively; per-frame position never triggers a React render. React state is for discrete events + side panels only.
 - Low Power mode caps the canvas frame loop to about 30 fps and lowers DPR pressure for older or overloaded laptops.
 
-Rendering / asset constraints:
+Rendering / asset guardrails:
 
 - The sprite layer (furniture, clutter piles, actors, report paths, drop effects) renders on the `SpriteEngine` canvas; the CSS room shells and DOM panels/overlays sit over it (this is where accessibility lives).
 - PNG sprites are generated, not hand-edited: change the SVG definitions in `components/RoomSprites.tsx` (the source of truth the rasterizer mirrors) and re-run `npm run sprites`. Canvas PNGs cannot be runtime-tinted — only books have pre-baked color variants (see the rasterizer + `spriteManifest.itemSprite`).

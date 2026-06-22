@@ -10,6 +10,29 @@ isolated session (no database, no login, no shared state).
 authoritative Boss planning, Manager queue planning, and live swarm item
 spawning).
 
+## Live demo
+
+- **Public app:** <https://what-are-agents-presentation.vercel.app>
+- **Vercel preview window:** <https://what-are-agents-presentation.vercel.app/demo-embed.html>
+
+GitHub README pages do not render live iframes, so this README uses captured
+screenshots and links to the Vercel-hosted preview window. The preview page
+contains the working iframe-style window for the deployed app.
+
+## Screenshots
+
+| Six-mode landing | Single agent in motion |
+| --- | --- |
+| ![Six-mode landing page with Manual Game, Chat Window, Tool Use, Single Agent, Small Team, and Swarm House cards](public/readme/landing.jpg) | ![Single Agent mode with a top-down room and an agent worker moving through tasks](public/readme/agent.jpg) |
+
+| Swarm House |
+| --- |
+| ![Swarm House mode showing the Boss office, Manager rooms, item palette, and top-down facility map](public/readme/swarm.jpg) |
+
+| Vercel preview window |
+| --- |
+| ![Vercel-hosted preview window with the live app embedded inside a browser-style frame](public/readme/demo-embed.jpg) |
+
 ## What v2.1 includes
 
 - Six polished mini games: Manual Game, Chat Window, Tool Use, Single Agent,

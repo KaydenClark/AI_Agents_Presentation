@@ -52,6 +52,12 @@ Rules:
 - Keep `OPENAI_API_KEY` server-side only.
 - Prefer degraded fallback behavior over fake client-side AI data when OpenAI is unavailable.
 
+Current local check:
+
+- As of 2026-06-22, `.env.local` matches `.env.example` by variable shape: it contains only `OPENAI_API_KEY` and `OPENAI_MODEL`.
+- The local model value matches the example default: `OPENAI_MODEL=gpt-5.4-mini`.
+- The API key value was intentionally not printed or copied into documentation.
+
 ## Install
 
 ```bash
@@ -85,9 +91,15 @@ Expected result:
 - `/chat` returns text output without changing the room state.
 - `/tool-use` clears one item per Submit using the tool-use metaphor.
 - `/agent` clears the full room from one Submit and stops.
-- `/team` splits work across two Agents in a smaller warehouse-style layout and returns a team report.
+- `/team` splits work across two Agents in a two-room house and returns a team report.
 - `/swarm` runs with either `real AI decision` / `Manager AI` when a valid key is configured or fallback badges when not.
 - In `/swarm`, click Submit before using the item palette. Then pick one item and click anywhere in the house repeatedly to drop new live work.
+
+CSS/runtime sync rule:
+
+- Do not run `npm run build` while the dev server is still serving a browser tab.
+- If a browser shows unstyled HTML, stop the dev server, remove `.next`, restart `npm run dev`, then hard-refresh the browser.
+- `npm run test:e2e` now checks that the landing page CSS bundle is actually applied, not just that the HTML rendered.
 
 ## Sprite Assets
 
@@ -179,9 +191,9 @@ Top-down redesign checks:
 
 - `/manual` reads as a room and demonstrates Manual Game = player drags items to destinations.
 - `/chat` reads as a prompt/output scene and leaves the item counter unchanged after Submit.
-- `/tool-use` reads as a sandbox/tool room and demonstrates one tool action per Submit.
+- `/tool-use` reads as a tool room and demonstrates one tool action per Submit.
 - `/agent` reads as a room and demonstrates one self-terminating loop.
-- `/team` shows a left messy room, hallway Manager, right agent work room, split queues, and a final team report.
+- `/team` shows a two-room house with one messy room on the left, one work room on the right, split queues, room-to-room movement, and a final team report.
 - `/swarm` reads as one facility: boss hub, manager rooms, agent work zones, paths, reports, and escalation markers are visible.
 - `/swarm` shows the item palette; after Submit, selecting a palette item and clicking anywhere in the house drops repeated items, routes them to the responsible Manager, and includes them in the final report.
 - The Low Power checkbox caps the canvas loop for older laptops and should not blank the sprite layer.

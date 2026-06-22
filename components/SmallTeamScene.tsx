@@ -7,6 +7,7 @@ import { SpriteEngine } from "./sprites/SpriteEngine";
 
 type Phase = "idle" | "planning" | "working" | "done";
 type AgentId = "A" | "B";
+type Waypoint = { x: number; y: number };
 
 interface TeamTask {
   id: string;
@@ -15,21 +16,22 @@ interface TeamTask {
   label: string;
   x: number;
   y: number;
-  dest: { x: number; y: number; label: string };
+  pickupDoorY: number;
+  dest: { x: number; y: number; doorY: number; label: string };
 }
 
 const HOME: Record<AgentId, { x: number; y: number }> = {
-  A: { x: 69, y: 58 },
-  B: { x: 82, y: 58 },
+  A: { x: 75, y: 38 },
+  B: { x: 75, y: 68 },
 };
 
 const TASKS: TeamTask[] = [
-  { id: "team-cup", agent: "A", kind: "cup", label: "cup", x: 22, y: 39, dest: { x: 66, y: 35, label: "Kitchen sink" } },
-  { id: "team-book", agent: "A", kind: "book", label: "book", x: 34, y: 65, dest: { x: 88, y: 42, label: "Bookshelf" } },
-  { id: "team-trash", agent: "A", kind: "trash", label: "trash", x: 30, y: 31, dest: { x: 76, y: 32, label: "Trash can" } },
-  { id: "team-sock", agent: "B", kind: "sock", label: "sock", x: 16, y: 60, dest: { x: 66, y: 78, label: "Laundry hamper" } },
-  { id: "team-can", agent: "B", kind: "can", label: "can", x: 34, y: 48, dest: { x: 86, y: 76, label: "Recycling" } },
-  { id: "team-toy", agent: "B", kind: "toy", label: "toy", x: 23, y: 72, dest: { x: 76, y: 78, label: "Toy box" } },
+  { id: "team-cup", agent: "A", kind: "cup", label: "cup", x: 22, y: 35, pickupDoorY: 55, dest: { x: 75, y: 35, doorY: 55, label: "Sink" } },
+  { id: "team-plate", agent: "A", kind: "plate", label: "plate", x: 39, y: 47, pickupDoorY: 55, dest: { x: 86, y: 35, doorY: 55, label: "Cupboard" } },
+  { id: "team-trash", agent: "A", kind: "trash", label: "trash", x: 24, y: 70, pickupDoorY: 55, dest: { x: 87, y: 75, doorY: 55, label: "Trash can" } },
+  { id: "team-sock", agent: "B", kind: "sock", label: "sock", x: 34, y: 63, pickupDoorY: 55, dest: { x: 75, y: 62, doorY: 55, label: "Washer" } },
+  { id: "team-shirt", agent: "B", kind: "shirt", label: "shirt", x: 48, y: 38, pickupDoorY: 55, dest: { x: 84, y: 70, doorY: 55, label: "Laundry basket" } },
+  { id: "team-book", agent: "B", kind: "book", label: "book", x: 40, y: 74, pickupDoorY: 55, dest: { x: 87, y: 52, doorY: 55, label: "Bookshelf" } },
 ];
 
 const FURNITURE: {
@@ -38,13 +40,49 @@ const FURNITURE: {
   y: number;
   label: string;
 }[] = [
-  { kind: "trashcan", x: 76, y: 32, label: "Trash can" },
-  { kind: "sink", x: 66, y: 35, label: "Kitchen sink" },
-  { kind: "bookshelf", x: 88, y: 42, label: "Bookshelf" },
-  { kind: "hamper", x: 66, y: 78, label: "Laundry hamper" },
-  { kind: "recycling", x: 86, y: 76, label: "Recycling" },
-  { kind: "toybox", x: 76, y: 78, label: "Toy box" },
+  { kind: "sink", x: 75, y: 35, label: "" },
+  { kind: "cupboard", x: 86, y: 35, label: "" },
+  { kind: "bookshelf", x: 87, y: 52, label: "" },
+  { kind: "washer", x: 75, y: 62, label: "" },
+  { kind: "hamper", x: 84, y: 70, label: "" },
+  { kind: "trashcan", x: 87, y: 75, label: "" },
 ];
+
+const HALL_X = 67;
+const LEFT_DOOR_X = 64;
+const RIGHT_DOOR_X = 70;
+const WALL = "#8d8a82";
+const seamH =
+  "repeating-linear-gradient(90deg, rgba(47,45,40,0.48) 0 1.5px, transparent 1.5px 40px)";
+const seamV =
+  "repeating-linear-gradient(0deg, rgba(47,45,40,0.48) 0 1.5px, transparent 1.5px 40px)";
+
+function pickupRoute(task: TeamTask): Waypoint[] {
+  return [
+    { x: HALL_X, y: task.dest.doorY },
+    { x: HALL_X, y: task.pickupDoorY },
+    { x: LEFT_DOOR_X, y: task.pickupDoorY },
+    { x: task.x, y: task.y },
+  ];
+}
+
+function deliveryRoute(task: TeamTask): Waypoint[] {
+  return [
+    { x: LEFT_DOOR_X, y: task.pickupDoorY },
+    { x: HALL_X, y: task.pickupDoorY },
+    { x: HALL_X, y: task.dest.doorY },
+    { x: RIGHT_DOOR_X, y: task.dest.doorY },
+    { x: task.dest.x, y: task.dest.y },
+  ];
+}
+
+function returnRoute(agent: AgentId): Waypoint[] {
+  return [
+    { x: HALL_X, y: HOME[agent].y },
+    { x: RIGHT_DOOR_X, y: HOME[agent].y },
+    HOME[agent],
+  ];
+}
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -55,6 +93,88 @@ function itemsForEngine(tasks: TeamTask[]) {
     x: task.x,
     y: task.y,
   }));
+}
+
+function TeamRoomWalls({
+  x,
+  y,
+  w,
+  h,
+  door,
+}: {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  door: "left" | "right";
+}) {
+  const gapV = 13;
+  const segH = (h - gapV) / 2;
+  const wallStyleH = {
+    backgroundColor: WALL,
+    backgroundImage: seamH,
+    boxShadow: "inset 0 0 0 1px rgba(40,38,34,0.35)",
+  };
+  const wallStyleV = {
+    backgroundColor: WALL,
+    backgroundImage: seamV,
+    boxShadow: "inset 0 0 0 1px rgba(40,38,34,0.35)",
+  };
+
+  return (
+    <>
+      <div
+        className="absolute z-[2]"
+        style={{ left: `${x}%`, top: `${y}%`, width: `${w}%`, height: 6, ...wallStyleH }}
+        aria-hidden
+      />
+      <div
+        className="absolute z-[2]"
+        style={{ left: `${x}%`, top: `${y + h}%`, width: `${w}%`, height: 6, transform: "translateY(-6px)", ...wallStyleH }}
+        aria-hidden
+      />
+      {door === "left" ? (
+        <>
+          <div
+            className="absolute z-[2]"
+            style={{ left: `${x}%`, top: `${y}%`, width: 6, height: `${segH}%`, ...wallStyleV }}
+            aria-hidden
+          />
+          <div
+            className="absolute z-[2]"
+            style={{ left: `${x}%`, top: `${y + segH + gapV}%`, width: 6, height: `${segH}%`, ...wallStyleV }}
+            aria-hidden
+          />
+        </>
+      ) : (
+        <div
+          className="absolute z-[2]"
+          style={{ left: `${x}%`, top: `${y}%`, width: 6, height: `${h}%`, ...wallStyleV }}
+          aria-hidden
+        />
+      )}
+      {door === "right" ? (
+        <>
+          <div
+            className="absolute z-[2]"
+            style={{ left: `${x + w}%`, top: `${y}%`, width: 6, height: `${segH}%`, transform: "translateX(-6px)", ...wallStyleV }}
+            aria-hidden
+          />
+          <div
+            className="absolute z-[2]"
+            style={{ left: `${x + w}%`, top: `${y + segH + gapV}%`, width: 6, height: `${segH}%`, transform: "translateX(-6px)", ...wallStyleV }}
+            aria-hidden
+          />
+        </>
+      ) : (
+        <div
+          className="absolute z-[2]"
+          style={{ left: `${x + w}%`, top: `${y}%`, width: 6, height: `${h}%`, transform: "translateX(-6px)", ...wallStyleV }}
+          aria-hidden
+        />
+      )}
+    </>
+  );
 }
 
 export default function SmallTeamScene() {
@@ -73,14 +193,13 @@ export default function SmallTeamScene() {
   const resetEngine = useCallback(() => {
     const engine = engineRef.current;
     if (!engine) return;
-    engine.setRug(50, 55, 26, 30);
     engine.setFurniture(FURNITURE);
     engine.setItems(itemsForEngine(TASKS));
     engine.setPaths([]);
     engine.setActors([
-      { id: "manager", x: 50, y: 20, label: "Manager", state: "idle", scale: 0.95 },
-      { id: "agent-a", x: HOME.A.x, y: HOME.A.y, label: "Agent A", state: "idle", scale: 0.9 },
-      { id: "agent-b", x: HOME.B.x, y: HOME.B.y, label: "Agent B", state: "idle", scale: 0.9 },
+      { id: "manager", x: 88, y: 18, state: "idle", scale: 0.95 },
+      { id: "agent-a", x: HOME.A.x, y: HOME.A.y, state: "idle", scale: 0.9 },
+      { id: "agent-b", x: HOME.B.x, y: HOME.B.y, state: "idle", scale: 0.9 },
     ]);
   }, []);
 
@@ -105,6 +224,18 @@ export default function SmallTeamScene() {
     resetEngine();
   }, [resetEngine]);
 
+  const walkRoute = useCallback(
+    async (actorId: string, route: Waypoint[], stepMs = 430) => {
+      const engine = engineRef.current;
+      if (!engine) return;
+      for (const stop of route) {
+        engine.moveActor(actorId, stop.x, stop.y, stepMs);
+        await sleep(stepMs + 80);
+      }
+    },
+    [],
+  );
+
   const workTask = useCallback(async (agent: AgentId, task: TeamTask) => {
     const engine = engineRef.current;
     if (!engine) return;
@@ -112,8 +243,7 @@ export default function SmallTeamScene() {
 
     setAgentStatus((prev) => ({ ...prev, [agent]: `carrying ${task.label}` }));
     engine.setActorState(actorId, "walking");
-    engine.moveActor(actorId, task.x, task.y, 620);
-    await sleep(700);
+    await walkRoute(actorId, pickupRoute(task));
 
     engine.setActorState(actorId, "working");
     engine.setRemoving(task.id);
@@ -123,8 +253,7 @@ export default function SmallTeamScene() {
     await sleep(180);
 
     engine.setActorState(actorId, "walking");
-    engine.moveActor(actorId, task.dest.x, task.dest.y, 680);
-    await sleep(760);
+    await walkRoute(actorId, deliveryRoute(task));
     engine.setActorState(actorId, "working");
     await sleep(260);
     engine.setActorCarry(actorId, null);
@@ -134,7 +263,7 @@ export default function SmallTeamScene() {
       `Agent ${agent} put the ${task.label} in ${task.dest.label}.`,
     ]);
     await sleep(260);
-  }, []);
+  }, [walkRoute]);
 
   const runAgent = useCallback(
     async (agent: AgentId) => {
@@ -148,13 +277,12 @@ export default function SmallTeamScene() {
 
       if (engine) {
         engine.setActorState(actorId, "walking");
-        engine.moveActor(actorId, HOME[agent].x, HOME[agent].y, 600);
+        await walkRoute(actorId, returnRoute(agent), 380);
       }
-      await sleep(660);
       engine?.setActorState(actorId, "done");
       setAgentStatus((prev) => ({ ...prev, [agent]: "complete" }));
     },
-    [workTask],
+    [walkRoute, workTask],
   );
 
   const run = useCallback(async () => {
@@ -162,19 +290,19 @@ export default function SmallTeamScene() {
     const engine = engineRef.current;
     runningRef.current = true;
     setPhase("planning");
-    setReports(["Manager is splitting the room into two queues."]);
+    setReports(["Manager is splitting the two-room house into two queues."]);
     engine?.setActorState("manager", "working");
-    engine?.setActorThought("manager", "Split by nearest stations");
+    engine?.setActorThought("manager", "Split by station");
     engine?.setPaths([
-      { x1: HOME.A.x, y1: HOME.A.y, x2: 50, y2: 20, active: true },
-      { x1: HOME.B.x, y1: HOME.B.y, x2: 50, y2: 20, active: true },
+      { x1: 88, y1: 18, x2: 67, y2: 55, active: true },
+      { x1: 64, y1: 55, x2: 70, y2: 55, active: true },
     ]);
     await sleep(900);
 
     engine?.setActorThought("manager", null);
     setReports((prev) => [
       ...prev,
-      "Manager assigned dishes/books/trash to Agent A and laundry/recycling/toys to Agent B.",
+      "Manager assigned dishes and trash to Agent A, then laundry and shelves to Agent B.",
     ]);
     setPhase("working");
     await Promise.all([runAgent("A"), runAgent("B")]);
@@ -200,7 +328,9 @@ export default function SmallTeamScene() {
           <p className="text-[11px] font-bold uppercase tracking-wide text-zinc-500">
             Fixed human instruction
           </p>
-          <p className="text-sm font-semibold text-[#F7F7F7]">Clean this room</p>
+          <p className="text-sm font-semibold text-[#F7F7F7]">
+            Clean this small house
+          </p>
         </div>
         <div className="flex flex-wrap gap-2 text-xs font-bold">
           <span className="rounded-full border border-[#E0BD3E]/40 bg-[#E0BD3E]/15 px-3 py-1 text-[#f1d977]">
@@ -228,40 +358,24 @@ export default function SmallTeamScene() {
       </form>
 
       <div className="grid gap-4 lg:grid-cols-[1.35fr_0.65fr]">
-        <RoomCanvas ariaLabel="Top-down small team warehouse">
+        <RoomCanvas ariaLabel="Top-down small team two-room house">
+          <TeamRoomWalls x={8} y={23} w={56} h={62} door="right" />
+          <TeamRoomWalls x={70} y={23} w={22} h={62} door="left" />
           <div
-            className="absolute left-[8%] top-[24%] z-10 h-[60%] w-[34%] rounded-md border-4 border-[#8d8a82] bg-[#8f6541]/30"
-            aria-hidden
-          />
-          <div
-            className="absolute left-[46%] top-[18%] z-10 h-[68%] w-[8%] rounded-md border-2 border-[#8d8a82] bg-black/15"
-            aria-hidden
-          />
-          <div
-            className="absolute left-[58%] top-[24%] z-10 h-[60%] w-[34%] rounded-md border-4 border-[#8d8a82] bg-[#6e7f91]/25"
-            aria-hidden
-          />
-          <div
-            className="absolute left-[25%] top-[26%] z-30 -translate-x-1/2 rounded bg-black/55 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white"
+            className="absolute left-[26%] top-[25%] z-[4] -translate-x-1/2 rounded bg-black/55 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white"
             aria-hidden
           >
-            Messy room
+            Messy living room
           </div>
           <div
-            className="absolute left-1/2 top-[14%] z-30 -translate-x-1/2 rounded bg-black/55 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white"
+            className="absolute left-[81%] top-[25%] z-[4] -translate-x-1/2 rounded bg-black/55 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white"
             aria-hidden
           >
-            Manager hallway
-          </div>
-          <div
-            className="absolute left-[75%] top-[26%] z-30 -translate-x-1/2 rounded bg-black/55 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white"
-            aria-hidden
-          >
-            Agent work room
+            Team work room
           </div>
           <SpriteRenderer
             onReady={handleReady}
-            ariaLabel="Top-down small team warehouse"
+            ariaLabel="Top-down small team two-room house"
           />
           <div className="absolute left-3 top-3 z-40 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-slate-600 shadow">
             {remaining.length} item{remaining.length === 1 ? "" : "s"} left

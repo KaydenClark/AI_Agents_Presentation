@@ -1097,7 +1097,7 @@ export default function WarehouseScene() {
         id: mgrId(zone.id),
         x: mgr.x,
         y: mgr.y,
-        label: `${zone.name} mgr`,
+        label: "Manager",
         state: "idle",
       });
       for (const agent of zone.agents) {

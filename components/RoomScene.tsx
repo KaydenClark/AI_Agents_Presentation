@@ -38,11 +38,11 @@ const SPOTS: Record<
     tone: Tone;
   }
 > = {
-  trash: { x: 50, y: 16, label: "Trash can", toolLabel: "Trash MCP", word: "trash", furn: "trashcan", item: "trash", tone: "rose" },
-  dishes: { x: 16, y: 24, label: "Kitchen sink", toolLabel: "Sink plugin", word: "cup", furn: "sink", item: "cup", tone: "sky" },
-  bottles: { x: 84, y: 24, label: "Recycling", toolLabel: "Recycle MCP", word: "can", furn: "recycling", item: "can", tone: "teal" },
-  books: { x: 85, y: 64, label: "Bookshelf", toolLabel: "Bookshelf skill", word: "book", furn: "bookshelf", item: "book", tone: "amber" },
-  laundry: { x: 15, y: 66, label: "Laundry hamper", toolLabel: "Laundry MCP", word: "sock", furn: "hamper", item: "sock", tone: "violet" },
+  trash: { x: 50, y: 16, label: "Trash can", toolLabel: "Trash tool", word: "trash", furn: "trashcan", item: "trash", tone: "rose" },
+  dishes: { x: 16, y: 24, label: "Kitchen sink", toolLabel: "Sink tool", word: "cup", furn: "sink", item: "cup", tone: "sky" },
+  bottles: { x: 84, y: 24, label: "Recycling", toolLabel: "Recycle tool", word: "can", furn: "recycling", item: "can", tone: "teal" },
+  books: { x: 85, y: 64, label: "Bookshelf", toolLabel: "Bookshelf tool", word: "book", furn: "bookshelf", item: "book", tone: "amber" },
+  laundry: { x: 15, y: 66, label: "Laundry hamper", toolLabel: "Laundry tool", word: "sock", furn: "hamper", item: "sock", tone: "violet" },
   toys: { x: 50, y: 85, label: "Toy box", toolLabel: "Toy tool", word: "toy", furn: "toybox", item: "toy", tone: "emerald" },
 };
 
@@ -135,7 +135,7 @@ export default function RoomScene({
     );
     engine.setItems(itemsForEngine(itemsRef.current));
     engine.placeActor("worker", HOME.x, HOME.y);
-    engine.setActorLabel("worker", "Agent worker");
+    engine.setActorLabel("worker", null);
     engine.setActorVisible("worker", modeRef.current === "agent");
     engine.placeActor("hand", HAND_PARK.x, HAND_PARK.y);
     engine.setActorVisible("hand", false);
@@ -472,7 +472,7 @@ export default function RoomScene({
           className="absolute left-1/2 top-2 z-30 -translate-x-1/2 rounded bg-black/45 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white"
           aria-hidden
         >
-          {presentation === "tool-use" ? "Sandbox room" : "Living room"}
+          {presentation === "tool-use" ? "Tool room" : "Living room"}
         </div>
 
         {presentation === "tool-use" ? (
@@ -480,7 +480,7 @@ export default function RoomScene({
             className="pointer-events-none absolute left-1/2 top-[52%] z-30 -translate-x-1/2 rounded bg-black/45 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white"
             aria-hidden
           >
-            Harness carpet
+            Work rug
           </div>
         ) : null}
 

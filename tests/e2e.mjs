@@ -64,6 +64,20 @@ async function run() {
 
   // ---------- Landing ----------
   await page.goto(BASE, { waitUntil: "networkidle" });
+  const landingShell = page.locator("main").first();
+  const landingStyles = await landingShell.evaluate((el) => {
+    const styles = window.getComputedStyle(el);
+    return {
+      backgroundColor: styles.backgroundColor,
+      color: styles.color,
+      display: styles.display,
+    };
+  });
+  check("Landing CSS bundle is applied",
+    landingStyles.backgroundColor === "rgb(10, 10, 10)" &&
+    landingStyles.color === "rgb(247, 247, 247)" &&
+    landingStyles.display === "flex",
+    `bg=${landingStyles.backgroundColor}, color=${landingStyles.color}, display=${landingStyles.display}`);
   check("Landing has all six game mode links",
     (await page.getByRole("link", { name: /Manual Game/i }).count()) > 0 &&
     (await page.getByRole("link", { name: /Chat Window/i }).count()) > 0 &&
@@ -80,8 +94,8 @@ async function run() {
     (await page.getByText(/Trash -> Trash can/i).count()) > 0 &&
     (await page.getByText(/Cup -> Sink/i).count()) > 0 &&
     (await page.getByText(/Book -> Bookshelf/i).count()) > 0);
-  check("Manual Game shows top-down sandbox room",
-    (await page.getByLabel(/Manual drag sandbox/i).count()) > 0 &&
+  check("Manual Game shows top-down drag room",
+    (await page.getByLabel(/Manual drag room/i).count()) > 0 &&
     (await page.getByText(/Trash can/i).count()) > 0 &&
     (await page.getByText(/Bookshelf/i).count()) > 0);
   check("Manual Game: no agent worker present",
@@ -124,8 +138,8 @@ async function run() {
   check("Tool Use starts with 6-8 messes", startCount >= 6 && startCount <= 8, `got ${startCount}`);
   check("Tool Use shows top-down tool room",
     (await page.getByLabel(/Top-down tool-use room/i).count()) > 0 &&
-    (await page.getByText(/Bookshelf skill/i).count()) > 0 &&
-    (await page.getByText(/Sink plugin/i).count()) > 0);
+    (await page.getByText(/Bookshelf tool/i).count()) > 0 &&
+    (await page.getByText(/Sink tool/i).count()) > 0);
   check("Tool Use: no agent worker present",
     (await page.getByText(/Agent worker/i).count()) === 0);
 
@@ -217,10 +231,12 @@ async function run() {
   check("Team: both agents report complete",
     (await page.getByText(/Agent [AB]: complete/i).count()) === 2,
     `${await page.getByText(/Agent [AB]: complete/i).count()} agents`);
-  check("Team uses warehouse-style left mess, hallway manager, right agent room",
-    (await page.getByText(/Messy room/i).count()) > 0 &&
-    (await page.getByText(/Manager hallway/i).count()) > 0 &&
-    (await page.getByText(/Agent work room/i).count()) > 0);
+  check("Team uses a two-room house with a left mess room and right work room",
+    (await page.getByText(/Messy living room/i).count()) > 0 &&
+    (await page.getByText(/Team work room/i).count()) > 0 &&
+    (await page.getByText(/Play room mess/i).count()) === 0 &&
+    (await page.getByText(/Kitchen work room/i).count()) === 0 &&
+    (await page.getByText(/Laundry work room/i).count()) === 0);
 
   // ---------- Mode 6: Swarm ----------
   await page.goto(`${BASE}/swarm`, { waitUntil: "networkidle" });

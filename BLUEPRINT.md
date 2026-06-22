@@ -42,7 +42,7 @@ When the project is working, a user can:
 - use `/chat` to get a helpful text answer while the room state stays unchanged;
 - use `/tool-use` to see the chat window gain external tools while still producing one tool action per Submit;
 - use `/agent` to give one goal to a self-terminating agent loop, rendered on the canvas engine;
-- use `/team` to watch one Manager in a hallway split work from a left messy room across two Agents in a right work room;
+- use `/team` to watch one Manager split work across two Agents who move items from one messy left room into one right-side work room;
 - use `/swarm` to watch a local mess scenario render, a Boss **really allocate** the work across Managers (the allocation drives which crew does what, and guarantees every Manager contributes), Managers split queues across Agents, Agents work through queues, jams surfaced, and a local final report returned;
 - while `/swarm` is running, pick a supported palette item once, click anywhere in the house repeatedly, and drop new live work without resetting the run;
 - run without an OpenAI key by using deterministic server-side fallback planning.
@@ -63,7 +63,7 @@ Included:
 - `ManualDragGame` for the player-as-agent drag mode.
 - `ChatWindowScene` showing prompt/output without state mutation.
 - `RoomScene` reusable in tool-use or fixed agent mode.
-- `SmallTeamScene` showing one Manager splitting work across two Agents in a small warehouse layout.
+- `SmallTeamScene` showing one Manager splitting work across two Agents in a two-room house.
 - `WarehouseScene` as the full Boss/Manager/Agent swarm with live item drops.
 - `tests/e2e.mjs` updated to drive all six game modes and the swarm escalation path.
 - `README.md`, `ROADMAP.md`, `RUNBOOK.md`, and `AGENTS.md` updated to make the
@@ -95,7 +95,7 @@ The six routes form one teaching ladder:
 |---|---|---|
 | `/manual` | Doing the work yourself means dragging items to the right destinations. | `ManualDragGame` |
 | `/chat` | Chat output is useful but does not change external state. | `ChatWindowScene` |
-| `/tool-use` | Tool access lets chat affect the sandbox, but still one action at a time. | `RoomScene` locked to manual mode with tool-use labels |
+| `/tool-use` | Tool access lets chat affect the room, but still one action at a time. | `RoomScene` locked to manual mode with tool-use labels |
 | `/agent` | A single agent keeps acting until the goal is done, then stops. | `RoomScene` locked to agent mode |
 | `/team` | A Manager can split one goal across two Agents. | `SmallTeamScene` |
 | `/swarm` | A Boss/Manager/Agent hierarchy can plan, execute, rebalance, report, and absorb live new work. | `WarehouseScene` |
@@ -119,7 +119,7 @@ Room layout contract:
 - household clutter scattered on the floor, each item bound for one destination;
 - `/tool-use` puts one item away per submit; `/agent` clears the whole room from one submit and stops.
 
-Tool-use metaphor rule: `/tool-use` can label destinations as tools (bookshelf skill, sink plugin, laundry/trash/recycle MCPs) because the mode is specifically about chat gaining tool access. `/agent` stays a household-cleaning story so autonomy remains visually obvious.
+Tool-use metaphor rule: `/tool-use` can label destinations as plain tools because the mode is specifically about chat gaining tool access. Avoid insider terms like MCP or plugin in audience-facing labels. `/agent` stays a household-cleaning story so autonomy remains visually obvious.
 
 | Element | Cleaning metaphor |
 |---|---|
@@ -210,7 +210,7 @@ AI_Agents_Presentation/
 | `/chat` | Prompt/output-only scene; room state does not change | working, on canvas engine | `app/chat/page.tsx`, `components/ChatWindowScene.tsx`, `components/sprites/*`, `tests/e2e.mjs` |
 | `/tool-use` | One-submit, one-tool-action room | working, on canvas engine | `app/tool-use/page.tsx`, `components/RoomScene.tsx`, `components/sprites/*`, `tests/e2e.mjs` |
 | `/agent` | Single-agent self-terminating loop, canvas-rendered | working, on canvas engine | `app/agent/page.tsx`, `components/RoomScene.tsx`, `components/sprites/*`, `tests/e2e.mjs` |
-| `/team` | One Manager + two Agents split work in a small warehouse layout | working, on canvas engine | `app/team/page.tsx`, `components/SmallTeamScene.tsx`, `components/sprites/*`, `tests/e2e.mjs` |
+| `/team` | One Manager + two Agents split work between one mess room and one work room | working, on canvas engine | `app/team/page.tsx`, `components/SmallTeamScene.tsx`, `components/sprites/*`, `tests/e2e.mjs` |
 | `/swarm` | Boss/Managers/Agents swarm, canvas-rendered; Boss/Manager allocation plus live item spawning | working, on canvas engine | `app/swarm/page.tsx`, `components/WarehouseScene.tsx`, `components/sprites/*`, `tests/e2e.mjs` |
 | `/room` | Legacy redirect | working | `app/room/page.tsx` |
 | `/warehouse` | Legacy redirect | working | `app/warehouse/page.tsx` |

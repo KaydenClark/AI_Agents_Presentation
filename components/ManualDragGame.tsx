@@ -166,12 +166,12 @@ export default function ManualDragGame() {
         </div>
       </div>
 
-      <RoomCanvas ariaLabel="Manual drag sandbox">
+      <RoomCanvas ariaLabel="Manual drag room">
         <div
           className="absolute left-1/2 top-2 z-30 -translate-x-1/2 rounded bg-black/45 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white"
           aria-hidden
         >
-          Sandbox room
+          Manual room
         </div>
 
         {DESTINATIONS.map((destination) => (

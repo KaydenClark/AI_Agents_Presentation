@@ -31,8 +31,8 @@ export default function ToolUsePage() {
         <h1 className="text-3xl font-bold tracking-tight">Tool Use</h1>
         <p className="mt-2 max-w-3xl text-zinc-300">
           The chat window can use external tools, but this mode still executes
-          one tool action per Submit. The room is the sandbox, the rug is the
-          harness, and each destination represents a tool surface.
+          one tool action per Submit. The room is the work area, and each
+          destination is a tool the chat can call.
         </p>
       </header>
 

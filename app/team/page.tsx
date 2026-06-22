@@ -30,8 +30,8 @@ export default function TeamPage() {
         </p>
         <h1 className="text-3xl font-bold tracking-tight">Small Team</h1>
         <p className="mt-2 max-w-3xl text-zinc-300">
-          One Manager stands in the hallway, splits the work, and coordinates
-          two agents in a smaller warehouse-style room.
+          One Manager splits the work while two agents carry mess from the
+          large left room into a right-side work room.
         </p>
       </header>
 

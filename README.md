@@ -27,12 +27,13 @@ spawning).
 - **Game mode 2 — Chat Window (`/chat`):** You type a prompt and get a useful text
   answer, but the room state does not change.
 - **Game mode 3 — Tool Use (`/tool-use`):** The chat window gets tools, but one
-  Submit still produces one external tool action. The room is the sandbox, the
-  rug is the harness, and destinations stand in for skills, plugins, and MCPs.
+  Submit still produces one external tool action. The room is the work area,
+  and each destination is a tool the chat can call.
 - **Game mode 4 — Single Agent (`/agent`):** One goal drives an agent through every
   next action until the room is clean, then it stops itself.
-- **Game mode 5 — Small Team (`/team`):** One Manager in a hallway splits a goal
-  across two Agents working from a smaller warehouse-style room.
+- **Game mode 5 — Small Team (`/team`):** One Manager splits a goal across two
+  Agents moving between one messy room on the left and one work room on the
+  right.
 - **Game mode 6 — Swarm House (`/swarm`):** A local mess scenario renders instantly,
   then a Boss uses real AI to **allocate** the fixed "Clean the house" goal
   across Managers. Each Manager uses a real/fallback plan to split work across
@@ -184,7 +185,7 @@ shows `real AI decision` after a test run when a key is configured, then Reset.
 **Game mode 3 — Tool Use (~1 min)**
 
 1. Go to `/tool-use`. Submit `tidy the room`.
-2. Point out that the sandbox has tools now, but one submit still calls one
+2. Point out that the chat has tools now, but one submit still calls one
    tool action. The chat window has help, not autonomy.
 
 **Game mode 4 — Single Agent (~2 min)**
@@ -196,8 +197,9 @@ shows `real AI decision` after a test run when a key is configured, then Reset.
 **Game mode 5 — Small Team (~2 min)**
 
 1. Go to `/team`. Submit once.
-2. The Manager in the hallway splits the left messy room across Agent A and
-   Agent B in the right work room. Let both finish and read the team report.
+2. The Manager splits the house work across Agent A and Agent B. Watch them move
+   from the messy left room into the right-side work room, then read the team
+   report.
 
 **Game mode 6 — Swarm House (~4 min)**
 

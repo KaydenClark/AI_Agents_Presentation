@@ -71,7 +71,7 @@ Included:
 
 Not included:
 
-- Vercel deployment. Deployment remains explicit user-approved work.
+- New production deployments still require explicit user approval. The current beta is live on Vercel from `codex/v2.1-five-scene-ladder`.
 - New persistence, auth, database, multiplayer, or extra paid services.
 
 ## Visual North Star

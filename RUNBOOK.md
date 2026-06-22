@@ -236,6 +236,8 @@ Expected healthy state:
 - Public URL loads without login by default.
 - A rehearsal swarm run shows `real AI decision` with a configured key.
 - The app still completes using fallbacks if the live call fails.
+- The current beta production alias is
+  `https://what-are-agents-presentation.vercel.app`.
 
 ## Troubleshooting
 

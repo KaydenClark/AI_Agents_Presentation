@@ -128,9 +128,10 @@ Point it at a different origin with `E2E_BASE`, e.g.
 
 ## Deploy to Vercel
 
-Deployment is intentionally a separate approval step. v2.1 is ready to run
-locally and to push to GitHub, but do not deploy to Vercel until explicitly
-requested.
+Deployment is intentionally a separate approval step. The current beta is live
+at <https://what-are-agents-presentation.vercel.app> from
+`codex/v2.1-five-scene-ladder`; future production redeploys should still be
+explicitly requested.
 
 1. Install the CLI and log in (one time):
 

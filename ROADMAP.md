@@ -1,6 +1,6 @@
 # AI_Agents_Presentation - Roadmap
 
-**Current phase:** v2.1 release cleanup — six-mode ladder split locally; Vercel deployment deferred by user request
+**Current phase:** v2.1 beta demo live on Vercel from `codex/v2.1-five-scene-ladder`
 **Owner:** Kayden / agent
 
 This is the active work plan. Keep it forward-looking and proof-oriented. Do not use it as a dumping ground for old session history.
@@ -17,30 +17,30 @@ Done so far in the rebuild:
 - **Phase 3 — Manager authority.** `/api/manager-plan` now lets each Manager split its own assigned jobs across two Agents, with deterministic fallback and visible `Manager AI` / `Manager fallback` badges. Managers also rebalance one queued item when an Agent empties while a sibling is backed up.
 - **Six-mode ladder.** The app now exposes the intended teaching arc as separate playable routes: `/manual` (player-as-agent drag game), `/chat` (prompt returns output only), `/tool-use` (one tool action per submit), `/agent` (one self-terminating agent), `/team` (one Manager + two Agents), and `/swarm` (Boss + Managers + Agents with live item spawning). Legacy `/room` and `/warehouse` redirect to the nearest current route.
 - **Playable swarm alpha loop.** `/swarm` has a supported item palette above the room. The player can arm one item, click anywhere inside the house while the swarm is running, see the item drop onto the floor, and watch the responsible Manager add it to a live Agent queue without resetting the house or reselecting the item. The final report includes player-added work. A Low Power toggle caps the canvas loop and DPR for constrained laptops.
+- **Vercel beta deployment.** Production aliases now point at the v2.1 branch deployment: `https://what-are-agents-presentation.vercel.app` and `https://ai-agents-presentation-kaydenclark725-5177s-projects.vercel.app`. The earlier hash URL `https://ai-agents-presentation-7qhsi5ggt-kaydenclark725-5177s-projects.vercel.app/` is an immutable wrong-branch deployment and should not be shared.
 
 Important drift or uncertainty:
 
 - `npm audit --omit=dev` reports production advisories in the current Next.js/PostCSS tree; npm's available fix is a breaking Next 16 upgrade. Still deferred (see Blocked Or Deferred).
+- The deployed app currently falls back for Boss planning because Vercel's `OPENAI_API_KEY` value returns OpenAI `invalid_api_key`. Fallback keeps the demo playable, but replace that Vercel secret before claiming the public demo is using real AI decisions.
 - The old DOM sprite components in `RoomSprites.tsx` (`Furniture`, `RoomWorker`, `FloorItem`, `Rug`, `HandSprite`) are now unused by the canvas scenes but kept as the canonical SVG source the rasterizer mirrors (and `ItemSprite` is still used by swarm side panels). Optional future cleanup.
 - Canvas PNGs can't be runtime-tinted; only books have pre-baked color variants. Any future tinted clutter needs new pre-baked variants in the rasterizer.
-- Deployment is intentionally on hold. Do not start Vercel work until the user asks for it again.
 
 ## Current Goal
 
-Cleanly publish v2.1 to GitHub: document the release across project docs, remove local worktree noise, verify the release, commit, tag, and push.
+Keep the v2.1 beta demo stable for the Monday walkthrough while any remaining polish stays small and verified.
 
 Done when:
 
-- release metadata says v2.1.0 in package files and docs;
-- `README.md`, `BLUEPRINT.md`, `ROADMAP.md`, `RUNBOOK.md`, and `AGENTS.md` describe the six-mode v2.1 release consistently;
-- `.DS_Store` and other local generated noise are removed from the worktree;
-- lint, unit tests, build, and E2E pass; no console/page errors in a warm browser run;
-- the v2.1 commit and `v2.1` tag are pushed to GitHub.
+- stable production aliases load the six-mode v2.1 branch;
+- any final copy/layout edits pass lint, build, E2E, and visual checks at laptop/projector sizes;
+- Vercel `OPENAI_API_KEY` is replaced and a public `/swarm` run shows `real AI decision` if live AI is required for the walkthrough;
+- dependency advisory triage remains tracked separately and does not block the beta demo.
 
 ## Next Tasks
 
 1. **Dependency advisory triage** - Revisit after the v2.1 release is pushed. Proof: `npm audit --omit=dev`, selected upgrade path, then lint/build/E2E.
-2. **Public deploy.** Deferred until the user asks for deployment again. When approved, deploy to Vercel, set `OPENAI_API_KEY` and `OPENAI_MODEL`, then smoke-test the public URL from a clean browser.
+2. **Fix Vercel OpenAI key if live AI is needed.** Replace the production `OPENAI_API_KEY` value in Vercel, redeploy or trigger an env refresh if needed, then smoke-test `/api/boss-plan` and a public `/swarm` run for `source: "ai"` / `real AI decision`.
 3. **Presentation polish pass.** Rehearse all six game modes in order and tighten any copy or spacing that feels unclear in live play. Proof: browser QA at laptop/projector sizes and updated screenshots if needed.
 
 ## Blocked Or Deferred
@@ -50,9 +50,7 @@ Do not start these until their prerequisite is met.
 | Item | Blocked on | Why it matters |
 |---|---|---|
 | Dependency advisory triage | User approval for dependency migration scope | `npm audit --omit=dev` reports production advisories; npm's fix is a breaking Next 16 upgrade, so handle it as a separate dependency task. |
-| Deployment env sync | Decision to deploy | If deploying, set `OPENAI_API_KEY` and `OPENAI_MODEL` in Vercel; verify with a redacted env listing and production route probe. |
-| Verify deployed live OpenAI Boss planning path | Valid `OPENAI_API_KEY` in Vercel env | Confirms the Boss planning call works outside fallback mode after deployment. |
-| Deploy to Vercel | User approval and Vercel login/project link | Deployment can create public URLs and environment changes. |
+| Verify deployed live OpenAI Boss planning path | Valid production `OPENAI_API_KEY` value in Vercel | Confirms the Boss planning call works outside fallback mode on the public demo. |
 | Add passcode gate | Explicit user request | README marks optional `ACCESS_CODE` gate out of scope for v2.1. |
 
 ## Backlog
@@ -111,3 +109,4 @@ Append a row when a task changes durable project state. Use actual results, not 
 | 2026-06-22 | Add CSS/HTML sync guard for local preview: E2E now fails if the landing page renders without the global Tailwind CSS bundle applied; RUNBOOK documents the no-build-while-dev-server rule and clean `.next` restart path. | Red check: stale preview served HTML but CSS asset returned 500 and `E2E_BASE=http://localhost:3000 npm run test:e2e` failed `Landing CSS bundle is applied` with default browser styles. Green checks: `npm run lint`; `npm run test:unit`; `npm run build`; warm `E2E_BASE=http://192.168.1.152:3000 npm run test:e2e` passed all checks; final LAN CSS probe returned `200 OK` / `text/css` after clean restart. | pass | Cold LAN E2E run still hit the known Next dev RSC fast-refresh warning before the warm rerun passed; keep using a warm run for final proof. |
 | 2026-06-22 | Document local OpenAI env shape after project-specific key update. | Redacted env-shape probe confirmed `.env.local` exists, has `OPENAI_API_KEY`, contains no variables beyond `OPENAI_API_KEY` and `OPENAI_MODEL`, and `OPENAI_MODEL` matches `.env.example` as `gpt-5.4-mini`; `RUNBOOK.md` updated without printing the secret. | pass | Local-only verification; Vercel env remains intentionally unverified until deployment is requested. |
 | 2026-06-22 | Final beta-demo sweep before Vercel: simplified `/tool-use` audience copy from MCP/plugin/skill language to plain tools; changed visible labels from sandbox/harness wording to room/work-rug wording; shortened crowded canvas labels in `/agent` and `/swarm`; updated README, BLUEPRINT, RUNBOOK, and E2E expectations. | `npx tsc --noEmit`; `npm run lint`; `npm run test:unit`; `npm run build`; cold `E2E_BASE=http://localhost:3074 npm run test:e2e` passed all checks with no console errors; visual QA screenshots in `/tmp/ai-agents-final-sweep-qa` covered all six routes at 1366 x 768, 1440 x 900, and 1920 x 1080; focused mid-run screenshots for `/agent` and `/swarm` showed no horizontal overflow, no framework overlay, and no browser errors; canvas motion samples for `/agent`, `/team`, and `/swarm` reported changing frames at ~60 fps. | pass | Vercel deployment and Vercel environment-variable setup remain separate approval-gated work. |
+| 2026-06-22 | Deploy the correct v2.1 beta branch to Vercel production after a wrong-branch deployment. Pushed `codex/v2.1-five-scene-ladder` commit `14d8d87`, linked the local folder to `kaydenclark725-5177s-projects/ai-agents-presentation`, and deployed production `dpl_DEZrVaBjsyRUxmMzz98eTxHuzDFf`. | `git diff --check`; secret-pattern scan; `git push origin codex/v2.1-five-scene-ladder`; `npx vercel deploy --prod`; `npx vercel inspect what-are-agents-presentation.vercel.app`; `npx vercel curl` confirmed the six-mode landing and `/swarm` HTML on production aliases; `/api/boss-plan` smoke returned valid fallback JSON; Vercel logs showed OpenAI `invalid_api_key` for the configured key. | pass for correct branch and public beta routing | Original hash URL `ai-agents-presentation-7qhsi5ggt-...` is an immutable old deployment and should not be shared. Replace Vercel `OPENAI_API_KEY` before claiming live public AI decisions. |

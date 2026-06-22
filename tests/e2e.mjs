@@ -335,6 +335,6 @@ async function run() {
 }
 
 run().catch((e) => {
-  console.error("Harness crashed:", e);
+  console.error("Workbench crashed:", e);
   process.exit(2);
 });

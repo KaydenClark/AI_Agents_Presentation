@@ -114,7 +114,7 @@ Assign EVERY mess group to exactly one Manager, by its group id. Rules:
 - Every group must be assigned exactly once. Do not drop or duplicate a group.
 - Prefer each Manager's specialty, but move flexible work (trash, recycling, room bins) between Managers to balance the total work units so nobody is overloaded.
 - Order the Managers by priority (most urgent first).
-- Explain each choice in plain language for a non-technical audience.
+- Explain each choice in plain language for a business audience.
 
 Respond with ONLY a JSON object in this exact shape, no markdown:
 {"assignments":[{"managerId":"KITCHEN","groups":["dishes","recycling","kitchen-bin"],"priority":1,"rationale":"short reason","escalationNotes":"short note"}]}`;

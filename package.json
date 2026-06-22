@@ -1,18 +1,20 @@
 {
   "name": "ai-agent-swarm-demo",
-  "version": "1.0.0",
+  "version": "2.1.0",
   "private": true,
-  "description": "Internal presentation tool that teaches non-technical coworkers what an AI agent and an agent swarm are, using a room-cleaning metaphor.",
+  "description": "A top-down game that teaches the difference between a chat window and an AI agent: give one instruction and watch the AI take the controls and run the workers itself.",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "sprites": "node scripts/rasterize-sprites.mjs",
+    "test:unit": "node --no-warnings --test tests/*.test.mts",
     "test:e2e": "node tests/e2e.mjs"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.68.0",
     "next": "^14.2.35",
+    "openai": "^6.44.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
@@ -25,6 +27,7 @@
     "eslint-config-next": "^14.2.35",
     "playwright": "^1.61.0",
     "postcss": "^8.4.39",
+    "sharp": "^0.35.2",
     "tailwindcss": "^3.4.6",
     "typescript": "^5.5.3"
   }

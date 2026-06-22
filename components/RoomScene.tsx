@@ -1,29 +1,71 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import Character, { CharacterState } from "./Character";
-import ClutterItem, {
-  Clutter,
-  CLUTTER_GLYPH,
-  targetFor,
-} from "./ClutterItem";
+import { Clutter, ClutterKind } from "./ClutterItem";
+import { FurnitureKind, ItemKind, RoomCanvas } from "./RoomSprites";
+import SpriteRenderer from "./sprites/SpriteRenderer";
+import { SpriteEngine } from "./sprites/SpriteEngine";
 
 type Mode = "manual" | "agent";
+type Presentation = "cleaning" | "tool-use";
+type SpotKind = "trash" | "dishes" | "bottles" | "books" | "laundry" | "toys";
 
-const DESK = { x: 14, y: 82 };
-const TRASH = { x: 88, y: 18 };
-const DRAWER = { x: 88, y: 78 };
+type Tone = "rose" | "sky" | "teal" | "amber" | "violet" | "emerald";
+
+interface RoomSceneProps {
+  fixedMode?: Mode;
+  presentation?: Presentation;
+}
+
+const HOME = { x: 50, y: 52 };
 const TOP_CENTER = { x: 50, y: 0 };
+const HAND_PARK = { x: 50, y: -15 };
+
+// Where each kind of mess belongs, drawn as furniture around the room edge.
+// `furn` picks the furniture sprite, `item` the clutter sprite, `word` the
+// label used in the legend / announcements.
+const SPOTS: Record<
+  SpotKind,
+  {
+    x: number;
+    y: number;
+    label: string;
+    toolLabel: string;
+    word: string;
+    furn: FurnitureKind;
+    item: ItemKind;
+    tone: Tone;
+  }
+> = {
+  trash: { x: 50, y: 16, label: "Trash can", toolLabel: "Trash tool", word: "trash", furn: "trashcan", item: "trash", tone: "rose" },
+  dishes: { x: 16, y: 24, label: "Kitchen sink", toolLabel: "Sink tool", word: "cup", furn: "sink", item: "cup", tone: "sky" },
+  bottles: { x: 84, y: 24, label: "Recycling", toolLabel: "Recycle tool", word: "can", furn: "recycling", item: "can", tone: "teal" },
+  books: { x: 85, y: 64, label: "Bookshelf", toolLabel: "Bookshelf tool", word: "book", furn: "bookshelf", item: "book", tone: "amber" },
+  laundry: { x: 15, y: 66, label: "Laundry hamper", toolLabel: "Laundry tool", word: "sock", furn: "hamper", item: "sock", tone: "violet" },
+  toys: { x: 50, y: 85, label: "Toy box", toolLabel: "Toy tool", word: "toy", furn: "toybox", item: "toy", tone: "emerald" },
+};
+
+function spotFor(kind: ClutterKind) {
+  return SPOTS[kind as SpotKind] ?? SPOTS.trash;
+}
+
+function displayLabel(
+  spot: (typeof SPOTS)[SpotKind],
+  presentation: Presentation,
+) {
+  return presentation === "tool-use" ? spot.toolLabel : spot.label;
+}
 
 function initialClutter(): Clutter[] {
   return [
-    { id: "c1", kind: "trash", xPercent: 35, yPercent: 30 },
-    { id: "c2", kind: "laundry", xPercent: 55, yPercent: 64 },
-    { id: "c3", kind: "books", xPercent: 45, yPercent: 46 },
-    { id: "c4", kind: "dishes", xPercent: 64, yPercent: 34 },
-    { id: "c5", kind: "trash", xPercent: 30, yPercent: 60 },
-    { id: "c6", kind: "books", xPercent: 70, yPercent: 58 },
-    { id: "c7", kind: "laundry", xPercent: 50, yPercent: 22 },
+    { id: "c1", kind: "laundry", xPercent: 38, yPercent: 38 },
+    { id: "c2", kind: "dishes", xPercent: 62, yPercent: 42 },
+    { id: "c3", kind: "books", xPercent: 45, yPercent: 64 },
+    { id: "c4", kind: "toys", xPercent: 61, yPercent: 66 },
+    { id: "c5", kind: "trash", xPercent: 40, yPercent: 30 },
+    { id: "c6", kind: "bottles", xPercent: 66, yPercent: 32 },
+    { id: "c7", kind: "laundry", xPercent: 33, yPercent: 54 },
   ];
 }
 
@@ -37,59 +79,77 @@ function nearest(items: Clutter[], to: { x: number; y: number }): Clutter {
   }, items[0]);
 }
 
-function destinationLabel(kind: Clutter["kind"]): string {
-  return targetFor(kind) === "trash" ? "trash can" : "drawer";
+// Translate the React-owned game state into the flat {id,type,x,y} objects the
+// engine draws. The engine never sees React; this is the one bridge.
+function itemsForEngine(list: Clutter[]) {
+  return list.map((it) => ({
+    id: it.id,
+    kind: spotFor(it.kind).item,
+    x: it.xPercent,
+    y: it.yPercent,
+  }));
 }
 
-export default function RoomScene() {
+export default function RoomScene({
+  fixedMode,
+  presentation = "cleaning",
+}: RoomSceneProps = {}) {
   const [items, setItems] = useState<Clutter[]>(initialClutter);
-  const [mode, setMode] = useState<Mode>("manual");
+  const [mode, setMode] = useState<Mode>(fixedMode ?? "manual");
   const [command, setCommand] = useState("");
   const [lastCommand, setLastCommand] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [manualActions, setManualActions] = useState(0);
   const [announcement, setAnnouncement] = useState("");
 
-  // Agent character
-  const [charPos, setCharPos] = useState(DESK);
-  const [charState, setCharState] = useState<CharacterState>("sitting");
-  const [charCarry, setCharCarry] = useState<string | null>(null);
-  const [thought, setThought] = useState<string | undefined>();
-
-  // Manual "hand from the top"
-  const [hand, setHand] = useState({
-    x: 50,
-    y: -15,
-    visible: false,
-    carrying: null as string | null,
-  });
-  const [removingId, setRemovingId] = useState<string | null>(null);
-  // A short-lived sparkle shown where an item was just deposited.
-  const [poof, setPoof] = useState<{ x: number; y: number; key: number } | null>(
-    null,
-  );
-
+  // Engine handle + plain refs. None of these drive renders: worker/hand
+  // movement lives entirely inside the engine's rAF loop (Task 4).
+  const engineRef = useRef<SpriteEngine | null>(null);
   const itemsRef = useRef(items);
   itemsRef.current = items;
+  const modeRef = useRef(mode);
+  modeRef.current = mode;
   const busyRef = useRef(false);
-  const charPosRef = useRef(charPos);
-  charPosRef.current = charPos;
+  const workerPosRef = useRef(HOME);
 
   const startCount = 7;
-  const roomClean = items.length === 0;
+  const allClean = items.length === 0;
   const cleared = startCount - items.length;
+  const modeLocked = fixedMode !== undefined;
 
   const removeItem = useCallback((id: string) => {
     setItems((prev) => prev.filter((i) => i.id !== id));
   }, []);
 
-  const showPoof = useCallback((x: number, y: number) => {
-    setPoof({ x, y, key: Date.now() });
-  }, []);
+  // One-time engine setup: static scene + initial actor placement.
+  const handleReady = useCallback((engine: SpriteEngine) => {
+    engineRef.current = engine;
+    engine.setRug(HOME.x, HOME.y);
+    engine.setFurniture(
+      Object.values(SPOTS).map((s) => ({
+        kind: s.furn,
+        x: s.x,
+        y: s.y,
+        label: displayLabel(s, presentation),
+      })),
+    );
+    engine.setItems(itemsForEngine(itemsRef.current));
+    engine.placeActor("worker", HOME.x, HOME.y);
+    engine.setActorLabel("worker", null);
+    engine.setActorVisible("worker", modeRef.current === "agent");
+    engine.placeActor("hand", HAND_PARK.x, HAND_PARK.y);
+    engine.setActorVisible("hand", false);
+  }, [presentation]);
 
-  // ---- Manual mode: one input -> one action ----
+  // Keep the engine's clutter in sync with React state (discrete updates only:
+  // an item is added/removed, never per frame).
+  useEffect(() => {
+    engineRef.current?.setItems(itemsForEngine(items));
+  }, [items]);
+
   const runManualStep = useCallback(async () => {
-    if (busyRef.current) return;
+    const engine = engineRef.current;
+    if (busyRef.current || !engine) return;
     const current = itemsRef.current;
     if (current.length === 0) return;
 
@@ -97,33 +157,32 @@ export default function RoomScene() {
     setBusy(true);
 
     const item = nearest(current, TOP_CENTER);
-    const glyph = CLUTTER_GLYPH[item.kind];
-    const target = targetFor(item.kind) === "trash" ? TRASH : DRAWER;
+    const spot = spotFor(item.kind);
 
-    // Hand drops in from the top of the screen.
-    setHand({ x: item.xPercent, y: -15, visible: true, carrying: null });
+    engine.setActorCarry("hand", null);
+    engine.placeActor("hand", item.xPercent, HAND_PARK.y);
+    engine.setActorVisible("hand", true);
     await sleep(80);
-    setHand({ x: item.xPercent, y: item.yPercent, visible: true, carrying: null });
+    engine.moveActor("hand", item.xPercent, item.yPercent, 560);
     await sleep(650);
 
-    // Grab.
-    setRemovingId(item.id);
-    setHand((h) => ({ ...h, carrying: glyph }));
+    engine.setRemoving(item.id);
+    engine.setActorCarry("hand", spot.item);
     await sleep(320);
     removeItem(item.id);
-    setRemovingId(null);
 
-    // Carry to the correct target and drop.
-    setHand({ x: target.x, y: target.y, visible: true, carrying: glyph });
+    engine.moveActor("hand", spot.x, spot.y, 640);
     await sleep(720);
-    setHand((h) => ({ ...h, carrying: null }));
-    showPoof(target.x, target.y);
-    setAnnouncement(`Moved ${item.kind} to the ${destinationLabel(item.kind)}.`);
+    engine.setActorCarry("hand", null);
+    engine.poof(spot.x, spot.y);
+    setAnnouncement(
+      `Put the ${spot.word} in the ${displayLabel(spot, presentation)}.`,
+    );
     await sleep(320);
 
-    // Retract.
-    setHand({ x: target.x, y: -15, visible: false, carrying: null });
+    engine.moveActor("hand", spot.x, HAND_PARK.y, 460);
     await sleep(520);
+    engine.setActorVisible("hand", false);
 
     setManualActions((n) => n + 1);
     busyRef.current = false;
@@ -131,154 +190,172 @@ export default function RoomScene() {
     if (itemsRef.current.length === 0) {
       setAnnouncement("Room clean. That took several separate submits.");
     }
-  }, [removeItem, showPoof]);
+  }, [presentation, removeItem]);
 
-  // ---- Agent mode: one input -> N actions, self-terminating ----
   const runAgentLoop = useCallback(async () => {
-    if (busyRef.current) return;
+    const engine = engineRef.current;
+    if (busyRef.current || !engine) return;
     busyRef.current = true;
     setBusy(true);
-    setThought(undefined);
+    engine.setActorThought("worker", null);
 
     while (itemsRef.current.length > 0) {
-      const item = nearest(itemsRef.current, charPosRef.current);
-      const glyph = CLUTTER_GLYPH[item.kind];
-      const target = targetFor(item.kind) === "trash" ? TRASH : DRAWER;
+      const item = nearest(itemsRef.current, workerPosRef.current);
+      const spot = spotFor(item.kind);
 
-      // Stand and walk to the item.
-      setCharState("walking");
-      setCharPos({ x: item.xPercent, y: item.yPercent });
+      engine.setActorState("worker", "walking");
+      engine.moveActor("worker", item.xPercent, item.yPercent, 600);
+      workerPosRef.current = { x: item.xPercent, y: item.yPercent };
       await sleep(650);
 
-      // Pick up.
-      setCharState("working");
-      setRemovingId(item.id);
+      engine.setActorState("worker", "working");
+      engine.setRemoving(item.id);
       await sleep(320);
-      setCharCarry(glyph);
+      engine.setActorCarry("worker", spot.item);
       removeItem(item.id);
-      setRemovingId(null);
 
-      // Walk to the correct target.
-      setCharState("walking");
-      setCharPos({ x: target.x, y: target.y });
+      engine.setActorState("worker", "walking");
+      engine.moveActor("worker", spot.x, spot.y, 650);
+      workerPosRef.current = { x: spot.x, y: spot.y };
       await sleep(700);
 
-      // Deposit.
-      setCharState("working");
+      engine.setActorState("worker", "working");
       await sleep(300);
-      setCharCarry(null);
-      showPoof(target.x, target.y);
+      engine.setActorCarry("worker", null);
+      engine.poof(spot.x, spot.y);
       setAnnouncement(
-        `Agent moved ${item.kind} to the ${destinationLabel(item.kind)}.`,
+        `Agent put the ${spot.word} in the ${displayLabel(
+          spot,
+          presentation,
+        )}.`,
       );
 
-      // Walk back to the desk and sit.
-      setCharState("walking");
-      setCharPos(DESK);
+      engine.setActorState("worker", "walking");
+      engine.moveActor("worker", HOME.x, HOME.y, 650);
+      workerPosRef.current = HOME;
       await sleep(700);
-      setCharState("sitting");
+      engine.setActorState("worker", "sitting");
 
-      // Brief scan/think before deciding what to do next.
       if (itemsRef.current.length > 0) {
-        setThought("Scanning… 🔍");
+        engine.setActorThought("worker", "What's next?");
         await sleep(550);
-        setThought(undefined);
+        engine.setActorThought("worker", null);
       }
     }
 
-    // Goal state reached — the loop stops itself.
-    setCharState("sitting");
-    setCharPos(DESK);
-    setThought(undefined);
-    setAnnouncement("Room clean. The agent reached the goal and stopped itself.");
+    engine.setActorState("worker", "sitting");
+    engine.placeActor("worker", HOME.x, HOME.y);
+    engine.setActorThought("worker", null);
+    setAnnouncement(
+      "Room clean. The agent reached the goal and stopped itself.",
+    );
     busyRef.current = false;
     setBusy(false);
-  }, [removeItem, showPoof]);
+  }, [presentation, removeItem]);
 
   const handleSubmit = useCallback(
     (e: React.FormEvent) => {
       e.preventDefault();
-      if (busy || roomClean) return;
-      setLastCommand(command.trim() || "clean the room");
+      if (busy || allClean) return;
+      setLastCommand(command.trim() || "tidy the room");
       if (mode === "manual") {
         runManualStep();
       } else {
         runAgentLoop();
       }
     },
-    [busy, roomClean, mode, command, runManualStep, runAgentLoop],
+    [busy, allClean, mode, command, runManualStep, runAgentLoop],
   );
 
   const reset = useCallback(() => {
     if (busyRef.current) return;
-    setItems(initialClutter());
+    const fresh = initialClutter();
+    setItems(fresh);
     setManualActions(0);
-    setCharPos(DESK);
-    setCharState("sitting");
-    setCharCarry(null);
-    setThought(undefined);
-    setHand({ x: 50, y: -15, visible: false, carrying: null });
-    setRemovingId(null);
-    setPoof(null);
     setAnnouncement("Room reset.");
+    workerPosRef.current = HOME;
+
+    const engine = engineRef.current;
+    if (engine) {
+      engine.setItems(itemsForEngine(fresh));
+      engine.placeActor("worker", HOME.x, HOME.y);
+      engine.setActorState("worker", "sitting");
+      engine.setActorCarry("worker", null);
+      engine.setActorThought("worker", null);
+      engine.setActorVisible("worker", modeRef.current === "agent");
+      engine.placeActor("hand", HAND_PARK.x, HAND_PARK.y);
+      engine.setActorCarry("hand", null);
+      engine.setActorVisible("hand", false);
+    }
   }, []);
 
-  // Switching mode mid-demo resets the room so each lesson starts clean.
   useEffect(() => {
     reset();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode]);
 
+  useEffect(() => {
+    if (fixedMode && mode !== fixedMode) setMode(fixedMode);
+  }, [fixedMode, mode]);
+
   const remaining = items.length;
-  const placeholder = useMemo(() => "Type a command, e.g. clean the room", []);
+  const placeholder = useMemo(() => "Type a goal, e.g. tidy the room", []);
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Screen-reader live region */}
       <div aria-live="polite" className="sr-only" role="status">
         {announcement}
       </div>
 
-      {/* Controls */}
       <form
         onSubmit={handleSubmit}
-        className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm"
+        className="flex flex-wrap items-center gap-3 rounded-lg border border-[#474747] bg-[#191919] p-3 shadow-sm"
       >
-        <div
-          className="inline-flex overflow-hidden rounded-lg border border-slate-300"
-          role="group"
-          aria-label="Mode"
-        >
-          {(["manual", "agent"] as Mode[]).map((m) => (
-            <button
-              key={m}
-              type="button"
-              onClick={() => setMode(m)}
-              disabled={busy}
-              aria-pressed={mode === m}
-              className={`px-4 py-2 text-sm font-semibold capitalize transition disabled:cursor-not-allowed ${
-                mode === m
-                  ? "bg-indigo-600 text-white"
-                  : "bg-white text-slate-600 enabled:hover:bg-slate-50 disabled:opacity-50"
-              }`}
-            >
-              {m}
-            </button>
-          ))}
-        </div>
+        {modeLocked ? (
+          <div className="rounded-md border border-[#474747] bg-[#0A0A0A] px-4 py-2 text-sm font-semibold text-[#F7F7F7]">
+            {mode === "manual"
+              ? presentation === "tool-use"
+                ? "Tool use"
+                : "Manual task"
+              : "Single agent"}
+          </div>
+        ) : (
+          <div
+            className="inline-flex overflow-hidden rounded-md border border-[#474747]"
+            role="group"
+            aria-label="Mode"
+          >
+            {(["manual", "agent"] as Mode[]).map((m) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => setMode(m)}
+                disabled={busy}
+                aria-pressed={mode === m}
+                className={`px-4 py-2 text-sm font-semibold capitalize transition disabled:cursor-not-allowed ${
+                  mode === m
+                    ? "bg-[#3A7CA5] text-[#F7F7F7]"
+                    : "bg-[#0A0A0A] text-zinc-300 enabled:hover:bg-[#474747]/40 disabled:opacity-50"
+                }`}
+              >
+                {m}
+              </button>
+            ))}
+          </div>
+        )}
 
         <input
           value={command}
           onChange={(e) => setCommand(e.target.value)}
           placeholder={placeholder}
           aria-label="Command"
-          className="min-w-[200px] flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+          className="min-w-[220px] flex-1 rounded-md border border-[#474747] bg-[#0A0A0A] px-3 py-2 text-sm text-[#F7F7F7] outline-none placeholder:text-zinc-500 focus:border-[#1ABCBD] focus:ring-2 focus:ring-[#1ABCBD]/20"
         />
 
         <button
           type="submit"
-          disabled={busy || roomClean}
-          className="rounded-lg bg-indigo-600 px-5 py-2 text-sm font-semibold text-white transition enabled:hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+          disabled={busy || allClean}
+          className="rounded-md bg-[#3A7CA5] px-5 py-2 text-sm font-semibold text-white transition enabled:hover:bg-[#1ABCBD] disabled:cursor-not-allowed disabled:opacity-50"
         >
           Submit
         </button>
@@ -287,215 +364,159 @@ export default function RoomScene() {
           type="button"
           onClick={reset}
           disabled={busy}
-          className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-600 transition enabled:hover:bg-slate-50 disabled:opacity-50"
+          className="rounded-md border border-[#474747] px-4 py-2 text-sm font-semibold text-zinc-300 transition enabled:hover:bg-[#474747]/40 disabled:opacity-50"
         >
           Reset room
         </button>
       </form>
 
-      {/* Mode explainer */}
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg bg-slate-50 px-4 py-2 text-sm text-slate-600">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg border border-[#474747] bg-[#191919] px-4 py-2 text-sm text-zinc-300">
         <span
           className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${
             mode === "manual"
-              ? "bg-amber-100 text-amber-700"
-              : "bg-emerald-100 text-emerald-700"
+              ? "bg-[#E0BD3E]/15 text-[#f1d977]"
+              : "bg-[#4DAA57]/15 text-[#95df9d]"
           }`}
         >
-          {mode === "manual" ? "1 input → 1 action" : "1 input → N actions"}
+          {mode === "manual" ? "1 input -> 1 action" : "1 input -> N actions"}
         </span>
         {mode === "manual" ? (
           <span>
-            <strong className="text-slate-800">Manual:</strong> one Submit = one
-            item moved. You must resubmit for every remaining item. Submits so
-            far: <strong>{manualActions}</strong>.
+            <strong className="text-[#F7F7F7]">
+              {presentation === "tool-use" ? "Tool Use:" : "Manual:"}
+            </strong>{" "}
+            one Submit = one{" "}
+            {presentation === "tool-use" ? "tool action" : "item put away"}.
+            You must resubmit for every remaining item. Submits so far:{" "}
+            <strong>{manualActions}</strong>.
           </span>
         ) : (
           <span>
-            <strong className="text-slate-800">Agent:</strong> one Submit gives
-            the worker a goal. It loops on its own until the room is empty, then
-            stops itself.
+            <strong className="text-[#F7F7F7]">Agent:</strong> one Submit gives
+            the worker a goal. It tidies every item, returns home, then stops
+            itself.
           </span>
         )}
         {lastCommand ? (
-          <span className="text-slate-400">
+          <span className="text-zinc-500">
             Last command: &ldquo;{lastCommand}&rdquo;.
           </span>
         ) : null}
       </div>
 
-      {/* Gentle nudge once the manual repetition has made its point. */}
       {mode === "manual" && manualActions >= 3 && remaining > 0 ? (
-        <div className="animate-fade-in rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm text-emerald-800">
-          💡 Getting repetitive? That&rsquo;s the point. Switch to{" "}
-          <strong>Agent</strong> mode and give the same goal just once.
+        <div className="animate-fade-in rounded-lg border border-[#4DAA57]/50 bg-[#4DAA57]/15 px-4 py-2 text-sm text-[#d5f4d8]">
+          Getting repetitive? That is the point.{" "}
+          {modeLocked ? (
+            <>
+              Play the{" "}
+              <Link href="/agent" className="font-semibold underline">
+                Single Agent
+              </Link>{" "}
+              game mode and give the same goal once.
+            </>
+          ) : (
+            <>
+              Switch to <strong>Agent</strong> mode and give the same goal once.
+            </>
+          )}
         </div>
       ) : null}
 
-      {/* Progress bar */}
       <div className="flex items-center gap-3">
-        <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-200">
+        <div className="h-2 flex-1 overflow-hidden rounded-full bg-[#474747]">
           <div
-            className="h-full rounded-full bg-emerald-500 transition-all duration-300"
+            className="h-full rounded-full bg-[#4DAA57] transition-all duration-300"
             style={{ width: `${(cleared / startCount) * 100}%` }}
           />
         </div>
-        <span className="w-16 text-right text-xs font-semibold text-slate-500">
+        <span className="w-16 text-right text-xs font-semibold text-zinc-400">
           {cleared}/{startCount} done
         </span>
       </div>
 
-      {/* Destination legend (kept out of the canvas to avoid overlap) */}
-      <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-xs font-medium text-slate-500">
-        <span className="text-slate-400">Where things go:</span>
-        <span className="flex items-center gap-1.5">
-          <span className="h-2.5 w-2.5 rounded-full bg-rose-400" /> 🗑️ 💧 →
-          trash can
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="h-2.5 w-2.5 rounded-full bg-sky-400" /> 📚 🧦 🍽️ →
-          drawer
-        </span>
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-xs font-medium text-zinc-400">
+        <span className="text-zinc-500">Where things go:</span>
+        {Object.values(SPOTS).map((spot) => (
+          <span key={spot.label} className="flex items-center gap-1.5">
+            <span
+              className={`h-2.5 w-2.5 rounded-full ${
+                spot.tone === "sky"
+                  ? "bg-sky-400"
+                  : spot.tone === "violet"
+                    ? "bg-violet-400"
+                    : spot.tone === "teal"
+                      ? "bg-teal-400"
+                      : spot.tone === "amber"
+                        ? "bg-amber-400"
+                        : spot.tone === "emerald"
+                          ? "bg-emerald-400"
+                          : spot.tone === "rose"
+                            ? "bg-rose-400"
+                            : "bg-slate-400"
+              }`}
+            />
+            {spot.word} {"->"} {displayLabel(spot, presentation)}
+          </span>
+        ))}
       </div>
 
-      {/* Scene */}
-      <div className="relative aspect-[16/9] w-full overflow-hidden rounded-2xl border border-slate-300 bg-gradient-to-b from-sky-50 via-amber-50 to-orange-100 shadow-inner">
-        {/* Floor strip + baseboard */}
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-b from-transparent to-amber-200/50" />
-        <div className="pointer-events-none absolute inset-x-0 bottom-[33%] h-px bg-amber-300/60" />
-
-        {/* Ambient décor (purely decorative) */}
+      <RoomCanvas
+        ariaLabel={
+          presentation === "tool-use"
+            ? "Top-down tool-use room"
+            : "Top-down cleaning room"
+        }
+      >
         <div
-          className="pointer-events-none absolute left-[30%] top-[10%] -translate-x-1/2 text-4xl opacity-70"
+          className="absolute left-1/2 top-2 z-30 -translate-x-1/2 rounded bg-black/45 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white"
           aria-hidden
         >
-          🪟
+          {presentation === "tool-use" ? "Tool room" : "Living room"}
         </div>
-        <div
-          className="pointer-events-none absolute left-[50%] top-[88%] h-10 w-40 -translate-x-1/2 -translate-y-1/2 rounded-[50%] bg-rose-200/40"
-          aria-hidden
-        />
 
-        {/* Fixed targets */}
-        <Target x={TRASH.x} y={TRASH.y} glyph="🗑️" label="Trash can" tone="rose" />
-        <Target x={DRAWER.x} y={DRAWER.y} glyph="🗄️" label="Drawer" tone="sky" />
-        <Target x={DESK.x} y={DESK.y} glyph="🪑" label="Desk" tone="slate" />
-
-        {/* Clutter */}
-        {items.map((item) => (
-          <ClutterItem
-            key={item.id}
-            item={item}
-            removing={removingId === item.id}
-          />
-        ))}
-
-        {/* Deposit sparkle */}
-        {poof ? (
+        {presentation === "tool-use" ? (
           <div
-            key={poof.key}
-            className="pointer-events-none absolute z-30 -translate-x-1/2 -translate-y-1/2 animate-poof text-2xl"
-            style={{ left: `${poof.x}%`, top: `${poof.y}%` }}
+            className="pointer-events-none absolute left-1/2 top-[52%] z-30 -translate-x-1/2 rounded bg-black/45 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white"
             aria-hidden
           >
-            ✨
+            Work rug
           </div>
         ) : null}
 
-        {/* Agent character (only in agent mode) */}
+        <SpriteRenderer
+          onReady={handleReady}
+          ariaLabel={
+            presentation === "tool-use"
+              ? "Top-down tool-use room"
+              : "Top-down cleaning room"
+          }
+        />
+
+        {/* The worker is painted on the canvas, which is opaque to screen
+            readers; surface its presence as text so assistive tech (and the
+            e2e suite) can tell manual mode from agent mode. */}
         {mode === "agent" ? (
-          <Character
-            glyph="🧹"
-            xPercent={charPos.x}
-            yPercent={charPos.y}
-            state={charState}
-            carrying={charCarry}
-            thought={thought}
-            label="Agent"
-          />
+          <span className="sr-only">Agent worker is in the room.</span>
         ) : null}
 
-        {/* Manual hand from the top, with an arm reaching down from off-screen */}
-        {mode === "manual" && hand.visible ? (
-          <>
-            {hand.y > 0 ? (
-              <div
-                className="actor-move absolute z-20 w-[3px] -translate-x-1/2 bg-gradient-to-b from-slate-400/0 to-slate-400/70"
-                style={{ left: `${hand.x}%`, top: 0, height: `${hand.y}%` }}
-                aria-hidden
-              />
-            ) : null}
-            <div
-              className="actor-move absolute z-30 flex -translate-x-1/2 flex-col items-center"
-              style={{ left: `${hand.x}%`, top: `${hand.y}%` }}
-            >
-              <span className="text-4xl drop-shadow" aria-hidden>
-                🖐️
-              </span>
-              {hand.carrying ? (
-                <span className="-mt-1 text-2xl" aria-hidden>
-                  {hand.carrying}
-                </span>
-              ) : null}
-            </div>
-          </>
-        ) : null}
-
-        {/* Room clean indicator */}
-        {roomClean ? (
-          <div className="absolute inset-0 z-40 flex items-center justify-center">
-            <div className="animate-fade-in rounded-2xl bg-emerald-500/95 px-8 py-5 text-center text-white shadow-lg">
-              <div className="text-3xl">✨ Room clean</div>
+        {allClean ? (
+          <div className="absolute inset-0 z-50 flex items-center justify-center bg-slate-900/10">
+            <div className="animate-fade-in rounded-lg bg-emerald-600 px-8 py-5 text-center text-white shadow-lg">
+              <div className="text-3xl font-bold">Room clean!</div>
               <div className="mt-1 text-sm opacity-90">
                 {mode === "agent"
                   ? "The agent reached the goal and stopped on its own."
-                  : `Done — it took ${manualActions} separate submits.`}
+                  : `Done - it took ${manualActions} separate submits.`}
               </div>
             </div>
           </div>
         ) : null}
 
-        {/* Remaining counter */}
         <div className="absolute left-3 top-3 z-40 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-slate-600 shadow">
           {remaining} item{remaining === 1 ? "" : "s"} left
         </div>
-      </div>
-    </div>
-  );
-}
-
-const TONE: Record<string, string> = {
-  rose: "border-rose-300 bg-rose-50",
-  sky: "border-sky-300 bg-sky-50",
-  slate: "border-slate-300 bg-white/70",
-};
-
-function Target({
-  x,
-  y,
-  glyph,
-  label,
-  tone,
-}: {
-  x: number;
-  y: number;
-  glyph: string;
-  label: string;
-  tone: "rose" | "sky" | "slate";
-}) {
-  return (
-    <div
-      className="absolute z-0 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center"
-      style={{ left: `${x}%`, top: `${y}%` }}
-    >
-      <div
-        className={`flex h-14 w-14 items-center justify-center rounded-xl border-2 border-dashed text-3xl shadow-sm ${TONE[tone]}`}
-      >
-        <span aria-hidden>{glyph}</span>
-      </div>
-      <span className="mt-1 text-[11px] font-semibold text-slate-500">
-        {label}
-      </span>
+      </RoomCanvas>
     </div>
   );
 }

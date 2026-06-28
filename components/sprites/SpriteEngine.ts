@@ -109,7 +109,7 @@ interface DropModel {
   start: number;
 }
 
-const ITEM_DISP = 30; // px, matches the old FloorItem ItemSprite size
+const ITEM_DISP = 30; // px, matches the side-panel ItemSprite size
 const PILE_ITEM = 18; // px, matches the old warehouse Pile ItemSprite size
 const FURNITURE_W = 60; // px, matches FurnitureSprite base box
 const FURNITURE_H = 64;

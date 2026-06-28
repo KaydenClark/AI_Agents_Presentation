@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import ReportPanel, { ReportLine } from "./ReportPanel";
 import EscalationBanner from "./EscalationBanner";
-import { Marker } from "./ScenePrimitives";
+import { Marker } from "./Marker";
 import {
   AgentIcon,
   BossIcon,

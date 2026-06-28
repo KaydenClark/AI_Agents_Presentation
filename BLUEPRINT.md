@@ -139,7 +139,7 @@ The swarm scene (`/swarm`) is a top-down house being tidied by a team, laid out 
 - report paths carry the flow up (Agent -> Manager -> Boss -> Human), with a human-exit marker that lights up on escalation;
 - a supported item palette sits above the room. The player can arm one item, click anywhere in the house repeatedly, see each item fall to the floor, and watch the responsible Manager add it to a live Agent queue.
 
-The Boss -> rooms -> agents hierarchy and the human-escalation exit are unchanged. The Boss's OpenAI planning call is now **authoritative** (it decides which crew handles each group; see Core Logic). Agent movement follows per-item waypoint routes, drawn on the canvas engine. The route/scene is branded "Swarm House". A previous small-swarm 3-room version is preserved at `components/templates/ManagerFewAgentsHouse.template.tsx`.
+The Boss -> rooms -> agents hierarchy and the human-escalation exit are unchanged. The Boss's OpenAI planning call is now **authoritative** (it decides which crew handles each group; see Core Logic). Agent movement follows per-item waypoint routes, drawn on the canvas engine. The route/scene is branded "Swarm House". Older DOM-era scene templates have been removed; the maintained implementation is the canvas-backed six-mode ladder.
 
 Warehouse layout contract:
 

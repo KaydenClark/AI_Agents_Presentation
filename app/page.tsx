@@ -11,26 +11,43 @@ export default function LandingPage() {
           What is an AI Agent?
         </h1>
         <p className="mt-4 text-lg text-slate-600">
-          Two short scenes that explain &ldquo;AI agent&rdquo; and &ldquo;agent
-          swarm&rdquo; with visible rooms, workers, and report paths. No
-          jargon. Pick a scene to begin.
+          Three short pages that move from a plain chat window, to an
+          interactive room-cleaning game, to an AI warehouse factory. No jargon.
+          Pick a page to begin.
         </p>
       </header>
 
-      <div className="grid w-full max-w-3xl gap-6 sm:grid-cols-2">
+      <div className="grid w-full max-w-5xl gap-6 md:grid-cols-3">
+        <Link
+          href="/chat"
+          className="group flex flex-col rounded-2xl border border-slate-200 bg-white p-8 shadow-sm transition hover:-translate-y-1 hover:border-indigo-300 hover:shadow-lg"
+        >
+          <span className="mb-4 text-5xl">💬</span>
+          <h2 className="text-2xl font-semibold text-slate-900">Chat Window</h2>
+          <p className="mt-2 flex-1 text-slate-600">
+            Slide 1. Start with a familiar AI chat: helpful words, but no
+            hands-on loop that acts in the room by itself.
+          </p>
+          <span className="mt-5 inline-flex items-center gap-2 font-semibold text-indigo-600 group-hover:gap-3">
+            Open Slide 1<span aria-hidden>→</span>
+          </span>
+        </Link>
+
         <Link
           href="/room"
           className="group flex flex-col rounded-2xl border border-slate-200 bg-white p-8 shadow-sm transition hover:-translate-y-1 hover:border-indigo-300 hover:shadow-lg"
         >
           <span className="mb-4 text-5xl">▣</span>
-          <h2 className="text-2xl font-semibold text-slate-900">Single Room</h2>
+          <h2 className="text-2xl font-semibold text-slate-900">
+            Interactive Room
+          </h2>
           <p className="mt-2 flex-1 text-slate-600">
-            Scene 1. See the difference between doing every step yourself
-            (Manual) and giving one goal to an agent that tidies the whole room
-            on its own.
+            Page 2. Drag clutter to the right furniture, then prompt a hand one
+            step at a time, then let a single room agent clean the whole room
+            from one goal.
           </p>
           <span className="mt-5 inline-flex items-center gap-2 font-semibold text-indigo-600 group-hover:gap-3">
-            Open Scene 1
+            Open Room Game
             <span aria-hidden>→</span>
           </span>
         </Link>
@@ -41,15 +58,15 @@ export default function LandingPage() {
         >
           <span className="mb-4 text-5xl">🏭</span>
           <h2 className="text-2xl font-semibold text-slate-900">
-            Swarm Warehouse
+            AI Warehouse Factory
           </h2>
           <p className="mt-2 flex-1 text-slate-600">
-            Scene 2. One Boss breaks a big job into zones, Managers assign
-            Agents, and the work reports back up the chain &mdash; a whole team
-            of agents working together.
+            Page 3. One Boss breaks a big job into zones, Managers assign
+            Agents, and the work reports back up the chain &mdash; a whole
+            factory of agents working together.
           </p>
           <span className="mt-5 inline-flex items-center gap-2 font-semibold text-indigo-600 group-hover:gap-3">
-            Open Scene 2
+            Open Factory
             <span aria-hidden>→</span>
           </span>
         </Link>

@@ -13,16 +13,10 @@ import {
   Rug,
 } from "./RoomSprites";
 
-type Mode = "manual" | "agent";
+type Mode = "drag" | "prompt" | "agent";
 type SpotKind = "trash" | "dishes" | "bottles" | "books" | "laundry" | "toys";
 
-type Tone =
-  | "rose"
-  | "sky"
-  | "teal"
-  | "amber"
-  | "violet"
-  | "emerald";
+type Tone = "rose" | "sky" | "teal" | "amber" | "violet" | "emerald";
 
 const HOME = { x: 50, y: 52 };
 const TOP_CENTER = { x: 50, y: 0 };
@@ -42,12 +36,60 @@ const SPOTS: Record<
     tone: Tone;
   }
 > = {
-  trash: { x: 50, y: 16, label: "Trash can", word: "trash", furn: "trashcan", item: "trash", tone: "rose" },
-  dishes: { x: 16, y: 24, label: "Kitchen sink", word: "cup", furn: "sink", item: "cup", tone: "sky" },
-  bottles: { x: 84, y: 24, label: "Recycling", word: "can", furn: "recycling", item: "can", tone: "teal" },
-  books: { x: 85, y: 64, label: "Bookshelf", word: "book", furn: "bookshelf", item: "book", tone: "amber" },
-  laundry: { x: 15, y: 66, label: "Laundry hamper", word: "sock", furn: "hamper", item: "sock", tone: "violet" },
-  toys: { x: 50, y: 85, label: "Toy box", word: "toy", furn: "toybox", item: "toy", tone: "emerald" },
+  trash: {
+    x: 50,
+    y: 16,
+    label: "Trash can",
+    word: "trash",
+    furn: "trashcan",
+    item: "trash",
+    tone: "rose",
+  },
+  dishes: {
+    x: 16,
+    y: 24,
+    label: "Kitchen sink",
+    word: "cup",
+    furn: "sink",
+    item: "cup",
+    tone: "sky",
+  },
+  bottles: {
+    x: 84,
+    y: 24,
+    label: "Recycling",
+    word: "can",
+    furn: "recycling",
+    item: "can",
+    tone: "teal",
+  },
+  books: {
+    x: 85,
+    y: 64,
+    label: "Bookshelf",
+    word: "book",
+    furn: "bookshelf",
+    item: "book",
+    tone: "amber",
+  },
+  laundry: {
+    x: 15,
+    y: 66,
+    label: "Laundry hamper",
+    word: "sock",
+    furn: "hamper",
+    item: "sock",
+    tone: "violet",
+  },
+  toys: {
+    x: 50,
+    y: 85,
+    label: "Toy box",
+    word: "toy",
+    furn: "toybox",
+    item: "toy",
+    tone: "emerald",
+  },
 };
 
 function spotFor(kind: ClutterKind) {
@@ -78,12 +120,14 @@ function nearest(items: Clutter[], to: { x: number; y: number }): Clutter {
 
 export default function RoomScene() {
   const [items, setItems] = useState<Clutter[]>(initialClutter);
-  const [mode, setMode] = useState<Mode>("manual");
+  const [mode, setMode] = useState<Mode>("drag");
   const [command, setCommand] = useState("");
   const [lastCommand, setLastCommand] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [manualActions, setManualActions] = useState(0);
-  const [announcement, setAnnouncement] = useState("");
+  const [announcement, setAnnouncement] = useState(
+    "Drag an item to the matching furniture.",
+  );
 
   const [workerPos, setWorkerPos] = useState(HOME);
   const [workerState, setWorkerState] = useState<
@@ -99,9 +143,13 @@ export default function RoomScene() {
     carrying: null as ItemKind | null,
   });
   const [removingId, setRemovingId] = useState<string | null>(null);
-  const [poof, setPoof] = useState<{ x: number; y: number; key: number } | null>(
-    null,
-  );
+  const [poof, setPoof] = useState<{
+    x: number;
+    y: number;
+    key: number;
+  } | null>(null);
+  const [dragging, setDragging] = useState<Clutter | null>(null);
+  const canvasRef = useRef<HTMLDivElement | null>(null);
 
   const itemsRef = useRef(items);
   itemsRef.current = items;
@@ -229,7 +277,11 @@ export default function RoomScene() {
       e.preventDefault();
       if (busy || allClean) return;
       setLastCommand(command.trim() || "tidy the room");
-      if (mode === "manual") {
+      if (mode === "drag") {
+        setAnnouncement(
+          "In Drag mode, click and hold an item, then drag it to the matching furniture.",
+        );
+      } else if (mode === "prompt") {
         runManualStep();
       } else {
         runAgentLoop();
@@ -249,6 +301,7 @@ export default function RoomScene() {
     setPointer({ x: 50, y: -15, visible: false, carrying: null });
     setRemovingId(null);
     setPoof(null);
+    setDragging(null);
     setAnnouncement("Room reset.");
   }, []);
 
@@ -258,7 +311,45 @@ export default function RoomScene() {
   }, [mode]);
 
   const remaining = items.length;
-  const placeholder = useMemo(() => "Type a goal, e.g. tidy the room", []);
+  const placeholder = useMemo(
+    () =>
+      mode === "prompt"
+        ? "Prompt the hand, e.g. pick up one item"
+        : "Type a goal, e.g. tidy the room",
+    [mode],
+  );
+
+  const updateDragPosition = useCallback((clientX: number, clientY: number) => {
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const xPercent = Math.max(
+      5,
+      Math.min(95, ((clientX - rect.left) / rect.width) * 100),
+    );
+    const yPercent = Math.max(
+      8,
+      Math.min(92, ((clientY - rect.top) / rect.height) * 100),
+    );
+    setDragging((cur) => (cur ? { ...cur, xPercent, yPercent } : cur));
+  }, []);
+
+  const finishDrag = useCallback(() => {
+    if (!dragging) return;
+    const spot = spotFor(dragging.kind);
+    const closeEnough =
+      Math.hypot(dragging.xPercent - spot.x, dragging.yPercent - spot.y) < 11;
+    if (closeEnough) {
+      removeItem(dragging.id);
+      showPoof(spot.x, spot.y);
+      setManualActions((n) => n + 1);
+      setAnnouncement(`You put the ${spot.word} in the ${spot.label}.`);
+    } else {
+      setAnnouncement(
+        `That ${spot.word} belongs in the ${spot.label}. Try dragging it there.`,
+      );
+    }
+    setDragging(null);
+  }, [dragging, removeItem, showPoof]);
 
   return (
     <div className="flex flex-col gap-4">
@@ -275,7 +366,7 @@ export default function RoomScene() {
           role="group"
           aria-label="Mode"
         >
-          {(["manual", "agent"] as Mode[]).map((m) => (
+          {(["drag", "prompt", "agent"] as Mode[]).map((m) => (
             <button
               key={m}
               type="button"
@@ -322,18 +413,31 @@ export default function RoomScene() {
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg bg-slate-50 px-4 py-2 text-sm text-slate-600">
         <span
           className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${
-            mode === "manual"
+            mode === "drag"
               ? "bg-amber-100 text-amber-700"
-              : "bg-emerald-100 text-emerald-700"
+              : mode === "prompt"
+                ? "bg-sky-100 text-sky-700"
+                : "bg-emerald-100 text-emerald-700"
           }`}
         >
-          {mode === "manual" ? "1 input -> 1 action" : "1 input -> N actions"}
+          {mode === "drag"
+            ? "click-hold-drag"
+            : mode === "prompt"
+              ? "1 prompt -> 1 hand action"
+              : "1 input -> N actions"}
         </span>
-        {mode === "manual" ? (
+        {mode === "drag" ? (
           <span>
-            <strong className="text-slate-800">Manual:</strong> one Submit =
-            one item put away. You must resubmit for every remaining item.
-            Submits so far: <strong>{manualActions}</strong>.
+            <strong className="text-slate-800">Drag:</strong> click, hold, and
+            drag each item to the correct furniture. Drops so far:{" "}
+            <strong>{manualActions}</strong>.
+          </span>
+        ) : mode === "prompt" ? (
+          <span>
+            <strong className="text-slate-800">Prompt hand:</strong> one Submit
+            reaches down, picks up one item, and puts it away. You must prompt
+            again for the next item. Prompts so far:{" "}
+            <strong>{manualActions}</strong>.
           </span>
         ) : (
           <span>
@@ -349,7 +453,9 @@ export default function RoomScene() {
         ) : null}
       </div>
 
-      {mode === "manual" && manualActions >= 3 && remaining > 0 ? (
+      {(mode === "drag" || mode === "prompt") &&
+      manualActions >= 3 &&
+      remaining > 0 ? (
         <div className="animate-fade-in rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm text-emerald-800">
           Getting repetitive? That is the point. Switch to{" "}
           <strong>Agent</strong> mode and give the same goal once.
@@ -394,100 +500,124 @@ export default function RoomScene() {
         ))}
       </div>
 
-      <RoomCanvas ariaLabel="Top-down cleaning room">
-        <div
-          className="absolute left-1/2 top-2 z-30 -translate-x-1/2 rounded bg-black/45 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white"
-          aria-hidden
-        >
-          Living room
-        </div>
-
-        <Rug x={HOME.x} y={HOME.y} />
-
-        {Object.values(SPOTS).map((spot) => (
-          <Furniture
-            key={spot.label}
-            x={spot.x}
-            y={spot.y}
-            kind={spot.furn}
-            label={spot.label}
-          />
-        ))}
-
-        {items.map((item) => {
-          const spot = spotFor(item.kind);
-          return (
-            <FloorItem
-              key={item.id}
-              x={item.xPercent}
-              y={item.yPercent}
-              item={spot.item}
-              removing={removingId === item.id}
-            />
-          );
-        })}
-
-        {poof ? (
+      <div
+        ref={canvasRef}
+        onPointerMove={(e) => {
+          if (dragging) updateDragPosition(e.clientX, e.clientY);
+        }}
+        onPointerUp={finishDrag}
+        onPointerCancel={() => setDragging(null)}
+      >
+        <RoomCanvas ariaLabel="Top-down cleaning room">
           <div
-            key={poof.key}
-            className="pointer-events-none absolute z-40 -translate-x-1/2 -translate-y-1/2 animate-poof rounded-full bg-emerald-500 px-2 py-1 text-xs font-bold text-white"
-            style={{ left: `${poof.x}%`, top: `${poof.y}%` }}
+            className="absolute left-1/2 top-2 z-30 -translate-x-1/2 rounded bg-black/45 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white"
             aria-hidden
           >
-            done
+            Living room
           </div>
-        ) : null}
 
-        {mode === "agent" ? (
-          <RoomWorker
-            x={workerPos.x}
-            y={workerPos.y}
-            state={workerState}
-            carrying={workerCarry}
-            thought={thought}
-            label="Agent worker"
-          />
-        ) : null}
+          <Rug x={HOME.x} y={HOME.y} />
 
-        {mode === "manual" && pointer.visible ? (
-          <>
-            {pointer.y > 0 ? (
+          {Object.values(SPOTS).map((spot) => (
+            <Furniture
+              key={spot.label}
+              x={spot.x}
+              y={spot.y}
+              kind={spot.furn}
+              label={spot.label}
+            />
+          ))}
+
+          {items.map((item) => {
+            const spot = spotFor(item.kind);
+            const activeDrag = dragging?.id === item.id ? dragging : item;
+            return (
               <div
-                className="actor-move absolute z-20 w-[3px] -translate-x-1/2 bg-gradient-to-b from-slate-900/0 to-slate-900/40"
-                style={{
-                  left: `${pointer.x}%`,
-                  top: 0,
-                  height: `${pointer.y}%`,
+                key={item.id}
+                className={
+                  mode === "drag" && !busy
+                    ? "cursor-grab touch-none active:cursor-grabbing"
+                    : ""
+                }
+                onPointerDown={(e) => {
+                  if (mode !== "drag" || busy) return;
+                  e.currentTarget.setPointerCapture(e.pointerId);
+                  setDragging(item);
+                  updateDragPosition(e.clientX, e.clientY);
                 }}
-                aria-hidden
-              />
-            ) : null}
-            <div
-              className="actor-move absolute z-30 -translate-x-1/2 -translate-y-2"
-              style={{ left: `${pointer.x}%`, top: `${pointer.y}%` }}
-            >
-              <HandSprite carrying={pointer.carrying} />
-            </div>
-          </>
-        ) : null}
+              >
+                <FloorItem
+                  x={activeDrag.xPercent}
+                  y={activeDrag.yPercent}
+                  item={spot.item}
+                  removing={removingId === item.id}
+                />
+              </div>
+            );
+          })}
 
-        {allClean ? (
-          <div className="absolute inset-0 z-50 flex items-center justify-center bg-slate-900/10">
-            <div className="animate-fade-in rounded-lg bg-emerald-600 px-8 py-5 text-center text-white shadow-lg">
-              <div className="text-3xl font-bold">Room clean!</div>
-              <div className="mt-1 text-sm opacity-90">
-                {mode === "agent"
-                  ? "The agent reached the goal and stopped on its own."
-                  : `Done - it took ${manualActions} separate submits.`}
+          {poof ? (
+            <div
+              key={poof.key}
+              className="pointer-events-none absolute z-40 -translate-x-1/2 -translate-y-1/2 animate-poof rounded-full bg-emerald-500 px-2 py-1 text-xs font-bold text-white"
+              style={{ left: `${poof.x}%`, top: `${poof.y}%` }}
+              aria-hidden
+            >
+              done
+            </div>
+          ) : null}
+
+          {mode === "agent" ? (
+            <RoomWorker
+              x={workerPos.x}
+              y={workerPos.y}
+              state={workerState}
+              carrying={workerCarry}
+              thought={thought}
+              label="Agent worker"
+            />
+          ) : null}
+
+          {mode === "prompt" && pointer.visible ? (
+            <>
+              {pointer.y > 0 ? (
+                <div
+                  className="actor-move absolute z-20 w-[3px] -translate-x-1/2 bg-gradient-to-b from-slate-900/0 to-slate-900/40"
+                  style={{
+                    left: `${pointer.x}%`,
+                    top: 0,
+                    height: `${pointer.y}%`,
+                  }}
+                  aria-hidden
+                />
+              ) : null}
+              <div
+                className="actor-move absolute z-30 -translate-x-1/2 -translate-y-2"
+                style={{ left: `${pointer.x}%`, top: `${pointer.y}%` }}
+              >
+                <HandSprite carrying={pointer.carrying} />
+              </div>
+            </>
+          ) : null}
+
+          {allClean ? (
+            <div className="absolute inset-0 z-50 flex items-center justify-center bg-slate-900/10">
+              <div className="animate-fade-in rounded-lg bg-emerald-600 px-8 py-5 text-center text-white shadow-lg">
+                <div className="text-3xl font-bold">Room clean!</div>
+                <div className="mt-1 text-sm opacity-90">
+                  {mode === "agent"
+                    ? "The agent reached the goal and stopped on its own."
+                    : `Done - it took ${manualActions} separate actions.`}
+                </div>
               </div>
             </div>
-          </div>
-        ) : null}
+          ) : null}
 
-        <div className="absolute left-3 top-3 z-40 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-slate-600 shadow">
-          {remaining} item{remaining === 1 ? "" : "s"} left
-        </div>
-      </RoomCanvas>
+          <div className="absolute left-3 top-3 z-40 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-slate-600 shadow">
+            {remaining} item{remaining === 1 ? "" : "s"} left
+          </div>
+        </RoomCanvas>
+      </div>
     </div>
   );
 }

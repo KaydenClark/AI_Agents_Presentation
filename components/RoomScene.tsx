@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Clutter, ClutterKind } from "./ClutterItem";
+import { Clutter, ClutterKind } from "./roomTypes";
 import { FurnitureKind, ItemKind, RoomCanvas } from "./RoomSprites";
 import SpriteRenderer from "./sprites/SpriteRenderer";
 import { SpriteEngine } from "./sprites/SpriteEngine";

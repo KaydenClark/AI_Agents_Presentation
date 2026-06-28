@@ -86,6 +86,94 @@ async function run() {
     (await page.getByRole("link", { name: /Small Team/i }).count()) > 0 &&
     (await page.getByRole("link", { name: /Swarm House/i }).count()) > 0);
 
+  // ---------- Legacy redirects ----------
+  await page.goto(`${BASE}/room`, { waitUntil: "networkidle" });
+  check("Legacy /room redirects to Single Agent",
+    page.url().includes("/agent") &&
+    (await page.getByText(/Single Agent/i).count()) > 0);
+  await page.goto(`${BASE}/warehouse`, { waitUntil: "networkidle" });
+  check("Legacy /warehouse redirects to Swarm House",
+    page.url().includes("/swarm") &&
+    (await page.getByText(/Swarm House/i).count()) > 0);
+
+  // ---------- API fallback contracts ----------
+  const managerApi = await page.evaluate(async () => {
+    const response = await fetch("/api/manager-plan", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        managerId: "KITCHEN",
+        managerName: "Kitchen Manager",
+        instruction: "Clean the house",
+        agents: [{ id: "K1" }, { id: "K2" }],
+        jobs: [{ id: "dish-1", workUnits: 2 }, { id: "dish-2", workUnits: 1 }],
+      }),
+    });
+    return { status: response.status, body: await response.json() };
+  });
+  check("Manager API covers every submitted job",
+    managerApi.status === 200 &&
+    ["ai", "fallback"].includes(managerApi.body.source) &&
+    managerApi.body.agentQueues?.length === 2 &&
+    managerApi.body.agentQueues.flatMap((q) => q.jobIds).sort().join(",") === "dish-1,dish-2",
+    JSON.stringify(managerApi));
+
+  const badManagerApi = await page.evaluate(async () => {
+    const response = await fetch("/api/manager-plan", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: "not json",
+    });
+    return { status: response.status, body: await response.json() };
+  });
+  check("Manager API rejects malformed JSON without crashing",
+    badManagerApi.status === 400 && badManagerApi.body.source === "fallback",
+    JSON.stringify(badManagerApi));
+
+  const bossApi = await page.evaluate(async () => {
+    const response = await fetch("/api/boss-plan", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        instruction: "Clean the house",
+        scenario: {
+          id: "test",
+          title: "Test house",
+          urgency: "normal",
+          groups: [
+            { id: "dishes", label: "dishes", managerId: "KITCHEN", room: "Kitchen", quantity: 2, workUnits: 2, traits: ["fragile"] },
+            { id: "laundry", label: "laundry", managerId: "LAUNDRY", room: "Laundry", quantity: 2, workUnits: 2, traits: [] },
+            { id: "books", label: "books", managerId: "OFFICE", room: "Office", quantity: 2, workUnits: 2, traits: [] },
+          ],
+        },
+        managers: [
+          { id: "KITCHEN", name: "Kitchen Manager", specialty: "Dishes", agentCount: 2 },
+          { id: "LAUNDRY", name: "Laundry Manager", specialty: "Laundry", agentCount: 2 },
+          { id: "OFFICE", name: "Office Manager", specialty: "Books", agentCount: 2 },
+        ],
+      }),
+    });
+    return { status: response.status, body: await response.json() };
+  });
+  check("Boss API assigns every group to the three Managers",
+    bossApi.status === 200 &&
+    ["ai", "fallback"].includes(bossApi.body.source) &&
+    bossApi.body.assignments?.length === 3 &&
+    bossApi.body.assignments.flatMap((a) => a.groupIds).sort().join(",") === "books,dishes,laundry",
+    JSON.stringify(bossApi));
+
+  const badBossApi = await page.evaluate(async () => {
+    const response = await fetch("/api/boss-plan", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: "not json",
+    });
+    return { status: response.status, body: await response.json() };
+  });
+  check("Boss API rejects malformed JSON without crashing",
+    badBossApi.status === 400 && badBossApi.body.source === "fallback",
+    JSON.stringify(badBossApi));
+
   // ---------- Mode 1: Manual Game ----------
   await page.goto(`${BASE}/manual`, { waitUntil: "networkidle" });
   await page.waitForTimeout(400);
@@ -335,6 +423,6 @@ async function run() {
 }
 
 run().catch((e) => {
-  console.error("Harness crashed:", e);
+  console.error("Workbench crashed:", e);
   process.exit(2);
 });

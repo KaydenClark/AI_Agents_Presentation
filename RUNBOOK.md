@@ -249,7 +249,7 @@ Expected healthy state:
 | `npm run test:e2e` cannot connect | Dev server is not running or base URL differs | `curl http://localhost:3000` or check terminal running `npm run dev` | Start server or set `E2E_BASE`. |
 | Playwright complains browser is missing | Chromium has not been installed locally | `npx playwright install chromium` | Install Chromium and rerun the E2E test. |
 | Lint command fails before linting | Next lint/version drift | `npm run lint` output | Update lint script or config with evidence. |
-| Visual labels overlap after redesign | Scene primitives or viewport constraints are too loose | Run `Visual QA` at laptop and projector sizes | Add fixed scene dimensions, move labels outside motion paths, or shorten labels. |
+| Visual labels overlap after redesign | Scene primitives or viewport bounds are too loose | Run `Visual QA` at laptop and projector sizes | Add fixed scene dimensions, move labels outside motion paths, or shorten labels. |
 
 ## Recovery And Rollback
 

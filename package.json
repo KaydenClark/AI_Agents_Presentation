@@ -9,7 +9,7 @@
     "start": "next start",
     "lint": "next lint",
     "sprites": "node scripts/rasterize-sprites.mjs",
-    "test:unit": "node --no-warnings --test tests/*.test.mts",
+    "test:unit": "tsx --test tests/*.test.mts",
     "test:e2e": "node tests/e2e.mjs"
   },
   "dependencies": {
@@ -30,6 +30,7 @@
     "postcss": "^8.4.39",
     "sharp": "^0.35.2",
     "tailwindcss": "^3.4.6",
+    "tsx": "^4.22.4",
     "typescript": "^5.5.3"
   }
 }

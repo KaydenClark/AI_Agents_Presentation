@@ -17,7 +17,9 @@ export default function RootLayout({
     <html lang="en">
       <body>
         {children}
-        <Analytics />
+        {/* Only load on Vercel: the insights script 404s (console errors) on
+            local production servers and in e2e runs. */}
+        {process.env.VERCEL ? <Analytics /> : null}
       </body>
     </html>
   );

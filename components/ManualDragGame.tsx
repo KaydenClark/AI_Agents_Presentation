@@ -98,7 +98,18 @@ export default function ManualDragGame() {
     () => TASKS.filter((task) => placements[task.id] !== "done"),
     [placements],
   );
+  const selectedTask = useMemo(
+    () => TASKS.find((task) => task.id === selectedId) ?? null,
+    [selectedId],
+  );
   const complete = remaining.length === 0;
+
+  function selectTask(task: ManualTask) {
+    setSelectedId(task.id);
+    setAnnouncement(
+      `${task.itemLabel} selected. Choose ${task.destinationLabel}.`,
+    );
+  }
 
   function tryPlace(taskId: string, destinationId: DestinationId) {
     const task = TASKS.find((candidate) => candidate.id === taskId);
@@ -108,7 +119,9 @@ export default function ManualDragGame() {
     if (!task || !destination || placements[task.id] === "done") return;
 
     if (task.destinationId !== destination.id) {
-      setAnnouncement(`${task.itemLabel} does not belong at ${destination.label}.`);
+      setAnnouncement(
+        `Try again: ${task.itemLabel} belongs at ${task.destinationLabel}, not ${destination.label}.`,
+      );
       return;
     }
 
@@ -164,6 +177,18 @@ export default function ManualDragGame() {
             </div>
           ))}
         </div>
+        <div
+          className={`mt-3 rounded-md border px-3 py-2 text-sm font-semibold ${
+            announcement.startsWith("Try again")
+              ? "border-[#E0BD3E]/50 bg-[#E0BD3E]/15 text-[#f1d977]"
+              : selectedTask
+                ? "border-[#1ABCBD]/50 bg-[#1ABCBD]/10 text-[#b8f2f2]"
+                : "border-[#474747] bg-[#0A0A0A] text-zinc-300"
+          }`}
+          aria-hidden="true"
+        >
+          {announcement}
+        </div>
       </div>
 
       <RoomCanvas ariaLabel="Manual drag room">
@@ -215,10 +240,10 @@ export default function ManualDragGame() {
               type="button"
               draggable
               aria-label={`${task.itemLabel} item`}
-              onClick={() => setSelectedId(task.id)}
+              onClick={() => selectTask(task)}
               onDragStart={(event) => {
                 event.dataTransfer.setData("text/plain", task.id);
-                setSelectedId(task.id);
+                selectTask(task);
               }}
               className={`absolute z-40 flex h-16 w-16 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-md border bg-[#F7F7F7] shadow-lg transition hover:scale-105 focus:outline-none focus:ring-2 focus:ring-[#1ABCBD] ${
                 selectedId === task.id

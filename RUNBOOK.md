@@ -92,8 +92,9 @@ Expected result:
 - `/tool-use` clears one item per Submit using the tool-use metaphor.
 - `/agent` clears the full room from one Submit and stops.
 - `/team` splits work across two Agents in a two-room house and returns a team report.
+- `/swarm` opens in Presenter Mode by default, with a presenter cue that names the next live-demo point while the detailed manager logs stay behind disclosure controls.
 - `/swarm` runs with either `real AI decision` / `Manager AI` when a valid key is configured or fallback badges when not.
-- In `/swarm`, click Submit before using the item palette. Then pick one item and click anywhere in the house repeatedly to drop new live work.
+- In `/swarm`, the item palette is visible but disabled before Submit. Click Submit, wait until Agents are working, then pick one item and click anywhere in the house repeatedly to drop new live work.
 
 CSS/runtime sync rule:
 
@@ -195,7 +196,9 @@ Top-down redesign checks:
 - `/agent` reads as a room and demonstrates one self-terminating loop.
 - `/team` shows a two-room house with one messy room on the left, one work room on the right, split queues, room-to-room movement, and a final team report.
 - `/swarm` reads as one facility: boss hub, manager rooms, agent work zones, paths, reports, and escalation markers are visible.
-- `/swarm` shows the item palette; after Submit, selecting a palette item and clicking anywhere in the house drops repeated items, routes them to the responsible Manager, and includes them in the final report.
+- `/swarm` Presenter Mode shows a concise cue at each phase: first instruction, Boss decision, Manager split/live drop, human exit, and final report.
+- `/swarm` shows the item palette as dormant before Submit; after Agents are working, selecting a palette item and clicking anywhere in the house drops repeated items, routes them to the responsible Manager, and includes them in the final report.
+- In Presenter Mode, the Boss decision is expanded and Manager activity logs are collapsed but still available. Detailed mode should preserve the fuller manager-card/log view.
 - The Low Power checkbox caps the canvas loop for older laptops and should not blank the sprite layer.
 - Labels do not overlap props, workers, controls, report panels, or each other.
 - Motion is clear enough to follow without reading the code or console.
@@ -244,7 +247,7 @@ Expected healthy state:
 | Symptom | Likely cause | Check | Fix |
 |---|---|---|---|
 | Warehouse shows `fallback decision` or `Manager fallback` | Missing key, OpenAI failure, timeout, or malformed response | Check server console for `[boss-plan] falling back:` or `[manager-plan] falling back:` | Add/fix `OPENAI_API_KEY`, lower latency, or accept fallback for dry run. |
-| Dropped item does not spawn | The swarm has not started, the Boss is still deciding, or the click was outside the house | Check the item-palette hint text | Click Submit first, wait for Manager panels, then drop inside the house. |
+| Dropped item does not spawn | The swarm has not started, Agents are not yet working, or the click was outside the house | Check the item-palette hint text and disabled button state | Click Submit first, wait for the Presenter cue to invite a live drop, then drop inside the house. |
 | Low Power scene looks blank | Canvas was resized/toggled before the sprite layer repainted | Wait briefly, then rerun Visual QA; current engine repaints on resize/toggle | If it persists, inspect `SpriteEngine.setLowPower` and image preload state. |
 | `npm run test:e2e` cannot connect | Dev server is not running or base URL differs | `curl http://localhost:3000` or check terminal running `npm run dev` | Start server or set `E2E_BASE`. |
 | Playwright complains browser is missing | Chromium has not been installed locally | `npx playwright install chromium` | Install Chromium and rerun the E2E test. |

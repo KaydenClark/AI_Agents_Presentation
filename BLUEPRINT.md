@@ -44,7 +44,8 @@ When the project is working, a user can:
 - use `/agent` to give one goal to a self-terminating agent loop, rendered on the canvas engine;
 - use `/team` to watch one Manager split work across two Agents who move items from one messy left room into one right-side work room;
 - use `/swarm` to watch a local mess scenario render, a Boss **really allocate** the work across Managers (the allocation drives which crew does what, and guarantees every Manager contributes), Managers split queues across Agents, Agents work through queues, jams surfaced, and a local final report returned;
-- while `/swarm` is running, pick a supported palette item once, click anywhere in the house repeatedly, and drop new live work without resetting the run;
+- use `/swarm` in default **Presenter Mode**, which surfaces one cue for the next live-demo point while keeping the detailed manager logs available behind disclosure controls;
+- after `/swarm` is running, pick a supported palette item once, click anywhere in the house repeatedly, and drop new live work without resetting the run;
 - run without an OpenAI key by using deterministic server-side fallback planning.
 
 The most important quality bar is:
@@ -137,7 +138,8 @@ The swarm scene (`/swarm`) is a top-down house being tidied by a team, laid out 
 - the org chart is a strict **1 Boss · 3 Managers · 6 Agents** (10 total). Each of the three worker rooms has one Manager running two Agents in parallel; Managers split the queue so agents don't double-handle an item;
 - chores are multi-step and cross rooms: the Kitchen crew carries dishes (plates, forks, cups) from the living room, washes them at the sink, and puts them in the cupboard; the Laundry crew carries clothes (shirts, socks, towels) to the washer then folds them into the matching basket by type (a tangled load escalates to the Manager, who resolves it); the Office crew shelves books sorted by color; trash that can vs. cannot be recycled appears in every room and is sorted and carried out to the "outside" recycle/landfill bins at the bottom;
 - report paths carry the flow up (Agent -> Manager -> Boss -> Human), with a human-exit marker that lights up on escalation;
-- a supported item palette sits above the room. The player can arm one item, click anywhere in the house repeatedly, see each item fall to the floor, and watch the responsible Manager add it to a live Agent queue.
+- a supported item palette sits above the room. It is visible but disabled before Submit, then unlocks while Agents are working. The player can arm one item, click anywhere in the house repeatedly, see each item fall to the floor, and watch the responsible Manager add it to a live Agent queue.
+- Presenter Mode is on by default for live walkthroughs: it keeps the Boss decision expanded, shows one cue for the current phase, keeps the map prominent, and collapses detailed manager activity logs until the presenter opens them.
 
 The Boss -> rooms -> agents hierarchy and the human-escalation exit are unchanged. The Boss's OpenAI planning call is now **authoritative** (it decides which crew handles each group; see Core Logic). Agent movement follows per-item waypoint routes, drawn on the canvas engine. The route/scene is branded "Swarm House". Older DOM-era scene templates have been removed; the maintained implementation is the canvas-backed six-mode ladder.
 
@@ -211,7 +213,7 @@ AI_Agents_Presentation/
 | `/tool-use` | One-submit, one-tool-action room | working, on canvas engine | `app/tool-use/page.tsx`, `components/RoomScene.tsx`, `components/sprites/*`, `tests/e2e.mjs` |
 | `/agent` | Single-agent self-terminating loop, canvas-rendered | working, on canvas engine | `app/agent/page.tsx`, `components/RoomScene.tsx`, `components/sprites/*`, `tests/e2e.mjs` |
 | `/team` | One Manager + two Agents split work between one mess room and one work room | working, on canvas engine | `app/team/page.tsx`, `components/SmallTeamScene.tsx`, `components/sprites/*`, `tests/e2e.mjs` |
-| `/swarm` | Boss/Managers/Agents swarm, canvas-rendered; Boss/Manager allocation plus live item spawning | working, on canvas engine | `app/swarm/page.tsx`, `components/WarehouseScene.tsx`, `components/sprites/*`, `tests/e2e.mjs` |
+| `/swarm` | Boss/Managers/Agents swarm, canvas-rendered; Presenter Mode cues, Boss/Manager allocation, and live item spawning | working, on canvas engine | `app/swarm/page.tsx`, `components/WarehouseScene.tsx`, `components/sprites/*`, `tests/e2e.mjs` |
 | `/room` | Legacy redirect | working | `app/room/page.tsx` |
 | `/warehouse` | Legacy redirect | working | `app/warehouse/page.tsx` |
 
@@ -248,7 +250,7 @@ Rules:
 - Warehouse scenario generation creates bounded local mess JSON before the API call.
 - Boss planning's allocation is authoritative: `buildZones(scenario, assignments)` routes each group's jobs to the Manager the Boss assigned it to (default specialty manager only as fallback). Normalization guarantees full coverage (every group assigned once) and that **every Manager gets at least one group** — nobody sits idle.
 - Manager planning is authoritative within each room: `/api/manager-plan` returns job ids per Agent; malformed, missing, or failed responses fall back to deterministic balancing.
-- Player-added items are repeatable palette spawns. They are accepted while the swarm run is active, may be dropped anywhere inside the house, and are appended to the responsible Manager's live queue without resetting the scenario or clearing the selected palette item.
+- Player-added items are repeatable palette spawns. The palette is visible but disabled before Submit, then enabled while Agents are working. Accepted drops may land anywhere inside the house and are appended to the responsible Manager's live queue without resetting the scenario or clearing the selected palette item.
 - Routes are workflow-fixed (dishes still go to the kitchen sink); reassigning a group only changes which crew executes it, which reads as the Boss sending help across rooms.
 - Warehouse completion returns a local final report after all zones report complete, including player-added work.
 - Jams must have a visible human-escalation exit point.

@@ -98,6 +98,7 @@ history. Human-authored product prose stays outside the markers.
 | [S-001 - Workbench v2.3 Adoption](specs/S-001-workbench-v2-3-adoption/SPEC.md) | Migrate the project from the roadmap-based harness to the v2.3 spec-centered control plane without losing history. | complete |
 | [S-002 - v2.1 Beta Readiness](specs/S-002-v2-1-beta-readiness/SPEC.md) | Keep the six-mode beta reliable and hand off remaining presentation, live-AI, and dependency work safely. | active |
 | [S-003 - Workbench v2.3 Re-adoption](specs/S-003-workbench-v2-3-re-adoption/SPEC.md) | Re-run v2.3 adoption from a fresh verified upstream source and close the audit gaps without changing the app. | complete |
+| [S-004 - Next Dependency Remediation](specs/S-004-next-dependency-remediation/SPEC.md) | Upgrade the Next.js dependency line in isolation after confirming the supported security target and full regression scope. | planned |
 <!-- spec-catalog:end -->
 
 ## Cross-Cutting Health

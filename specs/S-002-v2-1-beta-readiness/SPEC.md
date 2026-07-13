@@ -10,8 +10,8 @@
 **Updated:** 2026-07-13
 **Catalog description:** Keep the six-mode beta reliable and hand off remaining presentation, live-AI, and dependency work safely.
 **Blockers:** none
-**Latest event:** TK-001 claimed by Codex.
-**Next gate:** Close TK-001 with verification and documentation proof.
+**Latest event:** TK-003 closed with proof.
+**Next gate:** Confirm acceptance criteria and completion result.
 
 ## Outcome
 
@@ -26,17 +26,17 @@ can undermine the teaching arc even when the core app still builds.
 
 ## Current Verified State
 
-- The local dirty tree passes lint, 9 unit tests, and a production build as of
-  2026-07-13.
-- The current branch has no upstream and is two commits behind
-  `origin/main`; `origin/main` contains separate recruiter/presentation work.
-- Existing dirty changes implement wall-safe pathing and presentation-friction
-  polish across components, tests, Blueprint archive, Roadmap archive, and
-  Runbook.
-- Project docs report a public Vercel beta and an invalid production OpenAI key,
-  but that external runtime state was not reverified during harness adoption.
-- Dependency advisory work remains intentionally separate because the recorded
-  automated fix crosses a major Next.js version.
+- `origin/main` is incorporated without rewriting history; the branch retains
+  the v2.3 control plane plus the recruiter-facing presentation work.
+- Targeted pathing tests, lint, 9 unit tests, the production build, doctor, and
+  the warm fallback-only E2E suite pass as of 2026-07-13.
+- Browser QA covers all six routes at 1366x768, 1440x900, and 1920x1080 with
+  meaningful content, no horizontal overflow, no framework overlays, and no
+  console warnings/errors.
+- Fallback-only operation is the accepted walkthrough path for this handoff;
+  production live-AI health and deployment are not required.
+- Read-only production audit reports one high direct Next.js finding and one
+  moderate transitive PostCSS finding; remediation is isolated in S-004.
 
 ## Desired Behavior
 
@@ -53,8 +53,12 @@ can undermine the teaching arc even when the core app still builds.
 
 - Deployment, secret changes, commits, pushes, rebases, and PRs require explicit
   authorization.
+- Kayden authorized the S-002 completion plan, including checkpoint, mainline
+  reconciliation, verification, branch publication, and PR handoff.
 - Do not mix dependency remediation into presentation polish.
 - Do not claim public live-AI health from old Roadmap evidence.
+- Treat fallback-only operation as the accepted presentation path unless a
+  later deployment/live-AI spec changes that decision.
 - Preserve stable selectors and all six teaching contracts.
 
 ## Non-Goals
@@ -66,18 +70,19 @@ can undermine the teaching arc even when the core app still builds.
 
 ## Dependencies And Blockers
 
-- Live-AI verification is blocked until Kayden confirms it is required and
-  authorizes production secret/deployment work.
-- Dependency remediation is deferred until its own upgrade scope is approved.
-- Publication is blocked on reconciling the dirty branch with `origin/main`.
+- Live-AI verification is not required for this handoff; deployment and secret
+  changes remain out of scope.
+- Dependency remediation is isolated in planned spec S-004 and remains blocked
+  on separate major-upgrade approval.
+- Publication is authorized after final proof and documentation checks.
 
 ## Vertical Implementation Slices
 
 | Ticket | Slice | Status | Blockers | Proof |
 |---|---|---|---|---|
-| TK-001 | Reconcile and hand off the current presentation-friction polish | in-progress | none | pending |
-| TK-002 | Verify production live-AI behavior if the walkthrough requires it | blocked | owner decision and deployment authorization | pending |
-| TK-003 | Triage production dependency advisories in an isolated upgrade | deferred | approved dependency scope | pending |
+| TK-001 | Reconcile and hand off the current presentation-friction polish | done | none | origin/main merged at a771ed2; targeted pathing 2/2, lint, unit 9/9, build, doctor, fallback E2E, and 18 viewport checks passed. |
+| TK-002 | Verify production live-AI behavior if the walkthrough requires it | done | none; fallback-only path accepted | Fallback-only local APIs returned fallback provenance and the complete six-mode E2E run passed; the authorized plan accepts fallback without production live-AI verification. |
+| TK-003 | Triage production dependency advisories in an isolated upgrade | done | none; implementation isolated to S-004 | Read-only production audit found 1 high direct Next.js and 1 moderate transitive PostCSS advisory; remediation is isolated in planned spec S-004 with no manifest changes. |
 
 ## Completion Plan
 
@@ -96,23 +101,22 @@ live-AI operations, and dependency scope do not become one risky change.
 
 Current reconciliation facts for execution:
 
-- `codex/presentation-friction-polish` has no upstream and diverges from
-  `origin/main` by one local commit versus two mainline commits.
-- The dirty product work changes five tracked files and adds
-  `tests/pathing.test.mts`; `tests/e2e.mjs` is also changed independently on
-  `origin/main`, so its assertions must be combined rather than choosing one
-  side.
-- Publication, history changes, deployment, secret rotation, and dependency
-  upgrades remain owner-gated.
+- `codex/presentation-friction-polish` contains recoverable checkpoint
+  `d2e3941` and merge commit `a771ed2`; `origin/main` is now an ancestor.
+- The E2E merge retains upstream browser/console/drop-retry hardening and the
+  local manual guidance, action-count, Presenter Mode, palette-gating, and
+  live-drop assertions.
+- Publication is authorized; deployment, secret rotation, and dependency
+  upgrades remain outside this spec.
 
 ## Acceptance Criteria
 
-- [ ] Current polish changes are reviewed against the newer mainline before publication.
-- [ ] Lint, unit tests, build, E2E, and six-mode visual QA pass for the chosen handoff.
-- [ ] Fallback-only mode completes a full local swarm run.
-- [ ] Public live-AI health is either verified with approval or explicitly not required.
-- [ ] Dependency advisories remain isolated with a documented upgrade decision.
-- [ ] Documentation and presentation artifacts match the shipped behavior.
+- [x] Current polish changes are reviewed against the newer mainline before publication.
+- [x] Lint, unit tests, build, E2E, and six-mode visual QA pass for the chosen handoff.
+- [x] Fallback-only mode completes a full local swarm run.
+- [x] Public live-AI health is either verified with approval or explicitly not required.
+- [x] Dependency advisories remain isolated with a documented upgrade decision.
+- [x] Documentation and presentation artifacts match the shipped behavior.
 
 ## Testing Seams
 
@@ -147,6 +151,9 @@ handoff.
 | Date | Ticket | Event | Verification | Docs | Remaining gap |
 |---|---|---|---|---|---|
 | 2026-07-13 | spec | Migrated live Roadmap goal and deferred items into a stable capability record. | Local branch/upstream/dirty state plus lint/unit/build baseline verified. | Historical Roadmap retained under `archive/`. | Current polish publication, public runtime, visual QA, and dependency decisions remain open. |
+| 2026-07-13 | TK-001 | Ticket closed | origin/main merged at a771ed2; targeted pathing 2/2, lint, unit 9/9, build, doctor, fallback E2E, and 18 viewport checks passed. | README and PRESENTATION reconciled; Blueprint catalog rendered; VISUAL_DESIGN and RUNBOOK checked with no update needed because their visual contract and commands remain accurate. | Record the accepted fallback decision and isolated dependency triage. |
+| 2026-07-13 | TK-002 | Ticket closed | Fallback-only local APIs returned fallback provenance and the complete six-mode E2E run passed; the authorized plan accepts fallback without production live-AI verification. | S-002, README, and PRESENTATION now describe honestly labeled AI or fallback operation; deployment docs remain unchanged because no deployment occurred. | Close isolated dependency triage and publish the branch handoff. |
+| 2026-07-13 | TK-003 | Ticket closed | Read-only production audit found 1 high direct Next.js and 1 moderate transitive PostCSS advisory; remediation is isolated in planned spec S-004 with no manifest changes. | S-002 and S-004 record the decision; Blueprint catalog will be rendered; package files remain unchanged. | Publish the branch and PR, then complete S-002. |
 
 ## Completion Result
 
@@ -154,7 +161,7 @@ Pending.
 
 ## Remaining Limitations Or Follow-Up Specs
 
-- Create a separate dependency-upgrade spec before changing Next.js/PostCSS.
+- S-004 owns any Next.js/PostCSS dependency remediation.
 - Create a superseding deployment/live-AI spec if production scope expands.
 
 ## Supersession

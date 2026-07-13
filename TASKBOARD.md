@@ -16,7 +16,7 @@ its linked spec. Commands live in `RUNBOOK.md`.
 <!-- hot-specs:start -->
 | Spec | Current slice | Owner | Blocker | Latest meaningful event | Next gate |
 |---|---|---|---|---|---|
-| [S-002](specs/S-002-v2-1-beta-readiness/SPEC.md) | TK-001: Reconcile and hand off the current presentation-friction polish (in-progress) | Codex | none | TK-001 claimed by Codex. | Close TK-001 with verification and documentation proof. |
+| [S-002](specs/S-002-v2-1-beta-readiness/SPEC.md) | Acceptance / owner gate | Codex | none | TK-003 closed with proof. | Confirm acceptance criteria and completion result. |
 <!-- hot-specs:end -->
 
 Completed specs disappear from this projection immediately. Their requirements,

@@ -1,5 +1,7 @@
 # AI Agent Swarm Game
 
+> Generated from LLM Workbench v2.3. Harness operations live in `RUNBOOK.md`.
+
 A top-down **game** that teaches the difference between a chat window and an
 **AI agent**: you give one instruction, then watch the AI take the controls and
 run the agents itself. Six game modes, one app. Drive it live, or let a
@@ -9,6 +11,27 @@ isolated session (no database, no login, no shared state).
 **Current release:** v2.1.0 (six-mode ladder, canvas sprite engine,
 authoritative Boss planning, Manager queue planning, and live swarm item
 spawning).
+
+## Project controls
+
+The project uses a small progressive-disclosure control plane:
+
+- [`AGENTS.md`](AGENTS.md) defines agent authority, scope, safety, lifecycle,
+  documentation ownership, and proof rules.
+- [`BLUEPRINT.md`](BLUEPRINT.md) holds the compact product map and durable spec
+  catalog.
+- [`TASKBOARD.md`](TASKBOARD.md) projects only active work and owner decisions.
+- [`specs/`](specs/) holds stable capability requirements and append-only proof.
+- [`RUNBOOK.md`](RUNBOOK.md) contains executable setup, verification, recovery,
+  and harness-upgrade commands.
+- [`HARNESS_FEEDBACK.md`](HARNESS_FEEDBACK.md) records friction caused by the
+  reusable workbench itself.
+
+The controls are plain Markdown and work with Codex, Claude, or another agent
+that reads repository instructions. Claude Code loads the shared rules through
+the checked-in `CLAUDE.md` bridge containing `@AGENTS.md`. The files under
+[`team templates/`](team%20templates/) are optional, on-demand coordination
+packets for a short multi-agent run; they do not replace the root Taskboard.
 
 ## Live demo
 

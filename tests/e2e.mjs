@@ -20,6 +20,15 @@ function check(name, cond, detail = "") {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+async function postRaw(path, body) {
+  const response = await fetch(new URL(path, BASE), {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body,
+  });
+  return { status: response.status, body: await response.json() };
+}
+
 async function itemsLeft(page) {
   const txt = await page.getByText(/item(s)? left/i).first().innerText();
   const m = txt.match(/(\d+)/);
@@ -118,14 +127,7 @@ async function run() {
     managerApi.body.agentQueues.flatMap((q) => q.jobIds).sort().join(",") === "dish-1,dish-2",
     JSON.stringify(managerApi));
 
-  const badManagerApi = await page.evaluate(async () => {
-    const response = await fetch("/api/manager-plan", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: "not json",
-    });
-    return { status: response.status, body: await response.json() };
-  });
+  const badManagerApi = await postRaw("/api/manager-plan", "not json");
   check("Manager API rejects malformed JSON without crashing",
     badManagerApi.status === 400 && badManagerApi.body.source === "fallback",
     JSON.stringify(badManagerApi));
@@ -162,14 +164,7 @@ async function run() {
     bossApi.body.assignments.flatMap((a) => a.groupIds).sort().join(",") === "books,dishes,laundry",
     JSON.stringify(bossApi));
 
-  const badBossApi = await page.evaluate(async () => {
-    const response = await fetch("/api/boss-plan", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: "not json",
-    });
-    return { status: response.status, body: await response.json() };
-  });
+  const badBossApi = await postRaw("/api/boss-plan", "not json");
   check("Boss API rejects malformed JSON without crashing",
     badBossApi.status === 400 && badBossApi.body.source === "fallback",
     JSON.stringify(badBossApi));
@@ -188,6 +183,13 @@ async function run() {
     (await page.getByText(/Bookshelf/i).count()) > 0);
   check("Manual Game: no agent worker present",
     (await page.getByText(/Agent worker/i).count()) === 0);
+
+  await page.getByRole("button", { name: /^Trash item/i }).click();
+  check("Manual Game: selected item gives visible destination guidance",
+    (await page.getByText(/Trash selected\. Choose Trash can\./i).count()) > 0);
+  await page.getByRole("button", { name: /^Sink destination/i }).click();
+  check("Manual Game: wrong destination shows a visible recovery message",
+    (await page.getByText(/Try again: Trash belongs at Trash can, not Sink\./i).count()) > 0);
 
   const manualMoves = [
     ["Trash", "Trash can"],
@@ -248,6 +250,8 @@ async function run() {
     (await page.getByText(/Room clean/i).count()) > 0);
   check("Tool Use: progress bar reads done",
     (await page.getByText(new RegExp(`${startCount}/${startCount} done`)).count()) > 0);
+  check("Tool Use: completion card matches the number of submitted actions",
+    (await page.getByText(new RegExp(`Done - it took ${startCount} separate submits\\.`)).count()) > 0);
   check("Tool Use: submit disabled when all tasks are done",
     await page.getByRole("button", { name: "Submit" }).isDisabled());
 
@@ -336,6 +340,12 @@ async function run() {
   check("Warehouse uses fixed Clean the house instruction",
     (await page.getByText(/Fixed human instruction/i).count()) > 0 &&
     (await page.getByText(/^Clean the house$/i).count()) > 0);
+  check("Warehouse: Presenter Mode is on by default",
+    await page.getByLabel(/Presenter mode/i).isChecked().catch(() => false));
+  check("Warehouse: Presenter cue starts with the first live-demo step",
+    (await page.getByText(/One instruction enters the system\. Click Submit\./i).count()) > 0);
+  check("Warehouse: palette is dormant before Submit",
+    await page.getByRole("button", { name: /Plate/i }).isDisabled());
   await page.getByRole("button", { name: "Submit" }).click();
 
   const decisionStart = Date.now();
@@ -347,9 +357,21 @@ async function run() {
     await sleep(300);
   }
   check("Warehouse: Boss decision panel appears", bossDecision);
+  check("Warehouse: Presenter cue explains the Boss decision step",
+    (await page.getByText(/Boss chose Managers\. Open decision is ready to read\./i).count()) > 0);
+  check("Warehouse: Boss decision is expanded in Presenter Mode",
+    (await page.getByText(/Priority \d: /i).count()) >= 3,
+    `${await page.getByText(/Priority \d: /i).count()} visible priorities`);
   check("Warehouse: Managers produce per-agent plans",
     (await page.getByText(/Manager (AI|fallback)/).count()) === 3,
     `${await page.getByText(/Manager (AI|fallback)/).count()} manager badges`);
+  const workingStart = Date.now();
+  while (Date.now() - workingStart < 12000) {
+    if ((await page.getByText(/^Working$/).count()) > 0) break;
+    await sleep(250);
+  }
+  check("Warehouse: palette is enabled once Agents are working",
+    !(await page.getByRole("button", { name: /Plate/i }).isDisabled()));
 
   await page.getByRole("button", { name: /Plate/i }).click();
   const map = page.getByLabel(/Top-down swarm facility/i).first();
@@ -380,6 +402,8 @@ async function run() {
     await sleep(250);
   }
   check("Warehouse: selected palette item stays armed for repeated drops", secondSpawnedWork);
+  check("Warehouse: Presenter cue explains live new work after a drop",
+    (await page.getByText(/New work entered without resetting the run\./i).count()) > 0);
 
   const whStart = Date.now();
   let finalReport = false;
@@ -388,6 +412,8 @@ async function run() {
     await sleep(400);
   }
   check("Warehouse: produces a final report", finalReport);
+  check("Warehouse: Presenter cue explains the final report",
+    (await page.getByText(/Read the report: completed work, added work, human help\./i).count()) > 0);
   check("Warehouse: final report includes player-added work",
     (await page.getByText(/player-added item/i).count()) > 0);
   check("Warehouse: all 3 manager rooms report complete",
@@ -396,7 +422,7 @@ async function run() {
 
   await page.getByRole("button", { name: "Reset" }).click();
   await page.waitForTimeout(300);
-  await page.getByLabel(/Presenter tools/i).check();
+  await page.getByLabel(/Show Jam controls/i).check();
   await page.getByRole("button", { name: "Submit" }).click();
   await page.waitForTimeout(1000);
   const jamBtns = page.getByRole("button", { name: /Jam/ });
@@ -405,6 +431,8 @@ async function run() {
     await jamBtns.first().click().catch(() => {});
     await page.waitForTimeout(700);
     humanBanner = (await page.getByText(/Needs human input/i).count()) > 0;
+    check("Warehouse: Presenter cue explains the human exit point",
+      (await page.getByText(/This is the human exit point\./i).count()) > 0);
     const resolve = page.getByRole("button", { name: /Resolve/i });
     if ((await resolve.count()) > 0) await resolve.click().catch(() => {});
   }

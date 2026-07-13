@@ -8,6 +8,23 @@ import { SpriteEngine } from "./sprites/SpriteEngine";
 type Phase = "idle" | "planning" | "working" | "done";
 type AgentId = "A" | "B";
 type Waypoint = { x: number; y: number };
+type PathWall =
+  | {
+      type: "vertical";
+      name: string;
+      x: number;
+      y1: number;
+      y2: number;
+      gap?: { y1: number; y2: number };
+    }
+  | {
+      type: "horizontal";
+      name: string;
+      y: number;
+      x1: number;
+      x2: number;
+      gap?: { x1: number; x2: number };
+    };
 
 interface TeamTask {
   id: string;
@@ -51,6 +68,11 @@ const FURNITURE: {
 const HALL_X = 67;
 const LEFT_DOOR_X = 64;
 const RIGHT_DOOR_X = 70;
+const TEAM_ROOM_Y = 23;
+const TEAM_ROOM_H = 62;
+const TEAM_DOOR_GAP = 13;
+const TEAM_DOOR_Y1 = TEAM_ROOM_Y + (TEAM_ROOM_H - TEAM_DOOR_GAP) / 2;
+const TEAM_DOOR_Y2 = TEAM_DOOR_Y1 + TEAM_DOOR_GAP;
 const WALL = "#8d8a82";
 const seamH =
   "repeating-linear-gradient(90deg, rgba(47,45,40,0.48) 0 1.5px, transparent 1.5px 40px)";
@@ -77,11 +99,53 @@ function deliveryRoute(task: TeamTask): Waypoint[] {
 }
 
 function returnRoute(agent: AgentId): Waypoint[] {
-  return [
-    { x: HALL_X, y: HOME[agent].y },
-    { x: RIGHT_DOOR_X, y: HOME[agent].y },
-    HOME[agent],
-  ];
+  return [HOME[agent]];
+}
+
+export function __smallTeamPathingForTest(): {
+  routes: { name: string; points: Waypoint[] }[];
+  walls: PathWall[];
+} {
+  return {
+    routes: [
+      ...TASKS.flatMap((task) => [
+        {
+          name: `${task.id} pickup`,
+          points: [HOME[task.agent], ...pickupRoute(task)],
+        },
+        {
+          name: `${task.id} delivery`,
+          points: [{ x: task.x, y: task.y }, ...deliveryRoute(task)],
+        },
+      ]),
+      {
+        name: "Agent A return home",
+        points: [TASKS.filter((task) => task.agent === "A").at(-1)!.dest, ...returnRoute("A")],
+      },
+      {
+        name: "Agent B return home",
+        points: [TASKS.filter((task) => task.agent === "B").at(-1)!.dest, ...returnRoute("B")],
+      },
+    ],
+    walls: [
+      {
+        type: "vertical",
+        name: "left room right wall",
+        x: 64,
+        y1: TEAM_ROOM_Y,
+        y2: TEAM_ROOM_Y + TEAM_ROOM_H,
+        gap: { y1: TEAM_DOOR_Y1, y2: TEAM_DOOR_Y2 },
+      },
+      {
+        type: "vertical",
+        name: "right room left wall",
+        x: 70,
+        y1: TEAM_ROOM_Y,
+        y2: TEAM_ROOM_Y + TEAM_ROOM_H,
+        gap: { y1: TEAM_DOOR_Y1, y2: TEAM_DOOR_Y2 },
+      },
+    ],
+  };
 }
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));

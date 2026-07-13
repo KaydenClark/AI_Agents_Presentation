@@ -16,7 +16,7 @@ its linked spec. Commands live in `RUNBOOK.md`.
 <!-- hot-specs:start -->
 | Spec | Current slice | Owner | Blocker | Latest meaningful event | Next gate |
 |---|---|---|---|---|---|
-| [S-002](specs/S-002-v2-1-beta-readiness/SPEC.md) | TK-001: Reconcile and hand off the current presentation-friction polish (ready) | Kayden / agent | none | Current branch contains verified but unpublished presentation-friction work. | Review the dirty diff against origin/main before any Git publication. |
+| [S-002](specs/S-002-v2-1-beta-readiness/SPEC.md) | TK-001: Reconcile and hand off the current presentation-friction polish (in-progress) | Codex | none | TK-001 claimed by Codex. | Close TK-001 with verification and documentation proof. |
 <!-- hot-specs:end -->
 
 Completed specs disappear from this projection immediately. Their requirements,

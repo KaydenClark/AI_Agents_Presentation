@@ -4,14 +4,14 @@
 > `specs/S-002-v2-1-beta-readiness/SPEC.md`.
 
 **Spec ID:** S-002
-**Status:** active
+**Status:** complete
 **Priority:** 1
 **Owner:** Codex
 **Updated:** 2026-07-13
 **Catalog description:** Keep the six-mode beta reliable and hand off remaining presentation, live-AI, and dependency work safely.
 **Blockers:** none
-**Latest event:** TK-003 closed with proof.
-**Next gate:** Confirm acceptance criteria and completion result.
+**Latest event:** Spec completed and removed from the hot board.
+**Next gate:** none
 
 ## Outcome
 
@@ -154,10 +154,15 @@ handoff.
 | 2026-07-13 | TK-001 | Ticket closed | origin/main merged at a771ed2; targeted pathing 2/2, lint, unit 9/9, build, doctor, fallback E2E, and 18 viewport checks passed. | README and PRESENTATION reconciled; Blueprint catalog rendered; VISUAL_DESIGN and RUNBOOK checked with no update needed because their visual contract and commands remain accurate. | Record the accepted fallback decision and isolated dependency triage. |
 | 2026-07-13 | TK-002 | Ticket closed | Fallback-only local APIs returned fallback provenance and the complete six-mode E2E run passed; the authorized plan accepts fallback without production live-AI verification. | S-002, README, and PRESENTATION now describe honestly labeled AI or fallback operation; deployment docs remain unchanged because no deployment occurred. | Close isolated dependency triage and publish the branch handoff. |
 | 2026-07-13 | TK-003 | Ticket closed | Read-only production audit found 1 high direct Next.js and 1 moderate transitive PostCSS advisory; remediation is isolated in planned spec S-004 with no manifest changes. | S-002 and S-004 record the decision; Blueprint catalog will be rendered; package files remain unchanged. | Publish the branch and PR, then complete S-002. |
+| 2026-07-13 | spec | Spec completed | Acceptance gates satisfied | Documentation impact recorded above | none |
 
 ## Completion Result
 
-Pending.
+Completed on 2026-07-13. The presentation-friction work was checkpointed,
+merged with current `origin/main` without rewriting history, fully verified in
+fallback mode, and published on `codex/presentation-friction-polish` through
+GitHub PR #9. Live-AI deployment remains intentionally out of scope, and the
+major dependency remediation is isolated in planned spec S-004.
 
 ## Remaining Limitations Or Follow-Up Specs
 

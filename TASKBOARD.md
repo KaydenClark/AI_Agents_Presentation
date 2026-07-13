@@ -2,8 +2,8 @@
 
 > Generated from LLM Workbench v2.3.
 
-**Current focus:** Keep the v2.1 beta stable for live walkthroughs and hand off
-remaining polish without disturbing unrelated dirty work.
+**Current focus:** No active hot spec. S-004 remains planned and owner-gated as
+an isolated major dependency upgrade.
 **Owner:** Kayden; execution owner selected per spec
 **Last updated:** 2026-07-13
 
@@ -16,7 +16,7 @@ its linked spec. Commands live in `RUNBOOK.md`.
 <!-- hot-specs:start -->
 | Spec | Current slice | Owner | Blocker | Latest meaningful event | Next gate |
 |---|---|---|---|---|---|
-| [S-002](specs/S-002-v2-1-beta-readiness/SPEC.md) | Acceptance / owner gate | Codex | none | TK-003 closed with proof. | Confirm acceptance criteria and completion result. |
+| none | No active slice | unassigned | none | All completed specs are cold. | Activate a planned spec explicitly. |
 <!-- hot-specs:end -->
 
 Completed specs disappear from this projection immediately. Their requirements,
@@ -27,6 +27,4 @@ spec linked from `BLUEPRINT.md`.
 
 Only decisions blocking an active spec appear here.
 
-| Spec | Decision | Options | Recommendation | Cost / impact | Owner | Next gate |
-|---|---|---|---|---|---|---|
-| S-002 | Does the walkthrough require live OpenAI decisions? | fallback-safe demo / replace and verify production key | Use fallback unless live AI is a presentation requirement. | Live verification requires secret rotation plus explicit deployment authorization. | Kayden | Confirm requirement before deployment work. |
+No active-spec owner decisions.

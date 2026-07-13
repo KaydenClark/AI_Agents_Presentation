@@ -6,6 +6,8 @@
 //
 // Point at a different origin with E2E_BASE, e.g.
 //   E2E_BASE=http://localhost:3100 npm run test:e2e
+// Use a pre-installed browser instead of the Playwright download with
+//   E2E_CHROMIUM=/path/to/chromium npm run test:e2e
 import { chromium } from "playwright";
 
 const BASE = process.env.E2E_BASE || "http://localhost:3000";
@@ -61,13 +63,22 @@ async function waitIdleOrClean(page, timeout = 15000) {
 }
 
 async function run() {
-  const browser = await chromium.launch();
+  const browser = await chromium.launch(
+    process.env.E2E_CHROMIUM
+      ? { executablePath: process.env.E2E_CHROMIUM }
+      : {},
+  );
   const page = await browser.newPage();
 
   const consoleErrors = [];
   const pageErrors = [];
   page.on("console", (m) => {
-    if (m.type() === "error") consoleErrors.push(m.text());
+    if (m.type() !== "error") return;
+    // The malformed-JSON API contract checks above intentionally provoke 400
+    // responses, which Chromium logs as resource errors. Don't count those.
+    const url = m.location()?.url ?? "";
+    if (/\/api\/(boss|manager)-plan/.test(url) && /status of 400/.test(m.text())) return;
+    consoleErrors.push(m.text());
   });
   page.on("pageerror", (e) => pageErrors.push(e.message));
 
@@ -373,34 +384,36 @@ async function run() {
   check("Warehouse: palette is enabled once Agents are working",
     !(await page.getByRole("button", { name: /Plate/i }).isDisabled()));
 
+  // Drops are intentionally rejected (with a visible hint) until the Boss has
+  // dispatched the plan, so wait for the dispatch note before clicking, then
+  // retry the click like a presenter would if a drop does not register.
+  const dispatchStart = Date.now();
+  while (Date.now() - dispatchStart < 15000) {
+    if ((await page.getByText(/Boss dispatched a plan/i).count()) > 0) break;
+    await sleep(250);
+  }
   await page.getByRole("button", { name: /Plate/i }).click();
   const map = page.getByLabel(/Top-down swarm facility/i).first();
   const box = await map.boundingBox();
-  if (box) {
-    await map.click({
-      position: { x: box.width * 0.25, y: box.height * 0.48 },
-    });
+  async function dropPlateUntil(count, xFrac, yFrac, timeout = 15000) {
+    const start = Date.now();
+    while (Date.now() - start < timeout) {
+      if (box) {
+        await map.click({
+          position: { x: box.width * xFrac, y: box.height * yFrac },
+        });
+      }
+      const settle = Date.now();
+      while (Date.now() - settle < 2500) {
+        if ((await page.getByText(/Player dropped a plate/i).count()) >= count) return true;
+        await sleep(250);
+      }
+    }
+    return false;
   }
-  let spawnedWork = false;
-  const spawnStart = Date.now();
-  while (Date.now() - spawnStart < 12000) {
-    spawnedWork = (await page.getByText(/Player dropped a plate/i).count()) > 0;
-    if (spawnedWork) break;
-    await sleep(250);
-  }
+  const spawnedWork = await dropPlateUntil(1, 0.25, 0.48);
   check("Warehouse: player can spawn one palette item into the live house", spawnedWork);
-  if (box) {
-    await map.click({
-      position: { x: box.width * 0.35, y: box.height * 0.62 },
-    });
-  }
-  let secondSpawnedWork = false;
-  const secondSpawnStart = Date.now();
-  while (Date.now() - secondSpawnStart < 12000) {
-    secondSpawnedWork = (await page.getByText(/Player dropped a plate/i).count()) >= 2;
-    if (secondSpawnedWork) break;
-    await sleep(250);
-  }
+  const secondSpawnedWork = await dropPlateUntil(2, 0.35, 0.62);
   check("Warehouse: selected palette item stays armed for repeated drops", secondSpawnedWork);
   check("Warehouse: Presenter cue explains live new work after a drop",
     (await page.getByText(/New work entered without resetting the run\./i).count()) > 0);

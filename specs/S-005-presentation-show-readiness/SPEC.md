@@ -11,8 +11,8 @@
 **Updated:** 2026-07-15
 **Catalog description:** Make the six-mode presentation and Swarm House presenter-ready by fixing runtime collision breaks, smoothing the rehearsal flow, and turning game mechanics into clear teaching interactions.
 **Blockers:** none
-**Latest event:** Owner reported that agents still sometimes walk through walls and that the Swarm House needs a usability and presentation-readiness pass.
-**Next gate:** TK-001 reproduces the runtime wall-crossing symptom and makes every visible Team/Swarm movement segment collision-safe.
+**Latest event:** Sol scoping confirmed that the current pathing test passes, but it checks synthesized Team routes and only two representative Swarm routes rather than every consecutive runtime movement leg.
+**Next gate:** TK-001 adds a failing runtime-leg regression, applies the smallest collision-safe routing fix, and proves repeated Team/Swarm fallback runs stay inside authored openings.
 
 ## Problem Statement
 
@@ -41,6 +41,9 @@ this product.
 
 - The project has deterministic pathing fixtures for Team and Swarm routes, but
   the owner still observes intermittent wall crossing in the visible runtime.
+  The current test passes while synthesizing each Team pickup from an agent home
+  and sampling only two Swarm routes; it does not enumerate the consecutive
+  movement legs emitted by a complete runtime run.
 - The browser suite completes all six modes and exercises live work and
   escalation, but its pass criteria do not prove every animated runtime segment
   stayed inside authored collision boundaries.
@@ -99,7 +102,12 @@ this product.
 
 ## Dependencies And Blockers
 
-- none for TK-001; later visual acceptance requires the existing Visual QA matrix.
+- TK-001 depends only on the existing Node/npm test harness, local Chromium, and
+  fallback mode; it does not require credentials, deployment, paid services, or
+  an owner decision.
+- Blockers: none. If the symptom cannot be reproduced at either the runtime-leg
+  seam or in repeated fallback runs, record the attempted routes and stop rather
+  than weakening the collision assertion or broadening into visual redesign.
 
 ## Vertical Implementation Slices
 
@@ -107,10 +115,53 @@ Tickets are temporary tracer bullets within this stable capability record.
 
 | Ticket | Slice | Status | Blockers | Proof |
 |---|---|---|---|---|
-| TK-001 | Reproduce runtime wall crossing and enforce collision-safe visible routes for every Team/Swarm actor segment | ready | none | pending |
+| TK-001 | In 30–45 minutes, reproduce one runtime wall-crossing leg and route every Team/Swarm runtime movement request through collision-safe authored openings | ready | none | pending |
 | TK-002 | Make swarm rehearsal start, phase progress, live-work timing, reset, and completion controls unambiguous | blocked | TK-001 | pending |
 | TK-003 | Make Boss → Manager → Agent delegation, work state, escalation, and final reporting readable at presenter distance | blocked | TK-002 | pending |
 | TK-004 | Remove or reshape game interactions that do not strengthen the six-mode teaching story; complete the laptop/projector usability pass | blocked | TK-003 | pending |
+
+### TK-001 Ready Contract (30–45 minutes)
+
+Scope only `tests/pathing.test.mts`, `components/SmallTeamScene.tsx`, and
+`components/WarehouseScene.tsx`. Do not change layout, controls, AI calls, or
+scene art.
+
+Done criteria:
+
+1. Red: extend the pathing seam to use consecutive positions from an actual
+   Team run and a cross-room/outside Swarm leg, and confirm the test fails on a
+   wall-crossing movement request for the expected reason.
+2. Green: make the scene-local runtime movement path expand any unsafe direct
+   leg through the authored door/hallway/opening geometry before animation.
+   Preserve direct movement when the segment is already safe.
+3. The regression asserts every emitted segment avoids solid wall geometry;
+   existing assignment, carry, escalation, lane-offset, and completion behavior
+   remains unchanged.
+4. Run three fallback Team rehearsals and three fallback Swarm rehearsals in the
+   browser. No actor visibly crosses a solid wall, and both modes still finish.
+
+Targeted verification:
+
+```bash
+npx tsx --test tests/pathing.test.mts
+```
+
+Full verification, using the `RUNBOOK.md` Test And Build order and a separate
+terminal for E2E:
+
+```bash
+npm run lint
+npm run test:unit
+npm run build
+node tools/spec-workbench.mjs doctor
+npm run dev
+E2E_BASE=http://localhost:3000 npm run test:e2e
+```
+
+Documentation expectation: append red/green and rehearsal proof to this spec.
+Update `RUNBOOK.md` only if a verification command changes; otherwise record
+`Docs checked; no update needed - internal path routing changed without changing
+the public rehearsal flow or visual language.`
 
 ## Acceptance Criteria
 
@@ -157,6 +208,7 @@ node tools/spec-workbench.mjs doctor
 | Date | Ticket | Event | Verification | Docs | Remaining gap |
 |---|---|---|---|---|---|
 | 2026-07-15 | spec | Captured owner-reported collision, swarm polish, and game-usability gaps as one stable show-readiness capability | Existing pathing unit seam and browser rehearsal seam identified; no product behavior claimed fixed | Added S-005 and refreshed current v2.3 Lexicon/control references | TK-001 runtime reproduction and fix |
+| 2026-07-15 | TK-001 | Sol scoped one 30–45 minute collision-integrity slice after tracing the live Team and Swarm movement seams | `npx tsx --test tests/pathing.test.mts` passes 2/2, proving the existing fixture does not reproduce the owner-observed runtime symptom; source review found synthesized Team starts and two sampled Swarm routes | Refined S-005 and refreshed the generated Taskboard projection | Execute red/green runtime-leg regression and six fallback rehearsals |
 
 ## Completion Result
 
@@ -171,4 +223,3 @@ Pending.
 
 - Supersedes: none
 - Superseded by: none
-

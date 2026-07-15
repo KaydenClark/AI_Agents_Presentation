@@ -16,7 +16,7 @@ its linked spec. Commands live in `RUNBOOK.md`.
 <!-- hot-specs:start -->
 | Spec | Current slice | Owner | Blocker | Latest meaningful event | Next gate |
 |---|---|---|---|---|---|
-| [S-005](specs/S-005-presentation-show-readiness/SPEC.md) | TK-001: Reproduce runtime wall crossing and enforce collision-safe visible routes for every Team/Swarm actor segment (ready) | Kayden (product); scheduled Sol/Terra agents (execution) | none | Owner reported that agents still sometimes walk through walls and that the Swarm House needs a usability and presentation-readiness pass. | TK-001 reproduces the runtime wall-crossing symptom and makes every visible Team/Swarm movement segment collision-safe. |
+| [S-005](specs/S-005-presentation-show-readiness/SPEC.md) | TK-001: In 30–45 minutes, reproduce one runtime wall-crossing leg and route every Team/Swarm runtime movement request through collision-safe authored openings (ready) | Kayden (product); scheduled Sol/Terra agents (execution) | none | Sol scoping confirmed that the current pathing test passes, but it checks synthesized Team routes and only two representative Swarm routes rather than every consecutive runtime movement leg. | TK-001 adds a failing runtime-leg regression, applies the smallest collision-safe routing fix, and proves repeated Team/Swarm fallback runs stay inside authored openings. |
 <!-- hot-specs:end -->
 
 Completed specs disappear from this projection immediately. Their requirements,

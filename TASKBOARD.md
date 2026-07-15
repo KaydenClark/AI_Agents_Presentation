@@ -16,7 +16,7 @@ its linked spec. Commands live in `RUNBOOK.md`.
 <!-- hot-specs:start -->
 | Spec | Current slice | Owner | Blocker | Latest meaningful event | Next gate |
 |---|---|---|---|---|---|
-| none | No active slice | unassigned | none | All completed specs are cold. | Activate a planned spec explicitly. |
+| [S-005](specs/S-005-presentation-show-readiness/SPEC.md) | TK-001: Reproduce runtime wall crossing and enforce collision-safe visible routes for every Team/Swarm actor segment (ready) | Kayden (product); scheduled Sol/Terra agents (execution) | none | Owner reported that agents still sometimes walk through walls and that the Swarm House needs a usability and presentation-readiness pass. | TK-001 reproduces the runtime wall-crossing symptom and makes every visible Team/Swarm movement segment collision-safe. |
 <!-- hot-specs:end -->
 
 Completed specs disappear from this projection immediately. Their requirements,

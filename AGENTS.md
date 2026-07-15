@@ -3,7 +3,7 @@
 > Generated from LLM Workbench v2.3.
 
 This always-loaded file owns how agents work. Product context loads from
-`BLUEPRINT.md` when needed; executable work lives in the assigned stable
+`BLUEPRINT.md` when needed; shared definitions load from `LEXICON.md`; executable work lives in the assigned stable
 `specs/S-###-slug/SPEC.md`; active state is projected into `TASKBOARD.md`;
 commands live in `RUNBOOK.md`.
 
@@ -13,7 +13,7 @@ commands live in `RUNBOOK.md`.
 2. This `AGENTS.md`.
 3. Source code and tests verified live.
 4. The assigned spec.
-5. `BLUEPRINT.md`, `TASKBOARD.md`, then `RUNBOOK.md`.
+5. `BLUEPRINT.md`, `LEXICON.md`, `TASKBOARD.md`, then `RUNBOOK.md`.
 6. `README.md`, `VISUAL_DESIGN.md`, and archived handoff/history docs.
 
 When docs and code disagree, trust verified code, flag the drift, and update the
@@ -147,6 +147,7 @@ Documentation is part of done; the implementing agent owns the update.
 |---|---|
 | agent rules, safety, Git, verification | `AGENTS.md` |
 | product direction and invariants | `BLUEPRINT.md` |
+| shared project terms and accepted definitions | `LEXICON.md` |
 | active assignment, blocker, event, gate | generated `TASKBOARD.md` |
 | requirements, acceptance, decisions, evidence, completion | assigned `SPEC.md` |
 | commands and troubleshooting | `RUNBOOK.md` |

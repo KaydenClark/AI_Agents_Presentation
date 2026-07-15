@@ -2,7 +2,7 @@
 
 > Generated from LLM Workbench v2.3.
 
-**Last reviewed:** 2026-07-13
+**Last reviewed:** 2026-07-15
 **Status:** active - v2.1 product release, v2.3 workbench
 **Harness version:** v2.3
 **Source root:** `/Users/kayden/GPT_OS/Projects/AI_Agents_Presentation`
@@ -30,6 +30,8 @@ Core promise:
   deterministic client logic owns animation and completion.
 - **Readable operations map:** original top-down visuals, accessible DOM
   controls, and projector-safe labels make state understandable at a glance.
+- **Presentation utility over game novelty:** every retained interaction earns
+  its place by strengthening the teaching story and rehearsal flow.
 
 ## Cross-Cutting Architecture And Invariants
 
@@ -99,6 +101,7 @@ history. Human-authored product prose stays outside the markers.
 | [S-002 - v2.1 Beta Readiness](specs/S-002-v2-1-beta-readiness/SPEC.md) | Keep the six-mode beta reliable and hand off remaining presentation, live-AI, and dependency work safely. | complete |
 | [S-003 - Workbench v2.3 Re-adoption](specs/S-003-workbench-v2-3-re-adoption/SPEC.md) | Re-run v2.3 adoption from a fresh verified upstream source and close the audit gaps without changing the app. | complete |
 | [S-004 - Next Dependency Remediation](specs/S-004-next-dependency-remediation/SPEC.md) | Upgrade the Next.js dependency line in isolation after confirming the supported security target and full regression scope. | planned |
+| [S-005 - Presentation Show Readiness](specs/S-005-presentation-show-readiness/SPEC.md) | Make the six-mode presentation and Swarm House presenter-ready by fixing runtime collision breaks, smoothing the rehearsal flow, and turning game mechanics into clear teaching interactions. | active |
 <!-- spec-catalog:end -->
 
 ## Cross-Cutting Health

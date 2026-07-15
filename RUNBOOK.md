@@ -387,7 +387,7 @@ Workbench version. To upgrade:
 1. Verify the requested upstream branch and commit.
 2. Read the upstream adoption/upgrade notes and compare changed template
    sections only.
-3. Preserve this project's filled-in rules, specs, public docs, and archives;
+3. Preserve this project's filled-in rules, Lexicon, specs, public docs, and archives;
    never reintroduce bracketed template placeholders.
 4. Create or activate a dedicated upgrade spec and capture the pre-edit project
    and harness baseline.

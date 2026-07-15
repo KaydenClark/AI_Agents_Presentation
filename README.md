@@ -31,6 +31,8 @@ The project uses a small progressive-disclosure control plane:
   documentation ownership, and proof rules.
 - [`BLUEPRINT.md`](BLUEPRINT.md) holds the compact product map and durable spec
   catalog.
+- [`LEXICON.md`](LEXICON.md) defines accepted project-wide terms used by specs,
+  tests, and presentation guidance.
 - [`TASKBOARD.md`](TASKBOARD.md) projects only active work and owner decisions.
 - [`specs/`](specs/) holds stable capability requirements and append-only proof.
 - [`RUNBOOK.md`](RUNBOOK.md) contains executable setup, verification, recovery,

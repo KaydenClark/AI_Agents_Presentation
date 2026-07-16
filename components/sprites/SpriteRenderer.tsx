@@ -6,6 +6,7 @@ import { SpriteEngine } from "./SpriteEngine";
 interface SpriteRendererProps {
   /** Called once when the engine is live. Parent drives it imperatively. */
   onReady: (engine: SpriteEngine) => void;
+  onCanvasReady?: (canvas: HTMLCanvasElement | null) => void;
   ariaLabel?: string;
 }
 
@@ -17,6 +18,7 @@ interface SpriteRendererProps {
  */
 export default function SpriteRenderer({
   onReady,
+  onCanvasReady,
   ariaLabel,
 }: SpriteRendererProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -32,6 +34,7 @@ export default function SpriteRenderer({
     engineRef.current = engine;
     engine.start();
     onReadyRef.current(engine);
+    onCanvasReady?.(canvas);
 
     const ro = new ResizeObserver(() => engine.resize());
     ro.observe(canvas);
@@ -44,8 +47,9 @@ export default function SpriteRenderer({
       window.removeEventListener("resize", onWindowResize);
       engine.stop();
       engineRef.current = null;
+      onCanvasReady?.(null);
     };
-  }, []);
+  }, [onCanvasReady]);
 
   return (
     <canvas

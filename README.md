@@ -10,6 +10,29 @@ isolated session (no database, no login, no shared state).
 authoritative Boss planning, Manager queue planning, and live swarm item
 spawning).
 
+## Live demo
+
+- **Public app:** <https://what-are-agents-presentation.vercel.app>
+- **Vercel preview window:** <https://what-are-agents-presentation.vercel.app/demo-embed.html>
+
+GitHub README pages do not render live iframes, so this README uses captured
+screenshots and links to the Vercel-hosted preview window. The preview page
+contains the working iframe-style window for the deployed app.
+
+## Screenshots
+
+| Six-mode landing | Single agent in motion |
+| --- | --- |
+| ![Six-mode landing page with Manual Game, Chat Window, Tool Use, Single Agent, Small Team, and Swarm House cards](public/readme/landing.jpg) | ![Single Agent mode with a top-down room and an agent worker moving through tasks](public/readme/agent.jpg) |
+
+| Swarm House |
+| --- |
+| ![Swarm House mode showing the Boss office, Manager rooms, item palette, and top-down facility map](public/readme/swarm.jpg) |
+
+| Vercel preview window |
+| --- |
+| ![Vercel-hosted preview window with the live app embedded inside a browser-style frame](public/readme/demo-embed.jpg) |
+
 ## What v2.1 includes
 
 - Six polished mini games: Manual Game, Chat Window, Tool Use, Single Agent,
@@ -24,8 +47,9 @@ spawning).
 
 - **Game mode 1 — Manual Game (`/manual`):** You are the agent. Drag trash to
   the trash can, the cup to the sink, and the book to the bookshelf.
-- **Game mode 2 — Chat Window (`/chat`):** You type a prompt and get a useful text
-  answer, but the room state does not change.
+- **Game mode 2 — Chat Window (`/chat`):** You type a prompt and get a live
+  LLM-backed room answer when `OPENAI_API_KEY` is configured, but the room state
+  does not change.
 - **Game mode 3 — Tool Use (`/tool-use`):** The chat window gets tools, but one
   Submit still produces one external tool action. The room is the work area,
   and each destination is a tool the chat can call.
@@ -53,8 +77,8 @@ SVG definitions by `scripts/rasterize-sprites.mjs` (`npm run sprites`, uses
 and the teaching chrome are preserved.
 
 Teaching behavior is explicit: Manual Game = you move items yourself, Chat =
-output only, Tool Use = one submit → one tool action, Agent = one submit → a
-self-terminating loop, Team = delegated parallel work, Swarm = hierarchy plus
+LLM output only, Tool Use = one submit → one tool action, Agent = one submit →
+a self-terminating loop, Team = delegated parallel work, Swarm = hierarchy plus
 live adaptation.
 
 ## Tech stack
@@ -181,7 +205,8 @@ shows `real AI decision` after a test run when a key is configured, then Reset.
 **Game mode 2 — Chat Window (~1 min)**
 
 1. Go to `/chat`. Submit the same prompt.
-2. Read the plan, then point to the unchanged item counter: output is not action.
+2. Read the room-specific answer, then point to the unchanged item counter:
+   output is not action.
 
 **Game mode 3 — Tool Use (~1 min)**
 

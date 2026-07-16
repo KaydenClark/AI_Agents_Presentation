@@ -88,7 +88,8 @@ Expected result:
 
 - Landing page links to all six game modes.
 - `/manual` lets the player drag each item to its destination.
-- `/chat` returns text output without changing the room state.
+- `/chat` returns a room-specific LLM answer when `OPENAI_API_KEY` is configured,
+  falls back when it is not, and does not change the room state.
 - `/tool-use` clears one item per Submit using the tool-use metaphor.
 - `/agent` clears the full room from one Submit and stops.
 - `/team` splits work across two Agents in a two-room house and returns a team report.
@@ -190,7 +191,7 @@ Viewport checks:
 Top-down redesign checks:
 
 - `/manual` reads as a room and demonstrates Manual Game = player drags items to destinations.
-- `/chat` reads as a prompt/output scene and leaves the item counter unchanged after Submit.
+- `/chat` reads as a prompt/output scene, answers from the room snapshot, and leaves the item counter unchanged after Submit.
 - `/tool-use` reads as a tool room and demonstrates one tool action per Submit.
 - `/agent` reads as a room and demonstrates one self-terminating loop.
 - `/team` shows a two-room house with one messy room on the left, one work room on the right, split queues, room-to-room movement, and a final team report.
@@ -249,7 +250,7 @@ Expected healthy state:
 | `npm run test:e2e` cannot connect | Dev server is not running or base URL differs | `curl http://localhost:3000` or check terminal running `npm run dev` | Start server or set `E2E_BASE`. |
 | Playwright complains browser is missing | Chromium has not been installed locally | `npx playwright install chromium` | Install Chromium and rerun the E2E test. |
 | Lint command fails before linting | Next lint/version drift | `npm run lint` output | Update lint script or config with evidence. |
-| Visual labels overlap after redesign | Scene primitives or viewport constraints are too loose | Run `Visual QA` at laptop and projector sizes | Add fixed scene dimensions, move labels outside motion paths, or shorten labels. |
+| Visual labels overlap after redesign | Scene primitives or viewport bounds are too loose | Run `Visual QA` at laptop and projector sizes | Add fixed scene dimensions, move labels outside motion paths, or shorten labels. |
 
 ## Recovery And Rollback
 

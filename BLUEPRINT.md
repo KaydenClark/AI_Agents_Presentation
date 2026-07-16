@@ -11,7 +11,7 @@ This is the stable reference for what the project is. Keep it factual, source-ba
 
 AI_Agents_Presentation is a Next.js **game** that teaches the difference between doing work yourself, typing into a chat window, giving that chat window tools, and delegating to agents. You give one instruction, then watch when an agent, team, or swarm actually takes the controls. It uses six top-down game modes: manual game, chat window, tool use, single agent, small team, and swarm house.
 
-The canvas scenes render their sprite layer on an **HTML5 `<canvas>` engine** (`components/sprites/SpriteEngine.ts`) that draws rasterized PNG sprites in a `requestAnimationFrame` loop, with movement decoupled from React (no per-frame re-renders). The PNGs are produced from the original SVG definitions by an offline pipeline (`scripts/rasterize-sprites.mjs` → `public/assets/sprites/`). CSS room shells and all DOM panels/overlays (forms, logs, legends, aria-live regions) sit over the canvas, preserving accessibility. The front end stays a relatable household-cleaning story — no developer-tool framing (no MCP / computer-use / terminal language).
+The canvas scenes render their sprite layer on an **HTML5 `<canvas>` engine** (`components/sprites/SpriteEngine.ts`) that draws rasterized PNG sprites in a `requestAnimationFrame` loop, with movement decoupled from React (no per-frame re-renders). The PNGs are produced from the original SVG definitions by an offline pipeline (`scripts/rasterize-sprites.mjs` → `public/assets/sprites/`). CSS room shells and all DOM panels/overlays (forms, logs, legends, aria-live regions) sit over the canvas, preserving accessibility. The front end stays a relatable household-cleaning story with plain business-friendly language instead of implementation jargon.
 
 Core promise:
 
@@ -39,7 +39,7 @@ When the project is working, a user can:
 
 - open the landing page and choose `/manual`, `/chat`, `/tool-use`, `/agent`, `/team`, or `/swarm`;
 - use `/manual` as a drag-and-drop game where the player is the agent and places each item where it belongs;
-- use `/chat` to get a helpful text answer while the room state stays unchanged;
+- use `/chat` to get a helpful LLM-backed room answer while the room state stays unchanged;
 - use `/tool-use` to see the chat window gain external tools while still producing one tool action per Submit;
 - use `/agent` to give one goal to a self-terminating agent loop, rendered on the canvas engine;
 - use `/team` to watch one Manager split work across two Agents who move items from one messy left room into one right-side work room;
@@ -94,7 +94,7 @@ The six routes form one teaching ladder:
 | Route | Lesson | Runtime |
 |---|---|---|
 | `/manual` | Doing the work yourself means dragging items to the right destinations. | `ManualDragGame` |
-| `/chat` | Chat output is useful but does not change external state. | `ChatWindowScene` |
+| `/chat` | LLM-backed chat output is useful but does not change external state. | `ChatWindowScene` + `/api/chat-answer` |
 | `/tool-use` | Tool access lets chat affect the room, but still one action at a time. | `RoomScene` locked to manual mode with tool-use labels |
 | `/agent` | A single agent keeps acting until the goal is done, then stops. | `RoomScene` locked to agent mode |
 | `/team` | A Manager can split one goal across two Agents. | `SmallTeamScene` |
@@ -119,7 +119,7 @@ Room layout contract:
 - household clutter scattered on the floor, each item bound for one destination;
 - `/tool-use` puts one item away per submit; `/agent` clears the whole room from one submit and stops.
 
-Tool-use metaphor rule: `/tool-use` can label destinations as plain tools because the mode is specifically about chat gaining tool access. Avoid insider terms like MCP or plugin in audience-facing labels. `/agent` stays a household-cleaning story so autonomy remains visually obvious.
+Tool-use metaphor rule: `/tool-use` can label destinations as plain tools because the mode is specifically about chat gaining tool access. Use plain tool names in audience-facing labels. `/agent` stays a household-cleaning story so autonomy remains visually obvious.
 
 | Element | Cleaning metaphor |
 |---|---|
@@ -164,7 +164,7 @@ Warehouse layout contract:
 | Testing | Unit tests + Playwright smoke test + Next lint/build | `tests/warehouseRules.test.mts`, `tests/e2e.mjs`, `package.json` scripts |
 | Deployment/runtime | Vercel target | README deployment section |
 
-Architecture constraints:
+Architecture guardrails:
 
 - The live demo must continue with fallbacks if OpenAI fails, times out, or returns malformed output.
 - `OPENAI_API_KEY` must remain server-side and must never be exposed to client code.
@@ -172,7 +172,7 @@ Architecture constraints:
 - Movement is decoupled from React: scenes mutate the `SpriteEngine` imperatively; per-frame position never triggers a React render. React state is for discrete events + side panels only.
 - Low Power mode caps the canvas frame loop to about 30 fps and lowers DPR pressure for older or overloaded laptops.
 
-Rendering / asset constraints:
+Rendering / asset guardrails:
 
 - The sprite layer (furniture, clutter piles, actors, report paths, drop effects) renders on the `SpriteEngine` canvas; the CSS room shells and DOM panels/overlays sit over it (this is where accessibility lives).
 - PNG sprites are generated, not hand-edited: change the SVG definitions in `components/RoomSprites.tsx` (the source of truth the rasterizer mirrors) and re-run `npm run sprites`. Canvas PNGs cannot be runtime-tinted — only books have pre-baked color variants (see the rasterizer + `spriteManifest.itemSprite`).
@@ -240,7 +240,7 @@ The core demo logic lives in `components/RoomScene.tsx`, `components/WarehouseSc
 Rules:
 
 - `/manual` lets the player drag each item to its correct destination.
-- `/chat` can produce a useful answer but must not mutate the room state.
+- `/chat` can produce a useful LLM-backed answer but must not mutate the room state.
 - `/tool-use` puts away exactly one clutter item per submit.
 - `/agent` clears the full room from one submit and self-terminates when complete.
 - `/team` splits one fixed goal into two Agent queues and reports both complete.

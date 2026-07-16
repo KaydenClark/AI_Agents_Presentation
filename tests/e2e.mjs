@@ -124,8 +124,10 @@ async function run() {
   const chatStartCount = await itemsLeft(page);
   await page.getByLabel(/Prompt/i).fill("tidy the room");
   await page.getByRole("button", { name: "Submit" }).click();
-  check("Chat: produces an answer",
-    (await page.getByText(/Here is a plan/i).count()) > 0);
+  await page.getByText(/First item/i).waitFor({ timeout: 15000 }).catch(() => {});
+  check("Chat: produces a room-specific chatbot answer",
+    (await page.getByText(/First item/i).count()) > 0 &&
+    (await page.getByText(/sock|trash|can|cup|book|toy/i).count()) > 0);
   check("Chat: room state does not change from output alone",
     (await itemsLeft(page)) === chatStartCount,
     `started ${chatStartCount}, now ${await itemsLeft(page)}`);
@@ -263,10 +265,18 @@ async function run() {
     (await page.getByText(/Manager (AI|fallback)/).count()) === 3,
     `${await page.getByText(/Manager (AI|fallback)/).count()} manager badges`);
 
+  const dropReadyStart = Date.now();
+  let dropReady = false;
+  while (Date.now() - dropReadyStart < 12000) {
+    dropReady = (await page.getByText(/^Working$/).count()) > 0;
+    if (dropReady) break;
+    await sleep(250);
+  }
+
   await page.getByRole("button", { name: /Plate/i }).click();
   const map = page.getByLabel(/Top-down swarm facility/i).first();
   const box = await map.boundingBox();
-  if (box) {
+  if (box && dropReady) {
     await map.click({
       position: { x: box.width * 0.25, y: box.height * 0.48 },
     });
@@ -274,12 +284,12 @@ async function run() {
   let spawnedWork = false;
   const spawnStart = Date.now();
   while (Date.now() - spawnStart < 12000) {
-    spawnedWork = (await page.getByText(/Player dropped a plate/i).count()) > 0;
+    spawnedWork = (await page.getByText(/1 player item added/i).count()) > 0;
     if (spawnedWork) break;
     await sleep(250);
   }
   check("Warehouse: player can spawn one palette item into the live house", spawnedWork);
-  if (box) {
+  if (box && dropReady) {
     await map.click({
       position: { x: box.width * 0.35, y: box.height * 0.62 },
     });
@@ -287,7 +297,7 @@ async function run() {
   let secondSpawnedWork = false;
   const secondSpawnStart = Date.now();
   while (Date.now() - secondSpawnStart < 12000) {
-    secondSpawnedWork = (await page.getByText(/Player dropped a plate/i).count()) >= 2;
+    secondSpawnedWork = (await page.getByText(/2 player items added/i).count()) > 0;
     if (secondSpawnedWork) break;
     await sleep(250);
   }
@@ -335,6 +345,6 @@ async function run() {
 }
 
 run().catch((e) => {
-  console.error("Harness crashed:", e);
+  console.error("Workbench crashed:", e);
   process.exit(2);
 });

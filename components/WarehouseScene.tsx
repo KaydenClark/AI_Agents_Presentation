@@ -1469,7 +1469,11 @@ export default function WarehouseScene() {
       scenarioRef.current = nextScenario;
       setScenario(nextScenario);
       setFinalReport(null);
-      setDropHint(`${item.label} dropped. Click again to drop another ${item.label.toLowerCase()}, or pick a different item.`);
+      setDropHint(
+        `${item.label} dropped (${seq} player item${
+          seq === 1 ? "" : "s"
+        } added). Click again to drop another ${item.label.toLowerCase()}, or pick a different item.`,
+      );
 
       engineRef.current?.dropItem(`drop-${seq}`, item.item as ItemKind, x, y);
       await sleep(620);

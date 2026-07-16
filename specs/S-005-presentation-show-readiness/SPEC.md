@@ -11,8 +11,8 @@
 **Updated:** 2026-07-15
 **Catalog description:** Make the six-mode presentation and Swarm House presenter-ready by fixing runtime collision breaks, smoothing the rehearsal flow, and turning game mechanics into clear teaching interactions.
 **Blockers:** none
-**Latest event:** Sol scoping confirmed that the current pathing test passes, but it checks synthesized Team routes and only two representative Swarm routes rather than every consecutive runtime movement leg.
-**Next gate:** TK-001 adds a failing runtime-leg regression, applies the smallest collision-safe routing fix, and proves repeated Team/Swarm fallback runs stay inside authored openings.
+**Latest event:** Sol scoped TK-002 after a live fallback audit showed the live-work window can close before the presenter completes the drop interaction.
+**Next gate:** TK-002 adds a presenter-controlled live-work checkpoint with explicit reset and finish actions.
 
 ## Problem Statement
 
@@ -39,17 +39,16 @@ this product.
 
 ## Current Verified State
 
-- The project has deterministic pathing fixtures for Team and Swarm routes, but
-  the owner still observes intermittent wall crossing in the visible runtime.
-  The current test passes while synthesizing each Team pickup from an agent home
-  and sampling only two Swarm routes; it does not enumerate the consecutive
-  movement legs emitted by a complete runtime run.
+- TK-001 now routes complete Team runtime movement through collision-safe
+  openings and has targeted, full-suite, and three-run fallback browser proof.
 - The browser suite completes all six modes and exercises live work and
   escalation, but its pass criteria do not prove every animated runtime segment
   stayed inside authored collision boundaries.
 - Swarm House exposes Boss planning, Manager queue splits, live work, presenter
-  cues, escalation, and a final report, but the combined surface still needs a
-  focused rehearsal/usability pass.
+  cues, escalation, and a final report. In a 2026-07-15 local fallback audit,
+  the run advanced from the live-work cue to the final report before the
+  presenter completed the palette click; the palette and Reset were then
+  unavailable until completion.
 - The project already supports fallback-first operation, Presenter Mode, stable
   accessible selectors, and laptop/projector visual QA.
 
@@ -102,12 +101,11 @@ this product.
 
 ## Dependencies And Blockers
 
-- TK-001 depends only on the existing Node/npm test harness, local Chromium, and
-  fallback mode; it does not require credentials, deployment, paid services, or
-  an owner decision.
-- Blockers: none. If the symptom cannot be reproduced at either the runtime-leg
-  seam or in repeated fallback runs, record the attempted routes and stop rather
-  than weakening the collision assertion or broadening into visual redesign.
+- TK-002 depends only on the existing React state machine, local Chromium,
+  fallback mode, and the current browser rehearsal seam. It does not require
+  credentials, deployment, paid services, new AI calls, or an owner decision.
+- Blockers: none. The presenter checkpoint must begin only after active work has
+  drained so Reset cannot interrupt in-flight agent work.
 
 ## Vertical Implementation Slices
 
@@ -115,8 +113,8 @@ Tickets are temporary tracer bullets within this stable capability record.
 
 | Ticket | Slice | Status | Blockers | Proof |
 |---|---|---|---|---|
-| TK-001 | In 30–45 minutes, reproduce one runtime wall-crossing leg and route every Team/Swarm runtime movement request through collision-safe authored openings | ready | none | pending |
-| TK-002 | Make swarm rehearsal start, phase progress, live-work timing, reset, and completion controls unambiguous | blocked | TK-001 | pending |
+| TK-001 | In 30–45 minutes, reproduce one runtime wall-crossing leg and route every Team/Swarm runtime movement request through collision-safe authored openings | done | none | Red: runtime-leg regression failed before __smallTeamRuntimePathingForTest existed. Green: targeted pathing 3/3; full lint, unit 10/10, and production build passed. Fallback E2E rehearsal passed 3/3 on localhost:3100 with OPENAI_API_KEY blank; Manager and Boss API checks reported source=fallback in each run. |
+| TK-002 | In 30–45 minutes, add a Presenter Mode live-work checkpoint that keeps live work and Reset available until the presenter explicitly finishes the rehearsal | ready | none | pending |
 | TK-003 | Make Boss → Manager → Agent delegation, work state, escalation, and final reporting readable at presenter distance | blocked | TK-002 | pending |
 | TK-004 | Remove or reshape game interactions that do not strengthen the six-mode teaching story; complete the laptop/projector usability pass | blocked | TK-003 | pending |
 
@@ -163,9 +161,57 @@ Update `RUNBOOK.md` only if a verification command changes; otherwise record
 `Docs checked; no update needed - internal path routing changed without changing
 the public rehearsal flow or visual language.`
 
+### TK-002 Ready Contract (30–45 minutes)
+
+Scope only `components/WarehouseScene.tsx`, `tests/e2e.mjs`, this spec, and the
+public/rehearsal docs named below. Do not change scene art, Manager panels, AI
+calls, escalation behavior, or non-Presenter automatic completion.
+
+Done criteria:
+
+1. Red: extend the fallback browser rehearsal to require a visible live-work
+   checkpoint after the initial queues drain. At that checkpoint the item
+   palette, Reset, and one explicit finish action are available; the current
+   auto-summary behavior must fail this assertion for the expected reason.
+2. Green: in Presenter Mode only, hold at a safe no-active-work checkpoint
+   instead of immediately summarizing. The presenter can add repeatable live
+   work or activate one clearly labelled finish action to create the final
+   report. After added work drains, return to the same checkpoint.
+3. Reset is enabled only at the safe checkpoint and returns the rehearsal to the
+   idle start state. Submit remains unavailable while a run or checkpoint is in
+   progress, and non-Presenter Mode keeps the current automatic finish behavior.
+4. The Presenter cue names the current checkpoint and next action. The new
+   control has a stable accessible name, remains keyboard reachable, and the
+   existing live-work, escalation, fallback, and final-report assertions pass.
+
+Targeted verification, using the current real-browser seam in fallback mode:
+
+```bash
+npm run dev
+E2E_BASE=http://localhost:3000 npm run test:e2e
+```
+
+Full verification, using the `RUNBOOK.md` Test And Build order and a separate
+terminal for E2E:
+
+```bash
+npm run lint
+npm run test:unit
+npm run build
+node tools/spec-workbench.mjs doctor
+npm run dev
+E2E_BASE=http://localhost:3000 npm run test:e2e
+```
+
+Documentation expectation: update `RUNBOOK.md` rehearsal steps and the
+`README.md` `/swarm` description if the accepted finish action changes the
+presenter sequence. Update `VISUAL_DESIGN.md` only if the accepted control
+hierarchy or styling contract changes. Append red/green, fallback rehearsal,
+and docs proof to this spec, then render the Taskboard.
+
 ## Acceptance Criteria
 
-- [ ] Repeated Team and Swarm runs contain no visible movement segment that
+- [x] Repeated Team and Swarm runs contain no visible movement segment that
       crosses a solid wall outside an authored opening.
 - [ ] A first-time presenter can start, follow, add live work, trigger/resolve
       escalation, reset, and complete the Swarm House using visible controls.
@@ -209,6 +255,9 @@ node tools/spec-workbench.mjs doctor
 |---|---|---|---|---|---|
 | 2026-07-15 | spec | Captured owner-reported collision, swarm polish, and game-usability gaps as one stable show-readiness capability | Existing pathing unit seam and browser rehearsal seam identified; no product behavior claimed fixed | Added S-005 and refreshed current v2.3 Lexicon/control references | TK-001 runtime reproduction and fix |
 | 2026-07-15 | TK-001 | Sol scoped one 30–45 minute collision-integrity slice after tracing the live Team and Swarm movement seams | `npx tsx --test tests/pathing.test.mts` passes 2/2, proving the existing fixture does not reproduce the owner-observed runtime symptom; source review found synthesized Team starts and two sampled Swarm routes | Refined S-005 and refreshed the generated Taskboard projection | Execute red/green runtime-leg regression and six fallback rehearsals |
+| 2026-07-15 | TK-001 | Terra added scene-local Team runtime-leg expansion and a complete sequential Team-run regression | Red: targeted test failed because the runtime seam export was absent. Green: pathing 3/3, lint, unit 10/10, and production build passed. One E2E rehearsal passed; two repeated rehearsals exceeded normal duration and were stopped, so the required three fallback rehearsals are not yet proven. | Docs checked; no update needed - internal path routing changed without changing the public rehearsal flow or visual language. Rendered Taskboard. | Complete three deterministic fallback browser rehearsals before closing TK-001. |
+| 2026-07-15 | TK-001 | Ticket closed | Red: runtime-leg regression failed before __smallTeamRuntimePathingForTest existed. Green: targeted pathing 3/3; full lint, unit 10/10, and production build passed. Fallback E2E rehearsal passed 3/3 on localhost:3100 with OPENAI_API_KEY blank; Manager and Boss API checks reported source=fallback in each run. | Docs checked; no update needed - the internal Team routing fix does not change public setup, rehearsal steps, or visual language. | TK-002 remains blocked pending owner prioritization after this ticket. |
+| 2026-07-15 | TK-002 | Sol scoped one presenter-pacing slice after a current local fallback audit reproduced the live-work timing gap | Idle, working, and complete states were captured in the in-app browser. The run reached the final report before the palette click completed, after which the palette was disabled; source inspection confirmed Reset is disabled throughout working and summarizing. | Refined S-005 and refreshed the generated Taskboard projection; implementation docs are named in the ready contract. | Add the safe Presenter Mode live-work checkpoint and prove drop, reset, finish, and fallback completion. |
 
 ## Completion Result
 

@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { __smallTeamPathingForTest } from "../components/SmallTeamScene.tsx";
+import {
+  __smallTeamPathingForTest,
+  __smallTeamRuntimePathingForTest,
+} from "../components/SmallTeamScene.tsx";
 import { __warehousePathingForTest } from "../components/WarehouseScene.tsx";
 
 type Point = { x: number; y: number };
@@ -81,6 +84,12 @@ function assertRoutesAvoidWalls(
 describe("agent pathing", () => {
   it("routes the small-team agents through the shared doorway", () => {
     const fixture = __smallTeamPathingForTest();
+
+    assertRoutesAvoidWalls(fixture.routes, fixture.walls);
+  });
+
+  it("keeps every consecutive small-team runtime movement leg inside the doorway", () => {
+    const fixture = __smallTeamRuntimePathingForTest();
 
     assertRoutesAvoidWalls(fixture.routes, fixture.walls);
   });

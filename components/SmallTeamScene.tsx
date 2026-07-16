@@ -102,6 +102,62 @@ function returnRoute(agent: AgentId): Waypoint[] {
   return [HOME[agent]];
 }
 
+function teamWalls(): PathWall[] {
+  return [
+    { type: "vertical", name: "left room right wall", x: LEFT_DOOR_X, y1: TEAM_ROOM_Y, y2: TEAM_ROOM_Y + TEAM_ROOM_H, gap: { y1: TEAM_DOOR_Y1, y2: TEAM_DOOR_Y2 } },
+    { type: "vertical", name: "right room left wall", x: RIGHT_DOOR_X, y1: TEAM_ROOM_Y, y2: TEAM_ROOM_Y + TEAM_ROOM_H, gap: { y1: TEAM_DOOR_Y1, y2: TEAM_DOOR_Y2 } },
+  ];
+}
+
+function crossesTeamWall(start: Waypoint, target: Waypoint) {
+  return teamWalls().some((wall) => {
+    if (wall.type !== "vertical" || Math.abs(start.x - target.x) < 0.0001) return false;
+    if (wall.x < Math.min(start.x, target.x) || wall.x > Math.max(start.x, target.x)) return false;
+    const y = start.y + ((wall.x - start.x) / (target.x - start.x)) * (target.y - start.y);
+    return y >= wall.y1 && y <= wall.y2 && !(wall.gap && y >= wall.gap.y1 && y <= wall.gap.y2);
+  });
+}
+
+function teamRoomAt(point: Waypoint): "left" | "right" | null {
+  if (point.y <= TEAM_ROOM_Y || point.y >= TEAM_ROOM_Y + TEAM_ROOM_H) return null;
+  if (point.x < LEFT_DOOR_X) return "left";
+  if (point.x > RIGHT_DOOR_X) return "right";
+  return null;
+}
+
+function sameTeamPoint(a: Waypoint, b: Waypoint) {
+  return Math.abs(a.x - b.x) < 0.0001 && Math.abs(a.y - b.y) < 0.0001;
+}
+
+function safeTeamLeg(start: Waypoint, target: Waypoint): Waypoint[] {
+  if (!crossesTeamWall(start, target)) return [target];
+  const leftDoor = { x: LEFT_DOOR_X, y: 55 };
+  const rightDoor = { x: RIGHT_DOOR_X, y: 55 };
+  const hall = { x: HALL_X, y: 55 };
+  const route: Waypoint[] = [];
+  const startRoom = teamRoomAt(start);
+  const targetRoom = teamRoomAt(target);
+
+  if (startRoom === "left") route.push(leftDoor, hall);
+  if (startRoom === "right") route.push(rightDoor, hall);
+  if (targetRoom === "left") route.push(hall, leftDoor);
+  if (targetRoom === "right") route.push(hall, rightDoor);
+  route.push(target);
+  return route.filter((point, index) => !sameTeamPoint(start, point) && (index === 0 || !sameTeamPoint(route[index - 1], point)));
+}
+
+function expandTeamRoute(start: Waypoint, route: Waypoint[]): Waypoint[] {
+  const points = [{ ...start }];
+  let current = start;
+  for (const target of route) {
+    for (const step of safeTeamLeg(current, target)) {
+      if (!sameTeamPoint(current, step)) points.push(step);
+      current = step;
+    }
+  }
+  return points;
+}
+
 export function __smallTeamPathingForTest(): {
   routes: { name: string; points: Waypoint[] }[];
   walls: PathWall[];
@@ -127,24 +183,26 @@ export function __smallTeamPathingForTest(): {
         points: [TASKS.filter((task) => task.agent === "B").at(-1)!.dest, ...returnRoute("B")],
       },
     ],
-    walls: [
-      {
-        type: "vertical",
-        name: "left room right wall",
-        x: 64,
-        y1: TEAM_ROOM_Y,
-        y2: TEAM_ROOM_Y + TEAM_ROOM_H,
-        gap: { y1: TEAM_DOOR_Y1, y2: TEAM_DOOR_Y2 },
-      },
-      {
-        type: "vertical",
-        name: "right room left wall",
-        x: 70,
-        y1: TEAM_ROOM_Y,
-        y2: TEAM_ROOM_Y + TEAM_ROOM_H,
-        gap: { y1: TEAM_DOOR_Y1, y2: TEAM_DOOR_Y2 },
-      },
-    ],
+    walls: teamWalls(),
+  };
+}
+
+export function __smallTeamRuntimePathingForTest(): {
+  routes: { name: string; points: Waypoint[] }[];
+  walls: PathWall[];
+} {
+  return {
+    routes: (["A", "B"] as AgentId[]).map((agent) => {
+      const tasks = TASKS.filter((task) => task.agent === agent);
+      return {
+        name: `Agent ${agent} complete runtime run`,
+        points: expandTeamRoute(HOME[agent], [
+          ...tasks.flatMap((task) => [...pickupRoute(task), ...deliveryRoute(task)]),
+          ...returnRoute(agent),
+        ]),
+      };
+    }),
+    walls: teamWalls(),
   };
 }
 
@@ -253,6 +311,7 @@ export default function SmallTeamScene() {
   });
   const engineRef = useRef<SpriteEngine | null>(null);
   const runningRef = useRef(false);
+  const agentPositionsRef = useRef<Record<AgentId, Waypoint>>({ ...HOME });
 
   const resetEngine = useCallback(() => {
     const engine = engineRef.current;
@@ -285,16 +344,19 @@ export default function SmallTeamScene() {
     setRemaining(TASKS);
     setReports(["Manager is waiting for one instruction."]);
     setAgentStatus({ A: "ready", B: "ready" });
+    agentPositionsRef.current = { ...HOME };
     resetEngine();
   }, [resetEngine]);
 
   const walkRoute = useCallback(
-    async (actorId: string, route: Waypoint[], stepMs = 430) => {
+    async (actorId: string, agent: AgentId, route: Waypoint[], stepMs = 430) => {
       const engine = engineRef.current;
       if (!engine) return;
-      for (const stop of route) {
+      const points = expandTeamRoute(agentPositionsRef.current[agent], route).slice(1);
+      for (const stop of points) {
         engine.moveActor(actorId, stop.x, stop.y, stepMs);
         await sleep(stepMs + 80);
+        agentPositionsRef.current[agent] = { x: stop.x, y: stop.y };
       }
     },
     [],
@@ -307,7 +369,7 @@ export default function SmallTeamScene() {
 
     setAgentStatus((prev) => ({ ...prev, [agent]: `carrying ${task.label}` }));
     engine.setActorState(actorId, "walking");
-    await walkRoute(actorId, pickupRoute(task));
+    await walkRoute(actorId, agent, pickupRoute(task));
 
     engine.setActorState(actorId, "working");
     engine.setRemoving(task.id);
@@ -317,7 +379,7 @@ export default function SmallTeamScene() {
     await sleep(180);
 
     engine.setActorState(actorId, "walking");
-    await walkRoute(actorId, deliveryRoute(task));
+    await walkRoute(actorId, agent, deliveryRoute(task));
     engine.setActorState(actorId, "working");
     await sleep(260);
     engine.setActorCarry(actorId, null);
@@ -341,7 +403,7 @@ export default function SmallTeamScene() {
 
       if (engine) {
         engine.setActorState(actorId, "walking");
-        await walkRoute(actorId, returnRoute(agent), 380);
+        await walkRoute(actorId, agent, returnRoute(agent), 380);
       }
       engine?.setActorState(actorId, "done");
       setAgentStatus((prev) => ({ ...prev, [agent]: "complete" }));

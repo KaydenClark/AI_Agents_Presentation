@@ -11,8 +11,8 @@
 **Updated:** 2026-07-17
 **Catalog description:** Make the six-mode presentation and Swarm House presenter-ready by fixing runtime collision breaks, smoothing the rehearsal flow, and turning game mechanics into clear teaching interactions.
 **Blockers:** none
-**Latest event:** TK-002 claimed by Captain Sol / Engineer TK-002.
-**Next gate:** Close TK-002 with verification and documentation proof.
+**Latest event:** TK-002 implementation and full verification are green; exact-head audit is pending.
+**Next gate:** Audit the pushed TK-002 checkpoint, resolve any finding, then close the ticket.
 
 ## Problem Statement
 
@@ -123,7 +123,7 @@ Tickets are temporary tracer bullets within this stable capability record.
 | Ticket | Slice | Status | Blockers | Proof |
 |---|---|---|---|---|
 | TK-001 | In 30–45 minutes, reproduce one runtime wall-crossing leg and route every Team/Swarm runtime movement request through collision-safe authored openings | done | none | Red: runtime-leg regression failed before __smallTeamRuntimePathingForTest existed. Green: targeted pathing 3/3; full lint, unit 10/10, and production build passed. Fallback E2E rehearsal passed 3/3 on localhost:3100 with OPENAI_API_KEY blank; Manager and Boss API checks reported source=fallback in each run. |
-| TK-002 | In 30–45 minutes, add a Presenter Mode live-work checkpoint that keeps live work and Reset available until the presenter explicitly finishes the rehearsal | in-progress | none | pending |
+| TK-002 | In 30–45 minutes, add a Presenter Mode live-work checkpoint that keeps live work and Reset available until the presenter explicitly finishes the rehearsal | in-progress | none | Red: fallback E2E timed out at the stale post-report Reset. Green: 63/63 focused and post-build browser checks pass using the documented fresh-page jam flow; lint, unit 10/10, build, and doctor pass. Exact-head audit pending. |
 | TK-003 | Make Boss → Manager → Agent delegation, work state, escalation, and final reporting readable at presenter distance | blocked | TK-002 | pending |
 | TK-004 | Remove or reshape game interactions that do not strengthen the six-mode teaching story; complete the laptop/projector usability pass | blocked | TK-003 | pending |
 | TK-005 | Rehearse the complete fallback jam path from a fresh run through human escalation, resolution, live-work checkpoint, explicit finish, and final report at laptop and projector sizes | blocked | TK-002, TK-003, TK-004 | pending |
@@ -284,6 +284,7 @@ node tools/spec-workbench.mjs doctor
 | 2026-07-15 | TK-002 | Sol scoped one presenter-pacing slice after a current local fallback audit reproduced the live-work timing gap | Idle, working, and complete states were captured in the in-app browser. The run reached the final report before the palette click completed, after which the palette was disabled; source inspection confirmed Reset is disabled throughout working and summarizing. | Refined S-005 and refreshed the generated Taskboard projection; implementation docs are named in the ready contract. | Add the safe Presenter Mode live-work checkpoint and prove drop, reset, finish, and fallback completion. |
 | 2026-07-17 | TK-002 | Captain Sol added the Presenter-only safe checkpoint, repeatable checkpoint drops, checkpoint Reset, and explicit Finish rehearsal action; non-Presenter automatic completion remains intact. | Red: the new browser checkpoint assertion failed because the finish action was absent. Green attempt: `npm run lint` passed; fallback E2E reached the new flow but stopped at the old post-final Reset step because Reset is correctly disabled outside the checkpoint (`tests/e2e.mjs:454`, Playwright timeout). | Docs checked; no public/rehearsal docs updated until the browser contract is green. Rendered Taskboard. | Move the browser Reset proof to the checkpoint (or start its jam run from a fresh page), then rerun fallback E2E and full verification before closing TK-002. |
 | 2026-07-17 | planning | Portfolio canon harvest preserved the TK-002 checkpoint and added an explicit dependency-aware jam rehearsal closeout slice. | Live branch, 63 browser checks, current Warehouse state machine, public route health, and the known post-report Reset timeout were reviewed; no implementation was performed. | Corrected the run-of-show reset/finish sequence and linked the Blueprint coverage matrix. | Resume TK-002, then complete readability, interaction audit, and fresh jam rehearsal in order. |
+| 2026-07-17 | TK-002 | Engineer replaced the stale post-report Reset step with a fresh `/swarm` page for the independent jam rehearsal, preserving the immutable final report and presenter checkpoint behavior. | Red: `E2E_BASE=http://localhost:3100 npm run test:e2e` exited 2 when Reset remained disabled after the final report at `tests/e2e.mjs:454`. Green: focused and post-build fallback E2E each passed 63/63 with zero console/page errors; lint passed; unit 10/10 passed; production build passed; doctor passed. | Updated the public `/swarm` description in `README.md`; existing `RUNBOOK.md` and `PRESENTATION.md` already describe checkpoint Reset, explicit finish, immutable report, and fresh-page jam rehearsal. `VISUAL_DESIGN.md` checked; no update needed because control styling and hierarchy did not change. | Exact-head audit of the pushed checkpoint, then close TK-002 if no in-scope finding remains. |
 
 ## Completion Result
 

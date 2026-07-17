@@ -73,7 +73,7 @@ Each mode adds exactly one capability, so the audience feels the jump from
 | 3 | Tool Use | `/tool-use` | The chat gets tools, but one Submit still means one action. Help, not autonomy. |
 | 4 | Single Agent | `/agent` | One goal drives a loop: pick task → act → check → repeat → **stop itself**. |
 | 5 | Small Team | `/team` | A Manager splits one goal across two Agents — delegation and parallelism. |
-| 6 | Swarm House | `/swarm` | A Boss uses a bounded AI or deterministic fallback decision to allocate work across Managers; the swarm absorbs live new work you drop mid-run and escalates to a human only when jammed. |
+| 6 | Swarm House | `/swarm` | A Boss uses a bounded AI or deterministic fallback decision to allocate work across Managers; the swarm absorbs live work, pauses at a presenter checkpoint, and creates its final report only when you finish the rehearsal. |
 
 ## Architecture: "AI plans, engine executes"
 

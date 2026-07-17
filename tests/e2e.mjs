@@ -451,8 +451,9 @@ async function run() {
     (await page.getByText(/^Reported$/).count()) === 3,
     `${await page.getByText(/^Reported$/).count()} rooms`);
 
-  await page.getByRole("button", { name: "Reset" }).click();
-  await page.waitForTimeout(300);
+  // A finished presenter report is immutable, so the jam rehearsal starts from
+  // the fresh-page setup documented in RUNBOOK.md instead of resetting it.
+  await page.goto(`${BASE}/swarm`, { waitUntil: "networkidle" });
   await page.getByLabel(/Show Jam controls/i).check();
   await page.getByRole("button", { name: "Submit" }).click();
   await page.waitForTimeout(1000);

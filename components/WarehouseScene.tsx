@@ -32,6 +32,7 @@ type Phase =
   | "deciding"
   | "dispatched"
   | "working"
+  | "checkpoint"
   | "summarizing"
   | "done";
 type AgentState = "idle" | "walking" | "working" | "done";
@@ -1260,6 +1261,9 @@ function presenterCue({
       ? "New work entered without resetting the run."
       : "Managers split queues; now drop a new item.";
   }
+  if (phase === "checkpoint") {
+    return "Live-work checkpoint: add another item or finish the rehearsal.";
+  }
   if (phase === "summarizing") return "Boss is gathering the room reports.";
   return "Read the report: completed work, added work, human help.";
 }
@@ -1325,6 +1329,7 @@ export default function WarehouseScene() {
   const scenarioRef = useRef(scenario);
   const zonesRef = useRef(zones);
   const phaseRef = useRef(phase);
+  const presenterModeRef = useRef(presenterMode);
   const runningRef = useRef(false);
   const engineRef = useRef<SpriteEngine | null>(null);
   const activeAgentsRef = useRef(new Set<string>());
@@ -1344,6 +1349,10 @@ export default function WarehouseScene() {
   useEffect(() => {
     phaseRef.current = phase;
   }, [phase]);
+
+  useEffect(() => {
+    presenterModeRef.current = presenterMode;
+  }, [presenterMode]);
 
   useEffect(() => {
     const media = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -1727,6 +1736,16 @@ export default function WarehouseScene() {
     [addLine],
   );
 
+  const finishRehearsal = useCallback(async () => {
+    setPhase("summarizing");
+    setBossNote("Every room reported in. Boss is assembling the final report...");
+    await sleep(500);
+    setFinalReport(localFinalReport(zonesRef.current, scenarioRef.current));
+    setBossNote("Done.");
+    setPhase("done");
+    runningRef.current = false;
+  }, []);
+
   const finishWhenNoWork = useCallback(async () => {
     while (
       activeZonesRef.current.size > 0 ||
@@ -1737,14 +1756,15 @@ export default function WarehouseScene() {
     ) {
       await sleep(250);
     }
-    setPhase("summarizing");
-    setBossNote("Every room reported in. Boss is assembling the final report...");
-    await sleep(500);
-      setFinalReport(localFinalReport(zonesRef.current, scenarioRef.current));
-    setBossNote("Done.");
-    setPhase("done");
-    runningRef.current = false;
-  }, []);
+    if (presenterModeRef.current) {
+      setPhase("checkpoint");
+      setBossNote("All queues are clear. Add live work or finish the rehearsal.");
+      setDropHint("Pick an item to add live work, or finish the rehearsal when you are ready.");
+      runningRef.current = false;
+      return;
+    }
+    await finishRehearsal();
+  }, [finishRehearsal]);
 
   const dropSpawnedItem = useCallback(
     async (itemId: PaletteItemId, x: number, y: number) => {
@@ -1754,7 +1774,10 @@ export default function WarehouseScene() {
         setDropHint("Click Submit to start the swarm, then drop items while Agents are working.");
         return;
       }
-      if (phaseRef.current === "deciding" || phaseRef.current === "summarizing") {
+      if (
+        phaseRef.current !== "working" &&
+        phaseRef.current !== "checkpoint"
+      ) {
         setDropHint("Wait for the current decision step to finish, then drop the item.");
         return;
       }
@@ -1921,7 +1944,10 @@ export default function WarehouseScene() {
   }, [commit, runZone, resyncEngine, planManagerQueues, finishWhenNoWork]);
 
   const reset = useCallback(() => {
-    if (runningRef.current) return;
+    const resettablePhase = presenterModeRef.current
+      ? phaseRef.current === "checkpoint"
+      : phaseRef.current === "done";
+    if (runningRef.current || !resettablePhase) return;
     lineSeq = 0;
     const nextRun = createWarehouseRun();
     activeAgentsRef.current.clear();
@@ -1942,6 +1968,12 @@ export default function WarehouseScene() {
     setDropHint("Start the swarm first, then drop items while Agents are working.");
     setLiveDropSeen(false);
   }, [commit, resyncEngine]);
+
+  const finishPresenterRehearsal = useCallback(() => {
+    if (!presenterModeRef.current || phaseRef.current !== "checkpoint") return;
+    runningRef.current = true;
+    void finishRehearsal();
+  }, [finishRehearsal]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -1998,8 +2030,11 @@ export default function WarehouseScene() {
     phase === "deciding" ||
     phase === "dispatched" ||
     phase === "working" ||
+    phase === "checkpoint" ||
     phase === "summarizing";
-  const paletteEnabled = phase === "working";
+  const paletteEnabled =
+    phase === "working" || (presenterMode && phase === "checkpoint");
+  const resetEnabled = presenterMode ? phase === "checkpoint" : phase === "done";
   const activePresenterCue = presenterCue({
     phase,
     finalReport,
@@ -2056,11 +2091,20 @@ export default function WarehouseScene() {
         <button
           type="button"
           onClick={reset}
-          disabled={busy}
+          disabled={!resetEnabled}
           className="rounded-md border border-[#474747] px-4 py-2 text-sm font-semibold text-zinc-300 transition enabled:hover:bg-[#474747]/40 disabled:opacity-50"
         >
           Reset
         </button>
+        {presenterMode && phase === "checkpoint" ? (
+          <button
+            type="button"
+            onClick={finishPresenterRehearsal}
+            className="rounded-md bg-[#1ABCBD] px-4 py-2 text-sm font-semibold text-[#0A0A0A] transition hover:bg-[#7de7df]"
+          >
+            Finish rehearsal
+          </button>
+        ) : null}
         <label className="ml-auto flex items-center gap-2 text-xs text-zinc-500">
           <input
             className="accent-[#3A7CA5]"

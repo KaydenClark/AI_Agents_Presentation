@@ -418,13 +418,31 @@ async function run() {
   check("Warehouse: Presenter cue explains live new work after a drop",
     (await page.getByText(/New work entered without resetting the run\./i).count()) > 0);
 
+  const checkpointStart = Date.now();
+  let liveWorkCheckpoint = false;
+  while (Date.now() - checkpointStart < 50000) {
+    if ((await page.getByText(/Live-work checkpoint: add another item or finish the rehearsal\./i).count()) > 0) {
+      liveWorkCheckpoint = true;
+      break;
+    }
+    await sleep(400);
+  }
+  check("Warehouse: Presenter Mode holds a live-work checkpoint after queues drain", liveWorkCheckpoint);
+  check("Warehouse: checkpoint keeps the palette and Reset available",
+    !(await page.getByRole("button", { name: /Plate/i }).isDisabled()) &&
+    !(await page.getByRole("button", { name: "Reset" }).isDisabled()));
+  const finishRehearsal = page.getByRole("button", { name: "Finish rehearsal" });
+  const finishActionAvailable = (await finishRehearsal.count()) === 1;
+  check("Warehouse: checkpoint exposes an explicit finish action", finishActionAvailable);
+
+  if (finishActionAvailable) await finishRehearsal.click();
   const whStart = Date.now();
   let finalReport = false;
-  while (Date.now() - whStart < 50000) {
+  while (Date.now() - whStart < 15000) {
     if ((await page.getByText(/Final report to the human/i).count()) > 0) { finalReport = true; break; }
     await sleep(400);
   }
-  check("Warehouse: produces a final report", finalReport);
+  check("Warehouse: produces a final report", finalReport && finishActionAvailable);
   check("Warehouse: Presenter cue explains the final report",
     (await page.getByText(/Read the report: completed work, added work, human help\./i).count()) > 0);
   check("Warehouse: final report includes player-added work",

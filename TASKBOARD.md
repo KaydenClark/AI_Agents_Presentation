@@ -16,7 +16,7 @@ its linked spec. Commands live in `RUNBOOK.md`.
 <!-- hot-specs:start -->
 | Spec | Current slice | Owner | Blocker | Latest meaningful event | Next gate |
 |---|---|---|---|---|---|
-| [S-005](specs/S-005-presentation-show-readiness/SPEC.md) | TK-002: In 30–45 minutes, add a Presenter Mode live-work checkpoint that keeps live work and Reset available until the presenter explicitly finishes the rehearsal (ready) | Kayden (product); scheduled Sol/Terra agents (execution) | none | Sol scoped TK-002 after a live fallback audit showed the live-work window can close before the presenter completes the drop interaction. | TK-002 adds a presenter-controlled live-work checkpoint with explicit reset and finish actions. |
+| [S-005](specs/S-005-presentation-show-readiness/SPEC.md) | TK-002: In 30–45 minutes, add a Presenter Mode live-work checkpoint that keeps live work and Reset available until the presenter explicitly finishes the rehearsal (in-progress) | Captain Sol / Engineer TK-002 | none | TK-002 claimed by Captain Sol / Engineer TK-002. | Close TK-002 with verification and documentation proof. |
 <!-- hot-specs:end -->
 
 Completed specs disappear from this projection immediately. Their requirements,

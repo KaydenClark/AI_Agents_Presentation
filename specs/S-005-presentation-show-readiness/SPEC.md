@@ -7,12 +7,12 @@
 **Spec ID:** S-005
 **Status:** active
 **Priority:** 0
-**Owner:** Kayden (product); scheduled Sol/Terra agents (execution)
-**Updated:** 2026-07-15
+**Owner:** Captain Sol / Engineer TK-002
+**Updated:** 2026-07-17
 **Catalog description:** Make the six-mode presentation and Swarm House presenter-ready by fixing runtime collision breaks, smoothing the rehearsal flow, and turning game mechanics into clear teaching interactions.
 **Blockers:** none
-**Latest event:** Sol scoped TK-002 after a live fallback audit showed the live-work window can close before the presenter completes the drop interaction.
-**Next gate:** TK-002 adds a presenter-controlled live-work checkpoint with explicit reset and finish actions.
+**Latest event:** TK-002 claimed by Captain Sol / Engineer TK-002.
+**Next gate:** Close TK-002 with verification and documentation proof.
 
 ## Problem Statement
 
@@ -114,7 +114,7 @@ Tickets are temporary tracer bullets within this stable capability record.
 | Ticket | Slice | Status | Blockers | Proof |
 |---|---|---|---|---|
 | TK-001 | In 30–45 minutes, reproduce one runtime wall-crossing leg and route every Team/Swarm runtime movement request through collision-safe authored openings | done | none | Red: runtime-leg regression failed before __smallTeamRuntimePathingForTest existed. Green: targeted pathing 3/3; full lint, unit 10/10, and production build passed. Fallback E2E rehearsal passed 3/3 on localhost:3100 with OPENAI_API_KEY blank; Manager and Boss API checks reported source=fallback in each run. |
-| TK-002 | In 30–45 minutes, add a Presenter Mode live-work checkpoint that keeps live work and Reset available until the presenter explicitly finishes the rehearsal | ready | none | pending |
+| TK-002 | In 30–45 minutes, add a Presenter Mode live-work checkpoint that keeps live work and Reset available until the presenter explicitly finishes the rehearsal | in-progress | none | pending |
 | TK-003 | Make Boss → Manager → Agent delegation, work state, escalation, and final reporting readable at presenter distance | blocked | TK-002 | pending |
 | TK-004 | Remove or reshape game interactions that do not strengthen the six-mode teaching story; complete the laptop/projector usability pass | blocked | TK-003 | pending |
 
@@ -258,6 +258,7 @@ node tools/spec-workbench.mjs doctor
 | 2026-07-15 | TK-001 | Terra added scene-local Team runtime-leg expansion and a complete sequential Team-run regression | Red: targeted test failed because the runtime seam export was absent. Green: pathing 3/3, lint, unit 10/10, and production build passed. One E2E rehearsal passed; two repeated rehearsals exceeded normal duration and were stopped, so the required three fallback rehearsals are not yet proven. | Docs checked; no update needed - internal path routing changed without changing the public rehearsal flow or visual language. Rendered Taskboard. | Complete three deterministic fallback browser rehearsals before closing TK-001. |
 | 2026-07-15 | TK-001 | Ticket closed | Red: runtime-leg regression failed before __smallTeamRuntimePathingForTest existed. Green: targeted pathing 3/3; full lint, unit 10/10, and production build passed. Fallback E2E rehearsal passed 3/3 on localhost:3100 with OPENAI_API_KEY blank; Manager and Boss API checks reported source=fallback in each run. | Docs checked; no update needed - the internal Team routing fix does not change public setup, rehearsal steps, or visual language. | TK-002 remains blocked pending owner prioritization after this ticket. |
 | 2026-07-15 | TK-002 | Sol scoped one presenter-pacing slice after a current local fallback audit reproduced the live-work timing gap | Idle, working, and complete states were captured in the in-app browser. The run reached the final report before the palette click completed, after which the palette was disabled; source inspection confirmed Reset is disabled throughout working and summarizing. | Refined S-005 and refreshed the generated Taskboard projection; implementation docs are named in the ready contract. | Add the safe Presenter Mode live-work checkpoint and prove drop, reset, finish, and fallback completion. |
+| 2026-07-17 | TK-002 | Captain Sol added the Presenter-only safe checkpoint, repeatable checkpoint drops, checkpoint Reset, and explicit Finish rehearsal action; non-Presenter automatic completion remains intact. | Red: the new browser checkpoint assertion failed because the finish action was absent. Green attempt: `npm run lint` passed; fallback E2E reached the new flow but stopped at the old post-final Reset step because Reset is correctly disabled outside the checkpoint (`tests/e2e.mjs:454`, Playwright timeout). | Docs checked; no public/rehearsal docs updated until the browser contract is green. Rendered Taskboard. | Move the browser Reset proof to the checkpoint (or start its jam run from a fresh page), then rerun fallback E2E and full verification before closing TK-002. |
 
 ## Completion Result
 

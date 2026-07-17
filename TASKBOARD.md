@@ -16,7 +16,7 @@ its linked spec. Commands live in `RUNBOOK.md`.
 <!-- hot-specs:start -->
 | Spec | Current slice | Owner | Blocker | Latest meaningful event | Next gate |
 |---|---|---|---|---|---|
-| [S-005](specs/S-005-presentation-show-readiness/SPEC.md) | TK-002: In 30–45 minutes, add a Presenter Mode live-work checkpoint that keeps live work and Reset available until the presenter explicitly finishes the rehearsal (in-progress) | Captain Sol / Engineer TK-002 | none | TK-002 audit remediation and full verification are green; exact-head re-audit is pending. | Re-audit the pushed TK-002 checkpoint, resolve any finding, then close the ticket. |
+| [S-005](specs/S-005-presentation-show-readiness/SPEC.md) | TK-003: Make Boss → Manager → Agent delegation, work state, escalation, and final reporting readable at presenter distance (blocked) | Captain Sol / Engineer TK-002 | TK-002 | TK-002 closed with proof. | Complete TK-003. |
 <!-- hot-specs:end -->
 
 Completed specs disappear from this projection immediately. Their requirements,

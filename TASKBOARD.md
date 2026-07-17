@@ -16,7 +16,7 @@ its linked spec. Commands live in `RUNBOOK.md`.
 <!-- hot-specs:start -->
 | Spec | Current slice | Owner | Blocker | Latest meaningful event | Next gate |
 |---|---|---|---|---|---|
-| [S-005](specs/S-005-presentation-show-readiness/SPEC.md) | TK-003: Make Boss → Manager → Agent delegation, work state, escalation, and final reporting readable at presenter distance (blocked) | Captain Sol / Engineer TK-002 | TK-002 | TK-002 closed with proof. | Complete TK-003. |
+| [S-005](specs/S-005-presentation-show-readiness/SPEC.md) | TK-003: Make Boss → Manager → Agent delegation, work state, escalation, and final reporting readable at presenter distance (ready) | Kayden (product); Engineer unassigned | none | TK-003 activated after its TK-002 dependency closed. | Claim TK-003. |
 <!-- hot-specs:end -->
 
 Completed specs disappear from this projection immediately. Their requirements,

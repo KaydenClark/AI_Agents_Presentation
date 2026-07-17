@@ -7,12 +7,12 @@
 **Spec ID:** S-005
 **Status:** active
 **Priority:** 0
-**Owner:** Captain Sol / Engineer TK-002
+**Owner:** Kayden (product); Engineer unassigned
 **Updated:** 2026-07-17
 **Catalog description:** Make the six-mode presentation and Swarm House presenter-ready by fixing runtime collision breaks, smoothing the rehearsal flow, and turning game mechanics into clear teaching interactions.
 **Blockers:** none
-**Latest event:** TK-002 closed with proof.
-**Next gate:** Complete TK-003.
+**Latest event:** TK-003 activated after its TK-002 dependency closed.
+**Next gate:** Claim TK-003.
 
 ## Problem Statement
 
@@ -123,7 +123,7 @@ Tickets are temporary tracer bullets within this stable capability record.
 |---|---|---|---|---|
 | TK-001 | In 30–45 minutes, reproduce one runtime wall-crossing leg and route every Team/Swarm runtime movement request through collision-safe authored openings | done | none | Red: runtime-leg regression failed before __smallTeamRuntimePathingForTest existed. Green: targeted pathing 3/3; full lint, unit 10/10, and production build passed. Fallback E2E rehearsal passed 3/3 on localhost:3100 with OPENAI_API_KEY blank; Manager and Boss API checks reported source=fallback in each run. |
 | TK-002 | In 30–45 minutes, add a Presenter Mode live-work checkpoint that keeps live work and Reset available until the presenter explicitly finishes the rehearsal | done | none | Audited exact head 0e491fca06b3c7b085207cdb550b8708b8044b0a: focused and post-build fallback E2E passed 69/69 with zero console/page errors; npm run lint passed; npm run test:unit passed 10/10; npm run build passed; spec doctor passed. |
-| TK-003 | Make Boss → Manager → Agent delegation, work state, escalation, and final reporting readable at presenter distance | blocked | TK-002 | pending |
+| TK-003 | Make Boss → Manager → Agent delegation, work state, escalation, and final reporting readable at presenter distance | ready | none | pending |
 | TK-004 | Remove or reshape game interactions that do not strengthen the six-mode teaching story; complete the laptop/projector usability pass | blocked | TK-003 | pending |
 | TK-005 | Rehearse the complete fallback jam path from a fresh run through human escalation, resolution, live-work checkpoint, explicit finish, and final report at laptop and projector sizes | blocked | TK-002, TK-003, TK-004 | pending |
 

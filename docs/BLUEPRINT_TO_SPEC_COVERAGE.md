@@ -52,15 +52,15 @@ and proof remain only in the linked stable specs.
 | RS-08 | Full teaching path remains supportable in fallback-only mode | S-002 proof, current API/E2E seams | implemented but missing a durable capability spec | S-007 acceptance, complete |
 | SH-01 | Runtime movement respects authored walls, doors, and openings | pathing source/tests, S-005/TK-001 proof | covered by a current stable spec | [S-005](../specs/S-005-presentation-show-readiness/SPEC.md)/TK-001, done |
 | SH-02 | Presenter Mode communicates current phase and next teaching beat | presenter cue source and S-005 | covered by a current stable spec | S-005/TK-002 and TK-003 |
-| SH-03 | Safe live-work checkpoint keeps palette and Reset until explicit finish | current checkpoint source/test/spec | covered by a current stable spec | S-005/TK-002, in progress |
+| SH-03 | Safe live-work checkpoint keeps palette and Reset until explicit finish | current checkpoint source/test/spec | covered by a current stable spec | S-005/TK-002, done with audited 69/69 browser proof |
 | SH-04 | Live work remains repeatable without reset or palette reselection | Warehouse state and browser checks | covered by a current stable spec | S-005/TK-002 |
 | SH-05 | Jam controls demonstrate Agent → Manager → Boss → human escalation and resolution | Warehouse source and jam browser seam | covered by a current stable spec | S-005/TK-005, explicit final rehearsal |
 | SH-06 | Boss, Manager, Agent, work, escalation, and report states read at presenter distance | S-005 user stories and visual seams | covered by a current stable spec | S-005/TK-003 |
 | SH-07 | Every game interaction earns a teaching role | S-005 decision and acceptance | covered by a current stable spec | S-005/TK-004 |
 | SH-08 | Keyboard controls, accessible names, stable selectors, laptop/projector layouts, and Low Power remain usable | AGENTS, E2E selectors, Visual QA, source | covered by a current stable spec | S-005/TK-003 through TK-005 |
-| SH-09 | Complete fallback jam rehearsal starts fresh and reaches resolved report | current test starts jam after immutable final report | covered by a current stable spec | S-005 materially updated with TK-005; blocked on TK-002 through TK-004 |
+| SH-09 | Complete fallback jam rehearsal starts fresh and reaches resolved report | current test starts jam after immutable final report | covered by a current stable spec | S-005 materially updated with TK-005; blocked on TK-003 and TK-004 |
 | SH-10 | Run-of-show uses the safe checkpoint, explicit finish, and correct Reset/reload behavior | `PRESENTATION.md` versus checkpoint source | contradicted by live source | Canon corrected in `PRESENTATION.md`; S-005 owns completion proof |
-| SH-11 | Browser contract count matches the maintained suite | README said 48 while source contains 63 checks | contradicted by live source | README corrected to 63; S-006/TK-008 owns ladder proof |
+| SH-11 | Browser contract count matches the maintained suite | README said 48 while the audited fallback run reports 69/69 checks | contradicted by live source | README corrected to 69; S-006/TK-008 owns ladder proof |
 | PB-01 | Public Vercel experience and canonical URL exist | public `/`, `/manual`, `/swarm` returned HTTP 200 | implemented but missing a durable capability spec | [S-008](../specs/S-008-publication-and-release-proof/SPEC.md), planned |
 | PB-02 | Published URL is tied to exact commit, branch, and version | Git/PR checks did not prove production runtime SHA | settled but not implemented and missing a spec | S-008/TK-001 and TK-003 |
 | PB-03 | Exact candidate has six-route, fallback, console, visual, and rollback proof | Runbook seams exist; no current candidate packet | settled but not implemented and missing a spec | S-008/TK-001 and TK-002 |
@@ -90,5 +90,5 @@ and proof remain only in the linked stable specs.
 2. `S-008/TK-003`: after candidate proof is complete, authorize or reject the
    exact production deployment and version/tag choice.
 
-Neither owner choice blocks the existing `S-005/TK-002` implementation
-checkpoint. That checkpoint remains the smallest safe Engineer continuation.
+Neither owner choice blocks the ready `S-005/TK-003` presentation-readability
+slice. That ticket is the next safe Engineer continuation.

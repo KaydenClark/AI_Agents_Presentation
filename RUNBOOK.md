@@ -97,6 +97,16 @@ Expected result:
 - `/swarm` opens in Presenter Mode by default, with a presenter cue that names the next live-demo point while the detailed manager logs stay behind disclosure controls.
 - `/swarm` runs with either `real AI decision` / `Manager AI` when a valid key is configured or fallback badges when not.
 - In `/swarm`, the item palette is visible but disabled before Submit. Click Submit, wait until Agents are working, then pick one item and click anywhere in the house repeatedly to drop new live work.
+- Jam controls may be shown at any time, but a zone's **Jam** action is enabled
+  only while that zone reports **Working**. Trigger and resolve the optional
+  escalation before all active work drains. Use a fresh `/swarm` page for the
+  complete jam rehearsal owned by `S-005/TK-005`.
+- In Presenter Mode, drained queues enter the **Live-work checkpoint**. The
+  palette, **Reset**, and **Finish rehearsal** remain available there; added
+  work returns to the same checkpoint after it drains.
+- Use **Reset** at the checkpoint to return to the idle start state. Use
+  **Finish rehearsal** to create the immutable final report. After finishing,
+  reload `/swarm` before another rehearsal.
 
 CSS/runtime sync rule:
 
@@ -312,6 +322,11 @@ Top-down redesign checks:
 - `/swarm` reads as one facility: boss hub, manager rooms, agent work zones, paths, reports, and escalation markers are visible.
 - `/swarm` Presenter Mode shows a concise cue at each phase: first instruction, Boss decision, Manager split/live drop, human exit, and final report.
 - `/swarm` shows the item palette as dormant before Submit; after Agents are working, selecting a palette item and clicking anywhere in the house drops repeated items, routes them to the responsible Manager, and includes them in the final report.
+- `/swarm` enables **Jam** only for zones that are actively working; trigger and
+  resolve the human-exit demonstration before the run reaches the checkpoint.
+- `/swarm` holds at the Presenter Mode live-work checkpoint after queues drain;
+  the palette, **Reset**, and **Finish rehearsal** are visible and keyboard
+  reachable. Reset returns to idle, while Finish creates the final report.
 - In Presenter Mode, the Boss decision is expanded and Manager activity logs are collapsed but still available. Detailed mode should preserve the fuller manager-card/log view.
 - The Low Power checkbox caps the canvas loop for older laptops and should not blank the sprite layer.
 - Labels do not overlap props, workers, controls, report panels, or each other.

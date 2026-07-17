@@ -79,17 +79,19 @@ test, confirm the Boss panel badge, then Reset. See the checklist at the end.
    work across three Managers."*
 3. Open the **Boss decision** dropdown and read one rationale aloud. Watch the
    badge: `real AI decision` (or `fallback decision` if offline — see Q&A).
-4. When the initial queues drain, Presenter Mode pauses at the **Live work
-   checkpoint** instead of racing to the report. Pick **Plate** from the
-   palette and click around the house a few times. *"Work never stops arriving.
-   Watch the Kitchen Manager absorb each one into a live agent's queue — no
-   restart, no re-planning ceremony."* The checkpoint returns after that work
-   drains.
-5. **(Optional but powerful)** Keep **Presenter mode** enabled, turn on
-   **Show Jam controls**, hit a zone's **Jam** button, and walk the escalation:
-   Agent → Manager → Boss → red **Needs human input** banner. *"This is the
-   feature I most want you to remember. A good autonomous system knows when to
-   stop and ask a person."* Click **Resolve**.
+4. **(Optional but powerful)** While a Manager zone still shows **Working**,
+   keep **Presenter mode** enabled, turn on **Show Jam controls**, hit that
+   zone's enabled **Jam** button, and walk the escalation: Agent → Manager →
+   Boss → red **Needs human input** banner. *"This is the feature I most want
+   you to remember. A good autonomous system knows when to stop and ask a
+   person."* Click **Resolve** so work resumes. For the formal jam rehearsal,
+   start from a fresh `/swarm` page and follow the complete flow owned by
+   `S-005/TK-005`.
+5. When the queues drain, Presenter Mode pauses at the **Live work checkpoint**
+   instead of racing to the report. Pick **Plate** from the palette and click
+   around the house a few times. *"Work never stops arriving. Watch the Kitchen
+   Manager absorb each one into a live agent's queue — no restart, no
+   re-planning ceremony."* The checkpoint returns after that work drains.
 6. At the safe checkpoint, click **Finish rehearsal**. Read the **final
    report** — it's assembled from the work that actually happened, including
    the plates you added.
@@ -158,5 +160,5 @@ for tickets, invoices, or leads.
 - **Recruiter/interview walkthrough:** lead with the Swarm House, then open
   the code: `app/api/boss-plan/route.ts` (bounded AI + normalization),
   `components/sprites/SpriteEngine.ts` (React-decoupled canvas), and
-  `tests/e2e.mjs` (48 browser checks). The README's architecture diagram is
+  `tests/e2e.mjs` (63 browser checks). The README's architecture diagram is
   the map.

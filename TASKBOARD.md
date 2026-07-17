@@ -2,10 +2,10 @@
 
 > Generated from LLM Workbench v2.3.
 
-**Current focus:** S-005 Presentation Show Readiness; TK-002 is the next ready
-presenter-pacing slice.
+**Current focus:** S-005 Presentation Show Readiness; resume the existing
+TK-002 presenter-pacing checkpoint.
 **Owner:** Kayden (product); scheduled Sol/Terra agents (execution)
-**Last updated:** 2026-07-15
+**Last updated:** 2026-07-17
 
 This is an active execution projection, not a requirements store or proof
 archive. Use `node tools/spec-workbench.mjs next` to select work and load only

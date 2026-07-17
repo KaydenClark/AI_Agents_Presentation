@@ -130,7 +130,7 @@ they reach the client.
   chain — Agent → Manager → Boss → "Needs human input" banner — the real exit
   point of an autonomous system.
 - **Real verification pyramid**: unit tests on the shared planning rules, API
-  contract probes (including malformed-JSON rejection), and a 48-check
+  contract probes (including malformed-JSON rejection), and a 63-check
   Playwright E2E suite that plays all six modes in a real browser — drag
   placement, loop self-termination, live item drops, escalation, and a
   zero-console-error gate.
@@ -212,7 +212,7 @@ components/
   sprites/SpriteEngine.ts      Raw <canvas> + rAF engine (Y-sorted, React-decoupled)
 lib/warehouseRules.ts          Palette routing, fallback planning, rebalance helpers
 scripts/rasterize-sprites.mjs  SVG → PNG pipeline (npm run sprites)
-tests/                         Unit tests + 48-check Playwright E2E suite
+tests/                         Unit tests + 63-check Playwright E2E suite
 ```
 
 ## Constraints / non-goals

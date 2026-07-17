@@ -2,7 +2,7 @@
 
 > Generated from LLM Workbench v2.3.
 
-**Last reviewed:** 2026-07-15
+**Last reviewed:** 2026-07-17
 **Status:** active - v2.1 product release, v2.3 workbench
 **Harness version:** v2.3
 **Source root:** `/Users/kayden/GPT_OS/Projects/AI_Agents_Presentation`
@@ -94,6 +94,11 @@ Rules that span multiple capabilities:
 The generated catalog links every durable capability record, including completed
 history. Human-authored product prose stays outside the markers.
 
+The evidence-backed canon harvest and final ownership classification live in
+[`docs/BLUEPRINT_TO_SPEC_COVERAGE.md`](docs/BLUEPRINT_TO_SPEC_COVERAGE.md).
+That matrix is a coverage audit, not a second work queue; executable slices
+remain only in the owning stable specs below.
+
 <!-- spec-catalog:start -->
 | Spec | Description | Status |
 |---|---|---|
@@ -102,6 +107,9 @@ history. Human-authored product prose stays outside the markers.
 | [S-003 - Workbench v2.3 Re-adoption](specs/S-003-workbench-v2-3-re-adoption/SPEC.md) | Re-run v2.3 adoption from a fresh verified upstream source and close the audit gaps without changing the app. | complete |
 | [S-004 - Next Dependency Remediation](specs/S-004-next-dependency-remediation/SPEC.md) | Upgrade the Next.js dependency line in isolation after confirming the supported security target and full regression scope. | planned |
 | [S-005 - Presentation Show Readiness](specs/S-005-presentation-show-readiness/SPEC.md) | Make the six-mode presentation and Swarm House presenter-ready by fixing runtime collision breaks, smoothing the rehearsal flow, and turning game mechanics into clear teaching interactions. | active |
+| [S-006 - Six-Mode Teaching Ladder](specs/S-006-six-mode-teaching-ladder/SPEC.md) | Preserve the complete manual-to-swarm teaching ladder as one playable, progressively more autonomous experience. | complete |
+| [S-007 - Resilient Planning And Honest Fallback](specs/S-007-resilient-planning-and-fallback/SPEC.md) | Keep bounded AI planning, deterministic execution, honest fallback, provenance, and browser-local privacy as one reliable demo capability. | complete |
+| [S-008 - Publication And Release Proof](specs/S-008-publication-and-release-proof/SPEC.md) | Publish only an approved show-ready commit and preserve reproducible preview, route, visual, privacy, version, and production proof. | planned |
 <!-- spec-catalog:end -->
 
 ## Cross-Cutting Health

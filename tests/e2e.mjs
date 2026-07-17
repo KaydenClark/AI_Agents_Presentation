@@ -411,6 +411,24 @@ async function run() {
     }
     return false;
   }
+  async function waitForLiveWorkCheckpoint(timeout = 50000) {
+    const start = Date.now();
+    while (Date.now() - start < timeout) {
+      if ((await page.getByText(/Live-work checkpoint: add another item or finish the rehearsal\./i).count()) > 0) {
+        return true;
+      }
+      await sleep(400);
+    }
+    return false;
+  }
+  async function waitForWarehouseWorking(timeout = 12000) {
+    const start = Date.now();
+    while (Date.now() - start < timeout) {
+      if ((await page.getByText(/^Working$/).count()) > 0) return true;
+      await sleep(250);
+    }
+    return false;
+  }
   const spawnedWork = await dropPlateUntil(1, 0.25, 0.48);
   check("Warehouse: player can spawn one palette item into the live house", spawnedWork);
   const secondSpawnedWork = await dropPlateUntil(2, 0.35, 0.62);
@@ -418,15 +436,7 @@ async function run() {
   check("Warehouse: Presenter cue explains live new work after a drop",
     (await page.getByText(/New work entered without resetting the run\./i).count()) > 0);
 
-  const checkpointStart = Date.now();
-  let liveWorkCheckpoint = false;
-  while (Date.now() - checkpointStart < 50000) {
-    if ((await page.getByText(/Live-work checkpoint: add another item or finish the rehearsal\./i).count()) > 0) {
-      liveWorkCheckpoint = true;
-      break;
-    }
-    await sleep(400);
-  }
+  const liveWorkCheckpoint = await waitForLiveWorkCheckpoint();
   check("Warehouse: Presenter Mode holds a live-work checkpoint after queues drain", liveWorkCheckpoint);
   check("Warehouse: checkpoint keeps the palette and Reset available",
     !(await page.getByRole("button", { name: /Plate/i }).isDisabled()) &&
@@ -434,8 +444,44 @@ async function run() {
   const finishRehearsal = page.getByRole("button", { name: "Finish rehearsal" });
   const finishActionAvailable = (await finishRehearsal.count()) === 1;
   check("Warehouse: checkpoint exposes an explicit finish action", finishActionAvailable);
+  check("Warehouse: Presenter Mode cannot be disabled at the checkpoint",
+    await page.getByLabel(/Presenter mode/i).isDisabled());
 
-  if (finishActionAvailable) await finishRehearsal.click();
+  const checkpointSpawnedWork = await dropPlateUntil(3, 0.45, 0.55);
+  check("Warehouse: checkpoint accepts another live item", checkpointSpawnedWork);
+  let checkpointExited = false;
+  const checkpointExitStart = Date.now();
+  while (Date.now() - checkpointExitStart < 5000) {
+    if ((await page.getByText(/Live-work checkpoint: add another item or finish the rehearsal\./i).count()) === 0) {
+      checkpointExited = true;
+      break;
+    }
+    await sleep(100);
+  }
+  check("Warehouse: checkpoint-added work resumes execution", checkpointExited);
+  check("Warehouse: checkpoint-added work returns to the checkpoint",
+    await waitForLiveWorkCheckpoint());
+
+  await page.getByRole("button", { name: "Reset" }).click();
+  await page.waitForTimeout(300);
+  check("Warehouse: checkpoint Reset returns to the idle start state",
+    await submitEnabled(page) &&
+    (await page.getByText(/One instruction enters the system\. Click Submit\./i).count()) > 0 &&
+    await page.getByRole("button", { name: /Plate/i }).isDisabled() &&
+    (await finishRehearsal.count()) === 0);
+
+  // Start one clean presenter run after proving Reset so the final-report
+  // assertions remain independent from the reset path.
+  await page.getByRole("button", { name: "Submit" }).click();
+  check("Warehouse: reset rehearsal reaches working state",
+    await waitForWarehouseWorking());
+  await page.getByRole("button", { name: /Plate/i }).click();
+  check("Warehouse: reset rehearsal accepts live work",
+    await dropPlateUntil(1, 0.3, 0.52));
+  check("Warehouse: reset rehearsal reaches the checkpoint",
+    await waitForLiveWorkCheckpoint());
+
+  if ((await finishRehearsal.count()) === 1) await finishRehearsal.click();
   const whStart = Date.now();
   let finalReport = false;
   while (Date.now() - whStart < 15000) {

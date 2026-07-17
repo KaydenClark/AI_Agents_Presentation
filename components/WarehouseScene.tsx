@@ -2119,6 +2119,7 @@ export default function WarehouseScene() {
             className="accent-[#3A7CA5]"
             type="checkbox"
             checked={presenterMode}
+            disabled={phase === "checkpoint"}
             onChange={(e) => {
               setPresenterMode(e.target.checked);
               if (!e.target.checked) setShowJam(false);

@@ -2,9 +2,9 @@
 
 > Generated from LLM Workbench v2.3.
 
-**Current focus:** S-005 Presentation Show Readiness; resume the existing
-TK-002 presenter-pacing checkpoint.
-**Owner:** Kayden (product); scheduled Sol/Terra agents (execution)
+**Current focus:** S-005 Presentation Show Readiness; claim the ready TK-003
+presentation-readability slice.
+**Owner:** Kayden (product); Engineer unassigned
 **Last updated:** 2026-07-17
 
 This is an active execution projection, not a requirements store or proof

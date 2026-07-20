@@ -1,11 +1,31 @@
 # AI_Agents_Presentation - Blueprint
 
-**Last reviewed:** 2026-06-22
-**Status:** active — v2.1 six-mode ladder release
+> Generated from LLM Workbench v2.3.
+
+**Last reviewed:** 2026-07-13
+**Status:** active — v2.1 six-mode ladder with a V2.3 control harness
 **Current release:** v2.1.0 (six-mode ladder + canvas + Boss/Manager authority + live item spawning)
 **Source root:** `/Users/kayden/GPT_OS/Projects/AI_Agents_Presentation`
 
 This is the stable reference for what the project is. Keep it factual, source-backed, and short.
+
+## Control Architecture
+
+| Truth | Owner | Invariant |
+|---|---|---|
+| How agents work, safety, Git, verification | `AGENTS.md` | Always-loaded operating system. |
+| Product direction and invariants | `BLUEPRINT.md` | No live task narration. |
+| Active execution projection | `TASKBOARD.md` | Active specs only. |
+| Requirements, decisions, acceptance, evidence | `specs/S-###-slug/SPEC.md` | Stable path; append-only proof. |
+| Commands and troubleshooting | `RUNBOOK.md` | Executable local procedure. |
+
+## Spec Catalog
+
+<!-- spec-catalog:start -->
+| Spec | Description | Status |
+|---|---|---|
+| [S-001 - V2.3 Adoption And Screen Walkthrough](specs/S-001-v2-3-adoption-and-walkthrough/SPEC.md) | Adopt the V2.3 control harness and keep a repeatable walkthrough for every presentation screen. | complete |
+<!-- spec-catalog:end -->
 
 ## What This Project Is
 
@@ -66,7 +86,7 @@ Included:
 - `SmallTeamScene` showing one Manager splitting work across two Agents in a two-room house.
 - `WarehouseScene` as the full Boss/Manager/Agent swarm with live item drops.
 - `tests/e2e.mjs` updated to drive all six game modes and the swarm escalation path.
-- `README.md`, `ROADMAP.md`, `RUNBOOK.md`, and `AGENTS.md` updated to make the
+- `README.md`, `RUNBOOK.md`, and `AGENTS.md` updated to make the
   six-mode ladder the current source of truth.
 
 Not included:
@@ -195,7 +215,9 @@ AI_Agents_Presentation/
 ├── package.json         <- scripts and dependencies
 ├── AGENTS.md            <- agent behavior and edit/read scope
 ├── BLUEPRINT.md         <- stable project definition
-├── ROADMAP.md           <- active work plan and proof log
+├── TASKBOARD.md         <- active execution projection
+├── specs/               <- stable requirements and proof
+├── archive/             <- retired v2.1 roadmap and historical proof
 └── RUNBOOK.md           <- setup, operation, verification, recovery
 ```
 
@@ -292,7 +314,7 @@ Rules:
 | Use no database and keep each browser tab isolated. | Simplifies live presentation and avoids shared-state failures. | README, reviewed 2026-06-19 |
 | Use server-side fallback for every AI route. | The audience should never see an API failure during the demo. | API route, reviewed 2026-06-21 |
 | Default model is `gpt-5.4-mini`. | Fast live-demo default with lower cost, configurable through `OPENAI_MODEL`. | API routes, `.env.example`, reviewed 2026-06-20 |
-| Adopt a top-down SVG redesign with a household-cleaning metaphor. | Matches the intended "RimWorld-level clarity" mental model while preserving behavior. | ROADMAP redesign phase, updated 2026-06-21 |
+| Adopt a top-down SVG redesign with a household-cleaning metaphor. | Matches the intended "RimWorld-level clarity" mental model while preserving behavior. | Archived v2.1 roadmap, updated 2026-06-21 |
 | Reframe the product from "presentation/demo" to a **game** where the AI drives the agents. | The teaching lands harder when players watch a real AI take the controls, not a scripted demo. | User direction, 2026-06-21 |
 | Migrate sprite rendering from DOM/SVG to an HTML5 `<canvas>` engine fed by rasterized PNGs. | DOM nodes don't scale to many dynamic items; canvas + rAF + React-decoupled movement does. | Phase 1, 2026-06-21 |
 | Adopt **"AI plans, engine executes"** and make the Boss authoritative over allocation. | The AI genuinely decides who does what (and balances load) while deterministic animation keeps runs legible and cheap. Supersedes the old one-call rule. | Phase 2, 2026-06-21 |
@@ -315,4 +337,5 @@ The project is healthy when:
 - the app still works without `OPENAI_API_KEY` through fallback Boss planning;
 - secrets and local data are not exposed in committed or built output.
 
-Verification commands live in `RUNBOOK.md`. Proof of past runs lives in the `ROADMAP.md` Verification Log.
+Verification commands live in `RUNBOOK.md`. Current proof lives in the owning
+spec; v2.1 history remains in `archive/ROADMAP-v2.1.md`.

@@ -10,7 +10,8 @@
     "lint": "next lint",
     "sprites": "node scripts/rasterize-sprites.mjs",
     "test:unit": "tsx --test tests/*.test.mts",
-    "test:e2e": "node tests/e2e.mjs"
+    "test:e2e": "node tests/e2e.mjs",
+    "test:walkthrough": "node tests/walkthrough.mjs"
   },
   "dependencies": {
     "@vercel/analytics": "^2.0.1",

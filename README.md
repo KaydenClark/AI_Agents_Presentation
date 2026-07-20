@@ -171,6 +171,17 @@ npm run test:e2e                  # terminal 2 — browser contracts across all 
 Useful overrides: `E2E_BASE=http://localhost:3100` to point at another origin,
 `E2E_CHROMIUM=/path/to/chromium` to use a pre-installed browser (CI/containers).
 
+For a repeatable presenter-facing screen check at laptop and projector sizes:
+
+```bash
+E2E_BASE=http://localhost:3100 npm run test:walkthrough
+```
+
+Project execution uses the V2.3 control layer: [Taskboard](TASKBOARD.md) shows
+active work, while stable specs hold requirements and verification proof. The
+retired v2.1 tracker is preserved at
+[`archive/ROADMAP_V2_1.md`](archive/ROADMAP_V2_1.md).
+
 ## Presenting this live
 
 The full run-of-show — timing, talking points, executive Q&A prep, and a

@@ -158,6 +158,7 @@ In a second terminal, once the dev server is ready:
 ```bash
 npx playwright install chromium
 npm run test:e2e
+npm run test:walkthrough
 ```
 
 If the server is on a different origin:

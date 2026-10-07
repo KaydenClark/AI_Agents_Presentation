@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { RoomIcon, SwarmIcon } from "@/components/UiIcons";
+import { RoomIcon, SwarmIcon, ThoughtIcon } from "@/components/UiIcons";
 
 export default function LandingPage() {
   return (
@@ -12,26 +12,43 @@ export default function LandingPage() {
           What is an AI Agent?
         </h1>
         <p className="mt-4 text-lg text-zinc-300">
-          Two short scenes that explain &ldquo;AI agent&rdquo; and &ldquo;agent
-          swarm&rdquo; with visible rooms, workers, and report paths. No
-          jargon. Pick a scene to begin.
+          Three short pages that move from a plain chat window, to an
+          interactive room-cleaning game, to an AI warehouse factory. No jargon.
+          Pick a page to begin.
         </p>
       </header>
 
-      <div className="grid w-full max-w-3xl gap-6 sm:grid-cols-2">
+      <div className="grid w-full max-w-5xl gap-6 md:grid-cols-3">
+        <Link
+          href="/chat"
+          className="group flex flex-col rounded-lg border border-[#474747] bg-[#191919] p-8 shadow-sm transition hover:-translate-y-1 hover:border-[#3A7CA5] hover:shadow-lg"
+        >
+          <ThoughtIcon className="mb-4 h-12 w-12 text-[#1ABCBD]" />
+          <h2 className="text-2xl font-semibold text-[#F7F7F7]">Chat Window</h2>
+          <p className="mt-2 flex-1 text-zinc-300">
+            Slide 1. Start with a familiar AI chat: helpful words, but no
+            hands-on loop that acts in the room by itself.
+          </p>
+          <span className="mt-5 inline-flex items-center gap-2 font-semibold text-[#1ABCBD] group-hover:gap-3">
+            Open Slide 1<span aria-hidden>→</span>
+          </span>
+        </Link>
+
         <Link
           href="/room"
           className="group flex flex-col rounded-lg border border-[#474747] bg-[#191919] p-8 shadow-sm transition hover:-translate-y-1 hover:border-[#3A7CA5] hover:shadow-lg"
         >
           <RoomIcon className="mb-4 h-12 w-12 text-[#3A7CA5]" />
-          <h2 className="text-2xl font-semibold text-[#F7F7F7]">Single Room</h2>
+          <h2 className="text-2xl font-semibold text-[#F7F7F7]">
+            Interactive Room
+          </h2>
           <p className="mt-2 flex-1 text-zinc-300">
-            Scene 1. See the difference between doing every step yourself
-            (Manual) and giving one goal to an agent that tidies the whole room
-            on its own.
+            Page 2. Drag clutter to the right furniture, then prompt a hand one
+            step at a time, then let a single room agent clean the whole room
+            from one goal.
           </p>
           <span className="mt-5 inline-flex items-center gap-2 font-semibold text-[#1ABCBD] group-hover:gap-3">
-            Open Scene 1
+            Open Room Game
             <span aria-hidden>→</span>
           </span>
         </Link>
@@ -42,15 +59,15 @@ export default function LandingPage() {
         >
           <SwarmIcon className="mb-4 h-12 w-12 text-[#E0BD3E]" />
           <h2 className="text-2xl font-semibold text-[#F7F7F7]">
-            Swarm Warehouse
+            AI Warehouse Factory
           </h2>
           <p className="mt-2 flex-1 text-zinc-300">
-            Scene 2. One Boss breaks a big job into zones, Managers assign
-            Agents, and the work reports back up the chain &mdash; a whole team
-            of agents working together.
+            Page 3. One Boss breaks a big job into zones, Managers assign
+            Agents, and the work reports back up the chain &mdash; a whole
+            factory of agents working together.
           </p>
           <span className="mt-5 inline-flex items-center gap-2 font-semibold text-[#1ABCBD] group-hover:gap-3">
-            Open Scene 2
+            Open Factory
             <span aria-hidden>→</span>
           </span>
         </Link>

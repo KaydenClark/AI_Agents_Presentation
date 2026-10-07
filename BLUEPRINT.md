@@ -9,7 +9,7 @@ This is the stable reference for what the project is. Keep it factual, source-ba
 
 ## What This Project Is
 
-AI_Agents_Presentation is a Next.js presentation app for teaching non-technical coworkers what an AI agent and an agent swarm are. It uses two top-down scenes: a single room a worker tidies for one agent loop, and a warehouse facility map for a boss/manager/agent hierarchy.
+AI_Agents_Presentation is a Next.js presentation app for teaching non-technical coworkers what an AI agent and an agent swarm are. It uses three main pages: a chat-window slide, an interactive single-room cleanup game, and a warehouse facility map for a boss/manager/agent hierarchy.
 
 The current presentation layer uses shared top-down scene primitives for tiled floors, walls, stations, clutter items, workers, report paths, and escalation markers. The single-agent scene uses a room-cleaning metaphor (a worker carries each mess to where it belongs). The top-down redesign preserves all behavioral and cost contracts in this blueprint. The front end deliberately avoids developer-tool framing (no MCP / computer-use / terminal language); it stays a relatable household-cleaning story.
 
@@ -36,8 +36,8 @@ This project is not trying to:
 
 When the project is working, a user can:
 
-- open the landing page and choose Single Room or Swarm Warehouse;
-- use `/room` to compare manual repeated submits against one self-terminating agent loop;
+- open the landing page and choose Chat Window, Interactive Room, or AI Warehouse Factory;
+- use `/room` to progress from click-hold-drag cleanup, to one prompted hand action at a time, to one self-terminating single-room agent loop;
 - use `/warehouse` to watch a local mess scenario render, a Boss assign work to Managers, Agents work through queues, progress reviewed, jams surfaced, and a local final report returned;
 - run without an OpenAI key by using deterministic server-side fallback planning.
 
@@ -73,7 +73,7 @@ Room layout contract:
 - destination props around the perimeter, each labelled with its name and the item it accepts;
 - a doorway or open wall segment so the room reads as a real top-down space;
 - household clutter scattered on the floor, each item bound for one destination;
-- Manual mode puts one item away per submit; Agent mode clears the whole room from one submit and stops.
+- Drag mode requires the presenter to click, hold, and drag each item to its correct destination; Prompt mode puts one item away per submit with a reaching hand; Agent mode clears the whole room from one submit and stops.
 
 Front-end metaphor rule: this scene stays a household-cleaning story. Do not reintroduce developer-tool framing (MCP, computer use, browser, terminal, files-as-tools); that direction was tried and rejected.
 
@@ -154,9 +154,10 @@ AI_Agents_Presentation/
 
 | Route or screen | Purpose | Status | Source |
 |---|---|---|---|
-| `/` | Landing page linking to both scenes | working | `app/page.tsx`, `tests/e2e.mjs` |
-| `/room` | Single-agent vs manual loop: a worker carries clutter to its destination | working, redesigned | `app/room/page.tsx`, `components/RoomScene.tsx`, `components/RoomSprites.tsx`, `tests/e2e.mjs` |
-| `/warehouse` | Boss/Managers/Agents swarm scene with a top-down facility map | working, redesigned | `app/warehouse/page.tsx`, `components/WarehouseScene.tsx`, `components/ScenePrimitives.tsx`, `tests/e2e.mjs` |
+| `/` | Landing page linking to the three main pages | working | `app/page.tsx`, `tests/e2e.mjs` |
+| `/chat` | Chat-window slide showing useful text without autonomous action | working | `app/chat/page.tsx`, `tests/e2e.mjs` |
+| `/room` | Interactive single-room cleanup: drag items, prompt a hand one step at a time, then run one single-room agent loop | working, redesigned | `app/room/page.tsx`, `components/RoomScene.tsx`, `components/RoomSprites.tsx`, `tests/e2e.mjs` |
+| `/warehouse` | Boss/Managers/Agents AI warehouse factory with a top-down facility map | working, redesigned | `app/warehouse/page.tsx`, `components/WarehouseScene.tsx`, `components/ScenePrimitives.tsx`, `tests/e2e.mjs` |
 
 ### API Endpoints
 
@@ -180,7 +181,7 @@ The core demo logic lives in `components/RoomScene.tsx`, `components/WarehouseSc
 
 Rules:
 
-- Manual mode puts away exactly one clutter item per submit.
+- Prompt mode puts away exactly one clutter item per submit.
 - Agent mode clears the full room from one submit and self-terminates when complete.
 - The visible nouns are household clutter and cleaning destinations, but the manual and agent loop counts must not change.
 - Warehouse scenario generation creates bounded local mess JSON before the API call.

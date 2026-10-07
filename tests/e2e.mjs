@@ -220,7 +220,7 @@ async function run() {
   await page.waitForTimeout(900);
   check(
     "Agent: mode toggle is disabled mid-run (prevents broken state)",
-    await page.getByRole("button", { name: "manual" }).isDisabled(),
+    await page.getByRole("button", { name: "prompt" }).isDisabled(),
   );
   check(
     "Agent: Reset is disabled mid-run",
@@ -234,10 +234,22 @@ async function run() {
   check(
     "AI Warehouse Factory shows top-down facility map",
     (await page.getByLabel(/Top-down swarm facility/i).count()) > 0 &&
-      (await page.getByText(/Boss office/i).count()) > 0 &&
-      (await page.getByText(/Report paths/i).count()) > 0,
-  );
+    (await page.getByText(/Boss office/i).count()) > 0 &&
+    (await page.getByText(/Report paths/i).count()) > 0);
+  check("Warehouse uses fixed Clean the house instruction",
+    (await page.getByText(/Fixed human instruction/i).count()) > 0 &&
+    (await page.getByText(/^Clean the house$/i).count()) > 0);
   await page.getByRole("button", { name: "Submit" }).click();
+
+  const decisionStart = Date.now();
+  let bossDecision = false;
+  while (Date.now() - decisionStart < 20000) {
+    if ((await page.getByText(/Boss decision: why each Manager got this work/i).count()) > 0) {
+      bossDecision = true; break;
+    }
+    await sleep(300);
+  }
+  check("Warehouse: Boss decision panel appears", bossDecision);
 
   const whStart = Date.now();
   let finalReport = false;
@@ -249,11 +261,9 @@ async function run() {
     await sleep(400);
   }
   check("Warehouse: produces a final report", finalReport);
-  check(
-    "Warehouse: all 6 rooms report complete",
-    (await page.getByText(/Reported ✓/).count()) === 6,
-    `${await page.getByText(/Reported ✓/).count()} rooms`,
-  );
+  check("Warehouse: all 3 manager rooms report complete",
+    (await page.getByText(/^Reported$/).count()) === 3,
+    `${await page.getByText(/^Reported$/).count()} rooms`);
 
   await page.getByRole("button", { name: "Reset" }).click();
   await page.waitForTimeout(300);
@@ -293,9 +303,7 @@ async function run() {
 
   console.log("\n==== TEST RESULTS ====");
   for (const r of results) console.log(r);
-  console.log(
-    `\n${failures === 0 ? "ALL PASSED ✅" : `${failures} FAILURE(S) ❌`}`,
-  );
+  console.log(`\n${failures === 0 ? "ALL PASSED" : `${failures} FAILURE(S)`}`);
   process.exit(failures === 0 ? 0 : 1);
 }
 

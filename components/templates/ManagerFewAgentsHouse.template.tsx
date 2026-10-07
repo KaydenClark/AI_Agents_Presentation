@@ -5,6 +5,7 @@ import { Clutter, ClutterKind } from "../ClutterItem";
 import ReportPanel, { ReportLine } from "../ReportPanel";
 import EscalationBanner from "../EscalationBanner";
 import { Marker, ReportPath } from "../ScenePrimitives";
+import { AgentIcon, BossIcon, ManagerIcon, WarningIcon } from "../UiIcons";
 import {
   Furniture,
   FurnitureKind,
@@ -508,9 +509,7 @@ export default function WarehouseScene() {
       {/* Boss panel */}
       <div className="rounded-2xl border border-slate-300 bg-gradient-to-b from-indigo-50 to-white p-4 shadow-sm">
         <div className="flex items-center gap-3">
-          <span className="text-3xl" aria-hidden>
-            🧑‍💼
-          </span>
+          <BossIcon className="h-8 w-8 shrink-0 text-indigo-700" />
           <div>
             <p className="text-sm font-bold text-slate-800">Boss</p>
             <p className="text-sm text-slate-600">
@@ -570,9 +569,7 @@ export default function WarehouseScene() {
             {/* Zone / Manager header */}
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="text-2xl" aria-hidden>
-                  🧑‍🔧
-                </span>
+                <ManagerIcon className="h-6 w-6 shrink-0 text-sky-700" />
                 <div>
                   <p className="text-sm font-bold text-slate-800">
                     {zone.name} · Manager
@@ -585,10 +582,11 @@ export default function WarehouseScene() {
                   type="button"
                   onClick={() => triggerJam(zone.id)}
                   disabled={zone.status !== "working" || zone.escalationPaused}
-                  className="rounded-md border border-rose-200 bg-rose-50 px-2 py-1 text-[11px] font-semibold text-rose-600 transition enabled:hover:bg-rose-100 disabled:opacity-40"
+                  className="inline-flex items-center gap-1 rounded-md border border-rose-200 bg-rose-50 px-2 py-1 text-[11px] font-semibold text-rose-600 transition enabled:hover:bg-rose-100 disabled:opacity-40"
                   title="Force a stuck-item escalation for this zone"
                 >
-                  ⚠ Jam
+                  <WarningIcon className="h-3.5 w-3.5" />
+                  Jam
                 </button>
               ) : null}
             </div>
@@ -629,7 +627,7 @@ function StatusBadge({ zone }: { zone: ZoneRuntime }) {
   const map: Record<ZoneRuntime["status"], { text: string; cls: string }> = {
     idle: { text: "Idle", cls: "bg-slate-100 text-slate-500" },
     working: { text: "Working", cls: "bg-indigo-100 text-indigo-700" },
-    delivered: { text: "Reported ✓", cls: "bg-emerald-100 text-emerald-700" },
+    delivered: { text: "Reported", cls: "bg-emerald-100 text-emerald-700" },
   };
   const s = map[zone.status];
   return (
@@ -1043,18 +1041,15 @@ function AgentRow({ agent }: { agent: AgentRuntime }) {
   };
   return (
     <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5">
-      <span
-        className={`text-xl ${
+      <AgentIcon
+        className={`h-5 w-5 shrink-0 text-indigo-600 ${
           agent.state === "walking"
             ? "animate-bob"
             : agent.state === "working"
               ? "animate-pulse-soft"
               : ""
         }`}
-        aria-hidden
-      >
-        🤖
-      </span>
+      />
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between text-[11px] font-semibold text-slate-600">
           <span>{agent.name}</span>

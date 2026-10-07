@@ -1,9 +1,11 @@
 "use client";
 
+import { AgentIcon } from "./UiIcons";
+
 export type CharacterState = "idle" | "walking" | "working" | "sitting";
 
 export interface CharacterProps {
-  /** Emoji or short glyph used as the sprite face. */
+  /** Optional short text label used for legacy callers. */
   glyph?: string;
   /** Left position as a percentage of the parent (0-100). */
   xPercent: number;
@@ -14,7 +16,7 @@ export interface CharacterProps {
   label?: string;
   /** Optional thought-bubble text shown while scanning/thinking. */
   thought?: string;
-  /** Item the character is currently carrying (emoji). */
+  /** Short label for the item the character is currently carrying. */
   carrying?: string | null;
   /** Visual size in pixels. */
   size?: number;
@@ -25,7 +27,7 @@ export interface CharacterProps {
  * xPercent / yPercent so callers can animate position with CSS transitions.
  */
 export default function Character({
-  glyph = "🧍",
+  glyph,
   xPercent,
   yPercent,
   state,
@@ -47,32 +49,38 @@ export default function Character({
       style={{ left: `${xPercent}%`, top: `${yPercent}%` }}
     >
       {thought ? (
-        <div className="mb-1 max-w-[140px] animate-fade-in rounded-xl border border-slate-200 bg-white px-2 py-1 text-center text-[11px] font-medium leading-tight text-slate-600 shadow">
+        <div className="mb-1 max-w-[140px] animate-fade-in rounded-lg border border-[#474747] bg-[#191919] px-2 py-1 text-center text-[11px] font-medium leading-tight text-zinc-300 shadow">
           {thought}
         </div>
       ) : null}
 
       <div className="relative">
         <div
-          className={`flex items-center justify-center rounded-full bg-white shadow-md ring-2 ${
-            state === "sitting" ? "ring-slate-300" : "ring-indigo-300"
+          className={`flex items-center justify-center rounded-full bg-[#191919] text-[#F7F7F7] shadow-md ring-2 ${
+            state === "sitting" ? "ring-[#474747]" : "ring-[#3A7CA5]"
           } ${animation}`}
-          style={{ width: size, height: size, fontSize: size * 0.55 }}
+          style={{ width: size, height: size }}
         >
-          <span aria-hidden>{glyph}</span>
+          {glyph ? (
+            <span className="text-[11px] font-bold uppercase" aria-hidden>
+              {glyph.slice(0, 2)}
+            </span>
+          ) : (
+            <AgentIcon className="h-[55%] w-[55%]" />
+          )}
         </div>
         {carrying ? (
           <span
-            className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full bg-amber-100 text-sm shadow ring-1 ring-amber-300"
+            className="absolute -right-2 -top-2 flex h-6 min-w-6 items-center justify-center rounded-full bg-[#E0BD3E] px-1 text-[10px] font-bold uppercase text-[#191919] shadow ring-1 ring-[#F7F7F7]/30"
             aria-hidden
           >
-            {carrying}
+            {carrying.slice(0, 2)}
           </span>
         ) : null}
       </div>
 
       {label ? (
-        <div className="mt-1 whitespace-nowrap text-[11px] font-semibold text-slate-500">
+        <div className="mt-1 whitespace-nowrap text-[11px] font-semibold text-zinc-400">
           {label}
         </div>
       ) : null}

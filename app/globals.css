@@ -3,7 +3,19 @@
 @tailwind utilities;
 
 :root {
-  color-scheme: light;
+  color-scheme: dark;
+  --color-onyx: #0a0a0a;
+  --color-carbon-black: #191919;
+  --color-iron-grey: #474747;
+  --color-bright-snow: #f7f7f7;
+  --color-scarlet-rush: #de2b31;
+  --color-vintage-lavender: #885a89;
+  --color-medium-jungle: #4daa57;
+  --color-cerulean: #3a7ca5;
+  --color-old-gold: #e0bd3e;
+  --color-rose-punch: #cf4f84;
+  --color-blaze-orange: #ff6201;
+  --color-vibrant-turquoise: #1abcbd;
 }
 
 html,
@@ -12,7 +24,7 @@ body {
 }
 
 body {
-  @apply bg-slate-100 text-slate-900 antialiased;
+  @apply bg-[#0A0A0A] text-[#F7F7F7] antialiased;
 }
 
 /* Smooth movement for characters and hands across the scene. */

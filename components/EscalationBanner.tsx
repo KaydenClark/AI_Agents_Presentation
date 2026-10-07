@@ -1,5 +1,7 @@
 "use client";
 
+import { HumanIcon } from "./UiIcons";
+
 interface EscalationBannerProps {
   message: string;
   onDismiss?: () => void;
@@ -14,23 +16,21 @@ export default function EscalationBanner({
   onDismiss,
 }: EscalationBannerProps) {
   return (
-    <div className="animate-fade-in rounded-xl border-2 border-rose-300 bg-rose-50 px-4 py-3 shadow-sm">
+    <div className="animate-fade-in rounded-lg border-2 border-[#DE2B31]/70 bg-[#DE2B31]/15 px-4 py-3 shadow-sm">
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <span className="text-2xl" aria-hidden>
-            🙋
-          </span>
+          <HumanIcon className="h-7 w-7 shrink-0 text-[#DE2B31]" />
           <div>
-            <p className="text-sm font-bold text-rose-700">
+            <p className="text-sm font-bold text-[#ff9a9d]">
               Needs human input
             </p>
-            <p className="text-sm text-rose-600">{message}</p>
+            <p className="text-sm text-[#ffd0d1]">{message}</p>
           </div>
         </div>
         {onDismiss ? (
           <button
             onClick={onDismiss}
-            className="shrink-0 rounded-lg border border-rose-300 bg-white px-3 py-1 text-sm font-semibold text-rose-600 transition hover:bg-rose-100"
+            className="shrink-0 rounded-md border border-[#DE2B31]/60 bg-[#191919] px-3 py-1 text-sm font-semibold text-[#ffb4b6] transition hover:bg-[#DE2B31]/20"
           >
             Resolve
           </button>

@@ -1,6 +1,8 @@
 # AI_Agents_Presentation - Runbook
 
-**Last reviewed:** 2026-06-22
+> Generated from LLM Workbench v2.3.
+
+**Last reviewed:** 2026-07-13
 **Runtime owner:** Kayden / agent  
 **Environment:** local development, GitHub release branch/tag, and Vercel production target
 
@@ -259,13 +261,39 @@ If a change fails:
 2. Inspect the smallest changed file set with version control.
 3. Revert only the agent-owned change or apply a narrow forward fix.
 4. Run the targeted verification from `Test And Build`.
-5. Append the result or remaining gap to `ROADMAP.md`.
+5. Close the assigned spec ticket with the result or remaining gap.
 
 Do not delete data, reset repositories, rewrite history, rotate secrets, or deploy over production unless the user explicitly approves that action.
 
 ## Operational Proof
 
-If a command in this runbook changed durable project state, append a row to the `ROADMAP.md` Verification Log. For routine local runs that do not change state, a final response note is enough.
+If a command in this runbook changed durable project state, append proof to the
+owning spec. For routine local runs that do not change state, a final response
+note is enough.
+
+## Harness And Walkthrough Verification
+
+Run the V2.3 lifecycle checks after changing specs or their generated views:
+
+```bash
+node tools/spec-workbench.mjs render
+node tools/spec-workbench.mjs doctor
+```
+
+The complete screen walkthrough is a fallback-first local browser test. It loads
+the landing screen, all six modes, and both legacy redirects at 1366x768,
+1440x900, and 1920x1080. It checks readable page anchors, accessible labels,
+horizontal overflow, and uncaught browser errors. `test:e2e` supplies the deeper
+interactive proof for the six-mode behaviors.
+
+```bash
+npm run dev -- -p 3011
+E2E_BASE=http://localhost:3011 npm run test:e2e
+E2E_BASE=http://localhost:3011 npm run test:walkthrough
+```
+
+Do not treat this fallback-only check as proof that a deployed or local OpenAI
+key is valid. Run a live-AI rehearsal only after explicit approval.
 
 ## v2.1 GitHub Publish Checklist
 
@@ -279,5 +307,6 @@ Use this when preparing or auditing the v2.1 GitHub state:
 4. Confirm the landing page links to `/manual`, `/chat`, `/agent`, `/team`, and
    `/swarm`.
 5. Confirm `package.json`, `package-lock.json`, `README.md`, `BLUEPRINT.md`,
-   `ROADMAP.md`, `RUNBOOK.md`, and `AGENTS.md` all describe v2.1 as current.
+   `TASKBOARD.md`, `RUNBOOK.md`, and `AGENTS.md` describe the current product and
+   V2.3 control ownership accurately.
 6. Commit with a v2.1 release message, push the branch, and push the `v2.1` tag.

@@ -299,6 +299,8 @@ export default function RoomScene({
   }, [fixedMode, mode]);
 
   const remaining = items.length;
+  const displayedManualActions =
+    mode === "manual" && allClean ? startCount : manualActions;
   const placeholder = useMemo(() => "Type a goal, e.g. tidy the room", []);
 
   return (
@@ -388,7 +390,7 @@ export default function RoomScene({
             one Submit = one{" "}
             {presentation === "tool-use" ? "tool action" : "item put away"}.
             You must resubmit for every remaining item. Submits so far:{" "}
-            <strong>{manualActions}</strong>.
+            <strong>{displayedManualActions}</strong>.
           </span>
         ) : (
           <span>
@@ -507,7 +509,7 @@ export default function RoomScene({
               <div className="mt-1 text-sm opacity-90">
                 {mode === "agent"
                   ? "The agent reached the goal and stopped on its own."
-                  : `Done - it took ${manualActions} separate submits.`}
+                  : `Done - it took ${displayedManualActions} separate submits.`}
               </div>
             </div>
           </div>

@@ -3,8 +3,14 @@
 [![Next.js](https://img.shields.io/badge/Next.js_14-App_Router-000000?logo=nextdotjs)](https://nextjs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3-06B6D4?logo=tailwindcss&logoColor=white)](https://tailwindcss.com)
-[![Playwright](https://img.shields.io/badge/Playwright-48_E2E_checks-2EAD33?logo=playwright&logoColor=white)](tests/e2e.mjs)
+[![Playwright](https://img.shields.io/badge/Playwright-E2E_suite-2EAD33?logo=playwright&logoColor=white)](tests/e2e.mjs)
 [![Deployed on Vercel](https://img.shields.io/badge/Vercel-live_demo-000000?logo=vercel)](https://what-are-agents-presentation.vercel.app)
+
+> Generated from LLM Workbench v2.3. Harness operations live in `RUNBOOK.md`.
+
+**Current release:** v2.1.0 (six-mode ladder, canvas sprite engine,
+authoritative Boss planning, Manager queue planning, and live swarm item
+spawning).
 
 **"What's the difference between a chatbot and an AI agent?"** Most people
 can't answer that question — so this project answers it as a game. You give one
@@ -16,6 +22,29 @@ executes, self-corrects, and escalates to a human only when it's truly stuck.
 Built to be presented live to a non-technical audience: every AI decision is
 visible on screen, every run completes even if the network dies, and each
 browser tab is its own isolated session — no database, no login, no setup.
+
+## Project controls
+
+The project uses a small progressive-disclosure control plane:
+
+- [`AGENTS.md`](AGENTS.md) defines agent authority, scope, safety, lifecycle,
+  documentation ownership, and proof rules.
+- [`BLUEPRINT.md`](BLUEPRINT.md) holds the compact product map and durable spec
+  catalog.
+- [`LEXICON.md`](LEXICON.md) defines accepted project-wide terms used by specs,
+  tests, and presentation guidance.
+- [`TASKBOARD.md`](TASKBOARD.md) projects only active work and owner decisions.
+- [`specs/`](specs/) holds stable capability requirements and append-only proof.
+- [`RUNBOOK.md`](RUNBOOK.md) contains executable setup, verification, recovery,
+  and harness-upgrade commands.
+- [`HARNESS_FEEDBACK.md`](HARNESS_FEEDBACK.md) records friction caused by the
+  reusable workbench itself.
+
+The controls are plain Markdown and work with Codex, Claude, or another agent
+that reads repository instructions. Claude Code loads the shared rules through
+the checked-in `CLAUDE.md` bridge containing `@AGENTS.md`. The files under
+[`team templates/`](team%20templates/) are optional, on-demand coordination
+packets for a short multi-agent run; they do not replace the root Taskboard.
 
 ## Live demo
 
@@ -44,7 +73,7 @@ Each mode adds exactly one capability, so the audience feels the jump from
 | 3 | Tool Use | `/tool-use` | The chat gets tools, but one Submit still means one action. Help, not autonomy. |
 | 4 | Single Agent | `/agent` | One goal drives a loop: pick task → act → check → repeat → **stop itself**. |
 | 5 | Small Team | `/team` | A Manager splits one goal across two Agents — delegation and parallelism. |
-| 6 | Swarm House | `/swarm` | A Boss uses **real AI** to allocate work across Managers; the swarm absorbs live new work you drop mid-run, and escalates to a human only when jammed. |
+| 6 | Swarm House | `/swarm` | A Boss uses a bounded AI or deterministic fallback decision to allocate work across Managers; the swarm absorbs live work, pauses at a presenter checkpoint, and creates its final report only when you finish the rehearsal. |
 
 ## Architecture: "AI plans, engine executes"
 
@@ -101,7 +130,7 @@ they reach the client.
   chain — Agent → Manager → Boss → "Needs human input" banner — the real exit
   point of an autonomous system.
 - **Real verification pyramid**: unit tests on the shared planning rules, API
-  contract probes (including malformed-JSON rejection), and a 48-check
+  contract probes (including malformed-JSON rejection), and a 69-check
   Playwright E2E suite that plays all six modes in a real browser — drag
   placement, loop self-termination, live item drops, escalation, and a
   zero-console-error gate.
@@ -136,18 +165,30 @@ npm run build
 
 npm run dev                       # terminal 1
 npx playwright install chromium   # one-time
-npm run test:e2e                  # terminal 2 — 48 checks across all six modes
+npm run test:e2e                  # terminal 2 — browser contracts across all six modes
 ```
 
 Useful overrides: `E2E_BASE=http://localhost:3100` to point at another origin,
 `E2E_CHROMIUM=/path/to/chromium` to use a pre-installed browser (CI/containers).
+
+For a repeatable presenter-facing screen check at laptop and projector sizes:
+
+```bash
+E2E_BASE=http://localhost:3100 npm run test:walkthrough
+```
+
+Project execution uses the V2.3 control layer: [Taskboard](TASKBOARD.md) shows
+active work, while stable specs hold requirements and verification proof. The
+retired v2.1 tracker is preserved at
+[`archive/ROADMAP_V2_1.md`](archive/ROADMAP_V2_1.md).
 
 ## Presenting this live
 
 The full run-of-show — timing, talking points, executive Q&A prep, and a
 pre-demo checklist — lives in **[PRESENTATION.md](PRESENTATION.md)**. The short
 version: 6 modes, ~12 minutes, one instruction per mode, and the Swarm House
-finale where the audience watches a real AI decision drive the workers.
+finale where the audience watches an honestly labeled AI or fallback decision
+drive the workers.
 
 ## Deploy to Vercel
 
@@ -182,7 +223,7 @@ components/
   sprites/SpriteEngine.ts      Raw <canvas> + rAF engine (Y-sorted, React-decoupled)
 lib/warehouseRules.ts          Palette routing, fallback planning, rebalance helpers
 scripts/rasterize-sprites.mjs  SVG → PNG pipeline (npm run sprites)
-tests/                         Unit tests + 48-check Playwright E2E suite
+tests/                         Unit tests + 69-check Playwright E2E suite
 ```
 
 ## Constraints / non-goals

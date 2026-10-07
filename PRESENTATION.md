@@ -74,21 +74,27 @@ test, confirm the Boss panel badge, then Reset. See the checklist at the end.
 
 1. Point out the map: Boss office, three Manager rooms, six Agents, and the
    **Human exit** marker.
-2. Click **Submit**. Pause on *"Boss is deciding…"* — *"This exact moment is a
-   real AI model making a real decision: it's allocating all of this work
-   across three Managers."*
+2. Click **Submit**. Pause on *"Boss is deciding…"* — *"This is the planning
+   boundary: a bounded model call or the same-contract fallback allocates the
+   work across three Managers."*
 3. Open the **Boss decision** dropdown and read one rationale aloud. Watch the
    badge: `real AI decision` (or `fallback decision` if offline — see Q&A).
-4. **Live curveball:** pick **Plate** from the palette and click around the
-   house a few times. *"Work never stops arriving. Watch the Kitchen Manager
-   absorb each one into a live agent's queue — no restart, no re-planning
-   ceremony."*
-5. **(Optional but powerful)** Tick **Presenter tools**, hit a zone's **Jam**
-   button, and walk the escalation: Agent → Manager → Boss → red **Needs human
-   input** banner. *"This is the feature I most want you to remember. A good
-   autonomous system knows when to stop and ask a person."* Click **Resolve**.
-6. When every zone reports in, read the **final report** — it's assembled from
-   the work that actually happened, including the plates you added.
+4. **(Optional but powerful)** While a Manager zone still shows **Working**,
+   keep **Presenter mode** enabled, turn on **Show Jam controls**, hit that
+   zone's enabled **Jam** button, and walk the escalation: Agent → Manager →
+   Boss → red **Needs human input** banner. *"This is the feature I most want
+   you to remember. A good autonomous system knows when to stop and ask a
+   person."* Click **Resolve** so work resumes. For the formal jam rehearsal,
+   start from a fresh `/swarm` page and follow the complete flow owned by
+   `S-005/TK-005`.
+5. When the queues drain, Presenter Mode pauses at the **Live work checkpoint**
+   instead of racing to the report. Pick **Plate** from the palette and click
+   around the house a few times. *"Work never stops arriving. Watch the Kitchen
+   Manager absorb each one into a live agent's queue — no restart, no
+   re-planning ceremony."* The checkpoint returns after that work drains.
+6. At the safe checkpoint, click **Finish rehearsal**. Read the **final
+   report** — it's assembled from the work that actually happened, including
+   the plates you added.
 
 **Close:** *"A chat window answers. An agent finishes. And a well-built swarm
 knows when to hand the problem back to a human. The question for us isn't
@@ -135,8 +141,10 @@ for tickets, invoices, or leads.
 ## Pre-demo checklist
 
 - [ ] Open the production URL (or `npm run dev` locally) and load all six modes once.
-- [ ] Run one full Swarm House pass; confirm the badge reads `real AI decision`
-      if a key is configured. **Reset** afterward.
+- [ ] Run one Swarm House pass to the safe live-work checkpoint; confirm the
+      badge honestly reads either `real AI decision` or `fallback decision`,
+      then use **Reset** there. If you also rehearse the final report, reload
+      `/swarm` afterward because completed reports are intentionally immutable.
 - [ ] If venue Wi-Fi is untrusted, decide upfront to present on fallbacks —
       every mode completes without a network; the badge just says so.
 - [ ] Check the projector resolution; the layout is tuned for laptop/projector
@@ -152,5 +160,5 @@ for tickets, invoices, or leads.
 - **Recruiter/interview walkthrough:** lead with the Swarm House, then open
   the code: `app/api/boss-plan/route.ts` (bounded AI + normalization),
   `components/sprites/SpriteEngine.ts` (React-decoupled canvas), and
-  `tests/e2e.mjs` (48 browser checks). The README's architecture diagram is
+  `tests/e2e.mjs` (63 browser checks). The README's architecture diagram is
   the map.

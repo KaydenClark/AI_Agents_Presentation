@@ -32,11 +32,29 @@ type Phase =
   | "deciding"
   | "dispatched"
   | "working"
+  | "checkpoint"
   | "summarizing"
   | "done";
 type AgentState = "idle" | "walking" | "working" | "done";
 
 type Waypoint = { x: number; y: number; label: string };
+type PathWall =
+  | {
+      type: "vertical";
+      name: string;
+      x: number;
+      y1: number;
+      y2: number;
+      gap?: { y1: number; y2: number };
+    }
+  | {
+      type: "horizontal";
+      name: string;
+      y: number;
+      x1: number;
+      x2: number;
+      gap?: { x1: number; x2: number };
+    };
 
 interface Job {
   id: string;
@@ -154,7 +172,16 @@ const OUT_RECYCLE: Waypoint = { x: 46, y: 94, label: "the recycling outside" };
 const OUT_LANDFILL: Waypoint = { x: 54, y: 94, label: "the trash outside" };
 const hallway = (y: number): Waypoint => ({ x: 50, y, label: "the hallway" });
 const LIVING_DOOR = wp(46, 54, "the living-room doorway");
-const LIVING_PICKUP_INDEX = 4;
+type SourceRoomId = ManagerId | "LIVING";
+const PILE_SOURCE_ROOM: Record<string, SourceRoomId> = {
+  "lr-clothes": "LIVING",
+  "lr-dishes": "LIVING",
+  "lr-books": "LIVING",
+  "lr-trash": "LIVING",
+  "kitchen-trash": "KITCHEN",
+  "laundry-trash": "LAUNDRY",
+  "office-trash": "OFFICE",
+};
 const roomDoor = (managerId: ScenarioItemGroup["managerId"]): Waypoint => {
   const room = ROOMS[managerId];
   return wp(54, room.manager?.y ?? 54, `the ${room.name.toLowerCase()} doorway`);
@@ -549,84 +576,141 @@ function findPile(scenario: Scenario, id: string): ScenarioPile {
   };
 }
 
-function livingPickupRoute(
+type RoutePlan = { route: Waypoint[]; pickupIndex: number };
+
+function sourceRoomForPile(pile: ScenarioPile): SourceRoomId {
+  if (pile.id.startsWith("lr-")) return "LIVING";
+  return PILE_SOURCE_ROOM[pile.id] ?? "LIVING";
+}
+
+function doorForSourceRoom(roomId: SourceRoomId): Waypoint {
+  return roomId === "LIVING" ? LIVING_DOOR : roomDoor(roomId);
+}
+
+function pickupRouteFromSource(
   managerId: ScenarioItemGroup["managerId"],
   pile: ScenarioPile,
-): { route: Waypoint[]; pickupIndex: number } {
-  const door = roomDoor(managerId);
+): RoutePlan & { sourceRoom: SourceRoomId } {
+  const managerDoor = roomDoor(managerId);
+  const sourceRoom = sourceRoomForPile(pile);
+  const sourceDoor = doorForSourceRoom(sourceRoom);
+  const route =
+    sourceRoom === managerId
+      ? [managerDoor, wp(pile.x, pile.y, pile.label)]
+      : [
+          managerDoor,
+          hallway(managerDoor.y),
+          hallway(sourceDoor.y),
+          sourceDoor,
+          wp(pile.x, pile.y, pile.label),
+        ];
+
   return {
-    route: [
-      door,
-      hallway(door.y),
-      hallway(LIVING_DOOR.y),
-      LIVING_DOOR,
-      wp(pile.x, pile.y, pile.label),
-    ],
-    pickupIndex: LIVING_PICKUP_INDEX,
+    route,
+    pickupIndex: route.length - 1,
+    sourceRoom,
   };
 }
 
-function returnFromLiving(
-  managerId: ScenarioItemGroup["managerId"],
+function routeFromSourceToRoom(
+  sourceRoom: SourceRoomId,
+  destinationRoom: ManagerId,
   destinations: Waypoint[],
 ): Waypoint[] {
-  const door = roomDoor(managerId);
+  const sourceDoor = doorForSourceRoom(sourceRoom);
+  const destinationDoor = roomDoor(destinationRoom);
+
+  if (sourceRoom === destinationRoom) {
+    return [sourceDoor, ...destinations];
+  }
+
   return [
-    LIVING_DOOR,
-    hallway(LIVING_DOOR.y),
-    hallway(door.y),
-    door,
+    sourceDoor,
+    hallway(sourceDoor.y),
+    hallway(destinationDoor.y),
+    destinationDoor,
     ...destinations,
   ];
 }
 
-function dishRoute(scenario: Scenario, pileId = "lr-dishes"): Waypoint[] {
+function routeFromSourceToOutside(sourceRoom: SourceRoomId, out: Waypoint): Waypoint[] {
+  const sourceDoor = doorForSourceRoom(sourceRoom);
+  return [sourceDoor, hallway(sourceDoor.y), hallway(88), out];
+}
+
+function dishRoute(
+  scenario: Scenario,
+  managerId: ManagerId,
+  pileId = "lr-dishes",
+): RoutePlan {
   const P = findPile(scenario, pileId);
-  const pickup = livingPickupRoute("KITCHEN", P);
-  return [
-    ...pickup.route,
-    ...returnFromLiving("KITCHEN", [
-      wp(87, 32, "the sink"),
-      wp(67, 37, "the cupboard"),
-    ]),
-  ];
+  const pickup = pickupRouteFromSource(managerId, P);
+  return {
+    route: [
+      ...pickup.route,
+      ...routeFromSourceToRoom(pickup.sourceRoom, "KITCHEN", [
+        wp(87, 32, "the sink"),
+        wp(67, 37, "the cupboard"),
+      ]),
+    ],
+    pickupIndex: pickup.pickupIndex,
+  };
 }
 
 // Clothes: living-room pile -> washer (wash) -> folding basket (by type).
 function clothesRoute(
   scenario: Scenario,
+  managerId: ManagerId,
   type: string,
   pileId = "lr-clothes",
-): Waypoint[] {
+): RoutePlan {
   const P = findPile(scenario, pileId);
   const basket = BASKETS[type] ?? BASKETS.shirt;
-  const pickup = livingPickupRoute("LAUNDRY", P);
-  return [
-    ...pickup.route,
-    ...returnFromLiving("LAUNDRY", [
-      wp(88, 52, "the washer"),
-      wp(basket.x, 61, basket.label),
-    ]),
-  ];
+  const pickup = pickupRouteFromSource(managerId, P);
+  return {
+    route: [
+      ...pickup.route,
+      ...routeFromSourceToRoom(pickup.sourceRoom, "LAUNDRY", [
+        wp(88, 52, "the washer"),
+        wp(basket.x, 61, basket.label),
+      ]),
+    ],
+    pickupIndex: pickup.pickupIndex,
+  };
 }
 
 // Books: living-room pile -> bookshelf, shelved by color.
-function bookRoute(scenario: Scenario, shelf: string, pileId = "lr-books"): Waypoint[] {
+function bookRoute(
+  scenario: Scenario,
+  managerId: ManagerId,
+  shelf: string,
+  pileId = "lr-books",
+): RoutePlan {
   const P = findPile(scenario, pileId);
-  const pickup = livingPickupRoute("OFFICE", P);
-  return [
-    ...pickup.route,
-    ...returnFromLiving("OFFICE", [wp(87, 80, shelf)]),
-  ];
+  const pickup = pickupRouteFromSource(managerId, P);
+  return {
+    route: [
+      ...pickup.route,
+      ...routeFromSourceToRoom(pickup.sourceRoom, "OFFICE", [
+        wp(87, 80, shelf),
+      ]),
+    ],
+    pickupIndex: pickup.pickupIndex,
+  };
 }
 
-function toyRoute(scenario: Scenario, pileId: string): Waypoint[] {
+function toyRoute(scenario: Scenario, managerId: ManagerId, pileId: string): RoutePlan {
   const P = findPile(scenario, pileId);
-  const pickup = livingPickupRoute("OFFICE", P);
-  return [
-    ...pickup.route,
-    ...returnFromLiving("OFFICE", [wp(87, 80, "the visible-clutter shelf")]),
-  ];
+  const pickup = pickupRouteFromSource(managerId, P);
+  return {
+    route: [
+      ...pickup.route,
+      ...routeFromSourceToRoom(pickup.sourceRoom, "OFFICE", [
+        wp(87, 80, "the visible-clutter shelf"),
+      ]),
+    ],
+    pickupIndex: pickup.pickupIndex,
+  };
 }
 
 function sortedTrashRoute(
@@ -634,30 +718,13 @@ function sortedTrashRoute(
   pile: ScenarioPile,
   out: Waypoint,
 ): { route: Waypoint[]; pickupIndex: number } {
-  if (pile.id.startsWith("lr-")) {
-    const pickup = livingPickupRoute(managerId, pile);
-    return {
-      route: [
-        ...pickup.route,
-        LIVING_DOOR,
-        hallway(LIVING_DOOR.y),
-        hallway(88),
-        out,
-      ],
-      pickupIndex: pickup.pickupIndex,
-    };
-  }
-
-  const door = roomDoor(managerId);
+  const pickup = pickupRouteFromSource(managerId, pile);
   return {
     route: [
-      wp(pile.x, pile.y, pile.label),
-      door,
-      hallway(door.y),
-      hallway(88),
-      out,
+      ...pickup.route,
+      ...routeFromSourceToOutside(pickup.sourceRoom, out),
     ],
-    pickupIndex: 0,
+    pickupIndex: pickup.pickupIndex,
   };
 }
 
@@ -690,10 +757,11 @@ function jobsForGroup(scenario: Scenario, group: ScenarioItemGroup): Job[] {
         group.sprite === "plate" || group.sprite === "fork" || group.sprite === "cup"
           ? group.sprite
           : (["plate", "fork", "cup"] as ItemKind[])[i % 3];
+      const route = dishRoute(scenario, group.managerId, group.pile);
       jobs.push(
-        job(sprite, group.pile, dishRoute(scenario, group.pile), {
+        job(sprite, group.pile, route.route, {
           jammed,
-          pickupIndex: LIVING_PICKUP_INDEX,
+          pickupIndex: route.pickupIndex,
         }),
       );
       continue;
@@ -704,10 +772,11 @@ function jobsForGroup(scenario: Scenario, group: ScenarioItemGroup): Job[] {
         group.sprite === "shirt" || group.sprite === "sock" || group.sprite === "towel"
           ? group.sprite
           : (["shirt", "sock", "towel"] as ItemKind[])[i % 3];
+      const route = clothesRoute(scenario, group.managerId, sprite, group.pile);
       jobs.push(
-        job(sprite, group.pile, clothesRoute(scenario, sprite, group.pile), {
+        job(sprite, group.pile, route.route, {
           jammed,
-          pickupIndex: LIVING_PICKUP_INDEX,
+          pickupIndex: route.pickupIndex,
         }),
       );
       continue;
@@ -715,21 +784,23 @@ function jobsForGroup(scenario: Scenario, group: ScenarioItemGroup): Job[] {
 
     if (workflow === "book") {
       const color = BOOK_COLORS[i % BOOK_COLORS.length];
+      const route = bookRoute(scenario, group.managerId, color.shelf, group.pile);
       jobs.push(
-        job("book", group.pile, bookRoute(scenario, color.shelf, group.pile), {
+        job("book", group.pile, route.route, {
           tint: color.tint,
           jammed,
-          pickupIndex: LIVING_PICKUP_INDEX,
+          pickupIndex: route.pickupIndex,
         }),
       );
       continue;
     }
 
     if (workflow === "toy") {
+      const route = toyRoute(scenario, group.managerId, group.pile);
       jobs.push(
-        job("toy", group.pile, toyRoute(scenario, group.pile), {
+        job("toy", group.pile, route.route, {
           jammed,
-          pickupIndex: LIVING_PICKUP_INDEX,
+          pickupIndex: route.pickupIndex,
         }),
       );
       continue;
@@ -777,8 +848,10 @@ function buildZones(
   const jobsByManager = new Map<string, Job[]>();
   for (const manager of MANAGERS) jobsByManager.set(manager.id, []);
   for (const group of scenario.groups) {
-    const managerId = ownerOf.get(group.id) ?? group.managerId;
-    jobsByManager.get(managerId)?.push(...jobsForGroup(scenario, group));
+    const managerId = (ownerOf.get(group.id) as ManagerId | undefined) ?? group.managerId;
+    jobsByManager
+      .get(managerId)
+      ?.push(...jobsForGroup(scenario, { ...group, managerId }));
   }
 
   const split = (items: Job[]): [Job[], Job[]] => {
@@ -856,6 +929,204 @@ function remainingByPile(zones: ZoneRuntime[]): Map<string, Job[]> {
 function createWarehouseRun(randomize = true) {
   const scenario = generateScenario(randomize);
   return { scenario, zones: buildZones(scenario) };
+}
+
+function warehouseWalls(): PathWall[] {
+  const roomWalls = Object.values(ROOMS).flatMap((def): PathWall[] => {
+    const { x, y, w, h } = def.rect;
+    const gapV = 8;
+    const segH = (h - gapV) / 2;
+    const gap = { y1: y + segH, y2: y + segH + gapV };
+
+    return [
+      { type: "horizontal", name: `${def.name} top wall`, y, x1: x, x2: x + w },
+      {
+        type: "horizontal",
+        name: `${def.name} bottom wall`,
+        y: y + h,
+        x1: x,
+        x2: x + w,
+      },
+      {
+        type: "vertical",
+        name: `${def.name} left wall`,
+        x,
+        y1: y,
+        y2: y + h,
+        gap: def.door === "left" ? gap : undefined,
+      },
+      {
+        type: "vertical",
+        name: `${def.name} right wall`,
+        x: x + w,
+        y1: y,
+        y2: y + h,
+        gap: def.door === "right" ? gap : undefined,
+      },
+    ];
+  });
+
+  return [
+    ...roomWalls,
+    {
+      type: "horizontal",
+      name: "outside bottom wall",
+      y: 90,
+      x1: 4,
+      x2: 96,
+      gap: { x1: 46, x2: 54 },
+    },
+  ];
+}
+
+const PATH_EPS = 0.0001;
+
+function betweenPath(value: number, a: number, b: number) {
+  return value >= Math.min(a, b) - PATH_EPS && value <= Math.max(a, b) + PATH_EPS;
+}
+
+function segmentCrossesWall(a: { x: number; y: number }, b: Waypoint, wall: PathWall) {
+  if (wall.type === "vertical") {
+    if (Math.abs(a.x - b.x) < PATH_EPS) return false;
+    if (!betweenPath(wall.x, a.x, b.x)) return false;
+    const t = (wall.x - a.x) / (b.x - a.x);
+    if (t < -PATH_EPS || t > 1 + PATH_EPS) return false;
+    const y = a.y + (b.y - a.y) * t;
+    if (!betweenPath(y, wall.y1, wall.y2)) return false;
+    return !(wall.gap && betweenPath(y, wall.gap.y1, wall.gap.y2));
+  }
+
+  if (Math.abs(a.y - b.y) < PATH_EPS) return false;
+  if (!betweenPath(wall.y, a.y, b.y)) return false;
+  const t = (wall.y - a.y) / (b.y - a.y);
+  if (t < -PATH_EPS || t > 1 + PATH_EPS) return false;
+  const x = a.x + (b.x - a.x) * t;
+  if (!betweenPath(x, wall.x1, wall.x2)) return false;
+  return !(wall.gap && betweenPath(x, wall.gap.x1, wall.gap.x2));
+}
+
+function crossesWarehouseWall(a: { x: number; y: number }, b: Waypoint) {
+  return warehouseWalls().some((wall) => segmentCrossesWall(a, b, wall));
+}
+
+function roomAtPoint(point: { x: number; y: number }): SourceRoomId | null {
+  for (const def of Object.values(ROOMS)) {
+    const { x, y, w, h } = def.rect;
+    if (
+      point.x > x + PATH_EPS &&
+      point.x < x + w - PATH_EPS &&
+      point.y > y + PATH_EPS &&
+      point.y < y + h - PATH_EPS
+    ) {
+      return def.id as SourceRoomId;
+    }
+  }
+
+  return null;
+}
+
+function samePoint(a: { x: number; y: number }, b: { x: number; y: number }) {
+  return Math.abs(a.x - b.x) < PATH_EPS && Math.abs(a.y - b.y) < PATH_EPS;
+}
+
+function compactWaypoints(points: Waypoint[]) {
+  const compacted: Waypoint[] = [];
+  for (const point of points) {
+    if (!compacted.some((seen) => samePoint(seen, point))) {
+      compacted.push(point);
+    }
+  }
+  return compacted;
+}
+
+function safeWarehouseLeg(start: { x: number; y: number }, target: Waypoint): Waypoint[] {
+  if (!crossesWarehouseWall(start, target)) return [target];
+
+  const startRoom = roomAtPoint(start);
+  const targetRoom = roomAtPoint(target);
+  const route: Waypoint[] = [];
+
+  if (startRoom) {
+    const door = doorForSourceRoom(startRoom);
+    route.push(door, hallway(door.y));
+  } else if (start.y >= 90) {
+    route.push(hallway(88));
+  }
+
+  if (targetRoom) {
+    const door = doorForSourceRoom(targetRoom);
+    route.push(hallway(door.y), door, target);
+  } else if (target.y >= 90) {
+    route.push(hallway(88), target);
+  } else {
+    route.push(target);
+  }
+
+  return compactWaypoints(route).filter((point) => !samePoint(start, point));
+}
+
+function expandWarehouseRoute(
+  start: { x: number; y: number },
+  route: Waypoint[],
+  lane: number,
+): Waypoint[] {
+  const points: Waypoint[] = [{ ...start, label: "start" }];
+  let current = start;
+
+  for (const stop of route) {
+    const target = waypointForAgentLane(stop, lane);
+    for (const step of safeWarehouseLeg(current, target)) {
+      if (!samePoint(current, step)) points.push(step);
+      current = step;
+    }
+  }
+
+  return points;
+}
+
+function shouldOffsetWaypoint(stop: Waypoint) {
+  return !isTransitStop(stop) && !stop.label.includes("outside");
+}
+
+function waypointForAgentLane(stop: Waypoint, lane: number): Waypoint {
+  const off = lane === 0 ? -3 : 3;
+  return shouldOffsetWaypoint(stop) ? { ...stop, x: stop.x + off } : stop;
+}
+
+export function __warehousePathingForTest(): {
+  routes: { name: string; points: Waypoint[] }[];
+  walls: PathWall[];
+} {
+  const scenario = generateScenario(false);
+  const dishes = scenario.groups.find((group) => group.id === "dishes")!;
+  const kitchenBin = scenario.groups.find((group) => group.id === "kitchen-bin")!;
+  const dishJob = jobsForGroup(scenario, dishes)[0];
+  const reassignedKitchenBinJob = jobsForGroup(scenario, {
+    ...kitchenBin,
+    managerId: "LAUNDRY",
+  })[0];
+
+  return {
+    routes: [
+      {
+        name: "Kitchen lane 1 living-room pickup",
+        points: expandWarehouseRoute(
+          ROOMS.KITCHEN.agentHomes![1],
+          dishJob.route,
+          1,
+        ),
+      },
+      {
+        name: "Laundry lane 0 reassigned kitchen bin",
+        points: expandWarehouseRoute(
+          ROOMS.LAUNDRY.agentHomes![0],
+          reassignedKitchenBinJob.route,
+          0,
+        ),
+      },
+    ],
+    walls: warehouseWalls(),
+  };
 }
 
 function localAssignments(scenario: Scenario): BossAssignment[] {
@@ -962,6 +1233,41 @@ function localFinalReport(zones: ZoneRuntime[], scenario: Scenario): string {
   return lines.join("\n");
 }
 
+function presenterCue({
+  phase,
+  finalReport,
+  humanNeeded,
+  hasLiveDrop,
+  hasBossDecision,
+}: {
+  phase: Phase;
+  finalReport: string | null;
+  humanNeeded: { zoneId: string; message: string } | null;
+  hasLiveDrop: boolean;
+  hasBossDecision: boolean;
+}) {
+  if (finalReport) return "Read the report: completed work, added work, human help.";
+  if (humanNeeded) return "This is the human exit point.";
+  if (phase === "idle") return "One instruction enters the system. Click Submit.";
+  if (hasBossDecision && (phase === "deciding" || phase === "dispatched")) {
+    return "Boss chose Managers. Open decision is ready to read.";
+  }
+  if (phase === "deciding") return "Boss is choosing the Managers.";
+  if (phase === "dispatched") {
+    return "Boss chose Managers. Open decision is ready to read.";
+  }
+  if (phase === "working") {
+    return hasLiveDrop
+      ? "New work entered without resetting the run."
+      : "Managers split queues; now drop a new item.";
+  }
+  if (phase === "checkpoint") {
+    return "Live-work checkpoint: add another item or finish the rehearsal.";
+  }
+  if (phase === "summarizing") return "Boss is gathering the room reports.";
+  return "Read the report: completed work, added work, human help.";
+}
+
 function isInHouseDropZone(x: number, y: number) {
   return x >= 4 && x <= 96 && y >= 18 && y <= 95;
 }
@@ -1010,15 +1316,20 @@ export default function WarehouseScene() {
     zoneId: string;
     message: string;
   } | null>(null);
+  const [presenterMode, setPresenterMode] = useState(true);
   const [showJam, setShowJam] = useState(false);
   const [thinkingStep, setThinkingStep] = useState<string | null>(null);
   const [armedItemId, setArmedItemId] = useState<PaletteItemId | null>(null);
-  const [dropHint, setDropHint] = useState("Pick an item, then click anywhere in the house to add work.");
+  const [dropHint, setDropHint] = useState(
+    "Start the swarm first, then drop items while Agents are working.",
+  );
+  const [liveDropSeen, setLiveDropSeen] = useState(false);
   const [lowPower, setLowPower] = useState(false);
 
   const scenarioRef = useRef(scenario);
   const zonesRef = useRef(zones);
   const phaseRef = useRef(phase);
+  const presenterModeRef = useRef(presenterMode);
   const runningRef = useRef(false);
   const engineRef = useRef<SpriteEngine | null>(null);
   const activeAgentsRef = useRef(new Set<string>());
@@ -1038,6 +1349,10 @@ export default function WarehouseScene() {
   useEffect(() => {
     phaseRef.current = phase;
   }, [phase]);
+
+  useEffect(() => {
+    presenterModeRef.current = presenterMode;
+  }, [presenterMode]);
 
   useEffect(() => {
     const media = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -1181,24 +1496,30 @@ export default function WarehouseScene() {
 
   const walkTo = useCallback(
     async (agent: AgentRuntime, target: Waypoint) => {
-      const start = { ...agent.pos };
-      const frames = Math.max(1, Math.ceil(sceneDistance(start, target) / WALK_STRIDE));
+      const walkDirectTo = async (next: Waypoint) => {
+        const start = { ...agent.pos };
+        const frames = Math.max(1, Math.ceil(sceneDistance(start, next) / WALK_STRIDE));
 
-      agent.state = "walking";
-      commit(); // panel state -> "moving" once; movement itself is engine-only
-      syncAgentToEngine(agent);
-      for (let frame = 1; frame <= frames; frame++) {
-        const eased = easeInOut(frame / frames);
-        agent.pos = {
-          x: start.x + (target.x - start.x) * eased,
-          y: start.y + (target.y - start.y) * eased,
-        };
+        agent.state = "walking";
+        commit(); // panel state -> "moving" once; movement itself is engine-only
         syncAgentToEngine(agent);
-        await sleep(WALK_FRAME_MS);
-      }
+        for (let frame = 1; frame <= frames; frame++) {
+          const eased = easeInOut(frame / frames);
+          agent.pos = {
+            x: start.x + (next.x - start.x) * eased,
+            y: start.y + (next.y - start.y) * eased,
+          };
+          syncAgentToEngine(agent);
+          await sleep(WALK_FRAME_MS);
+        }
 
-      agent.pos = { x: target.x, y: target.y };
-      syncAgentToEngine(agent);
+        agent.pos = { x: next.x, y: next.y };
+        syncAgentToEngine(agent);
+      };
+
+      for (const next of safeWarehouseLeg(agent.pos, target)) {
+        await walkDirectTo(next);
+      }
     },
     [commit, syncAgentToEngine],
   );
@@ -1210,7 +1531,6 @@ export default function WarehouseScene() {
       activeAgentsRef.current.add(agentId);
       const zone = getZone(zoneId);
       const agent = zone.agents.find((a) => a.id === agentId)!;
-      const off = agent.lane === 0 ? -3 : 3;
 
       try {
         while (agent.queue.length > 0) {
@@ -1226,7 +1546,7 @@ export default function WarehouseScene() {
 
         for (let i = 0; i < j.route.length; i++) {
           const stop = j.route[i];
-          await walkTo(agent, { ...stop, x: stop.x + off });
+          await walkTo(agent, waypointForAgentLane(stop, agent.lane));
 
           // A tangled load at pickup: escalate to the Manager, who resolves it.
           if (i === j.pickupIndex && j.jammed) {
@@ -1416,6 +1736,16 @@ export default function WarehouseScene() {
     [addLine],
   );
 
+  const finishRehearsal = useCallback(async () => {
+    setPhase("summarizing");
+    setBossNote("Every room reported in. Boss is assembling the final report...");
+    await sleep(500);
+    setFinalReport(localFinalReport(zonesRef.current, scenarioRef.current));
+    setBossNote("Done.");
+    setPhase("done");
+    runningRef.current = false;
+  }, []);
+
   const finishWhenNoWork = useCallback(async () => {
     while (
       activeZonesRef.current.size > 0 ||
@@ -1426,14 +1756,15 @@ export default function WarehouseScene() {
     ) {
       await sleep(250);
     }
-    setPhase("summarizing");
-    setBossNote("Every room reported in. Boss is assembling the final report...");
-    await sleep(500);
-    setFinalReport(localFinalReport(zonesRef.current, scenarioRef.current));
-    setBossNote("Done.");
-    setPhase("done");
-    runningRef.current = false;
-  }, []);
+    if (presenterModeRef.current) {
+      setPhase("checkpoint");
+      setBossNote("All queues are clear. Add live work or finish the rehearsal.");
+      setDropHint("Pick an item to add live work, or finish the rehearsal when you are ready.");
+      runningRef.current = false;
+      return;
+    }
+    await finishRehearsal();
+  }, [finishRehearsal]);
 
   const dropSpawnedItem = useCallback(
     async (itemId: PaletteItemId, x: number, y: number) => {
@@ -1443,7 +1774,10 @@ export default function WarehouseScene() {
         setDropHint("Click Submit to start the swarm, then drop items while Agents are working.");
         return;
       }
-      if (phaseRef.current === "deciding" || phaseRef.current === "summarizing") {
+      if (
+        phaseRef.current !== "working" &&
+        phaseRef.current !== "checkpoint"
+      ) {
         setDropHint("Wait for the current decision step to finish, then drop the item.");
         return;
       }
@@ -1469,6 +1803,7 @@ export default function WarehouseScene() {
       scenarioRef.current = nextScenario;
       setScenario(nextScenario);
       setFinalReport(null);
+      setLiveDropSeen(true);
       setDropHint(`${item.label} dropped. Click again to drop another ${item.label.toLowerCase()}, or pick a different item.`);
 
       engineRef.current?.dropItem(`drop-${seq}`, item.item as ItemKind, x, y);
@@ -1534,7 +1869,8 @@ export default function WarehouseScene() {
     setDecompSource(null);
     setThinkingStep("Scanning the mess...");
     setArmedItemId(null);
-    setDropHint("Pick an item, then click anywhere in the house to add work.");
+    setDropHint("Boss is deciding first. Items unlock when Agents start working.");
+    setLiveDropSeen(false);
 
     setPhase("deciding");
     setBossNote("Boss is deciding how to split the work...");
@@ -1602,12 +1938,16 @@ export default function WarehouseScene() {
     await sleep(900);
 
     setPhase("working");
+    setDropHint("Pick an item, then click anywhere in the house to add live work.");
     await Promise.all(zonesRef.current.map((z) => runZone(z.id)));
     await finishWhenNoWork();
   }, [commit, runZone, resyncEngine, planManagerQueues, finishWhenNoWork]);
 
   const reset = useCallback(() => {
-    if (runningRef.current) return;
+    const resettablePhase = presenterModeRef.current
+      ? phaseRef.current === "checkpoint"
+      : phaseRef.current === "done";
+    if (runningRef.current || !resettablePhase) return;
     lineSeq = 0;
     const nextRun = createWarehouseRun();
     activeAgentsRef.current.clear();
@@ -1625,8 +1965,15 @@ export default function WarehouseScene() {
     setDecompSource(null);
     setThinkingStep(null);
     setArmedItemId(null);
-    setDropHint("Pick an item, then click anywhere in the house to add work.");
+    setDropHint("Start the swarm first, then drop items while Agents are working.");
+    setLiveDropSeen(false);
   }, [commit, resyncEngine]);
+
+  const finishPresenterRehearsal = useCallback(() => {
+    if (!presenterModeRef.current || phaseRef.current !== "checkpoint") return;
+    runningRef.current = true;
+    void finishRehearsal();
+  }, [finishRehearsal]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -1683,14 +2030,30 @@ export default function WarehouseScene() {
     phase === "deciding" ||
     phase === "dispatched" ||
     phase === "working" ||
+    phase === "checkpoint" ||
     phase === "summarizing";
+  const paletteEnabled =
+    phase === "working" || (presenterMode && phase === "checkpoint");
+  const resetEnabled = presenterMode ? phase === "checkpoint" : phase === "done";
+  const activePresenterCue = presenterCue({
+    phase,
+    finalReport,
+    humanNeeded,
+    hasLiveDrop: liveDropSeen || zones.some((zone) => zone.playerAdded > 0),
+    hasBossDecision: zones.some((zone) => zone.assignment),
+  });
 
   return (
     <div className="flex flex-col gap-4">
       <ItemPalette
         selectedId={armedItemId}
         hint={dropHint}
+        disabled={!paletteEnabled}
         onSelect={(id) => {
+          if (!paletteEnabled) {
+            setDropHint("Start the swarm first, then drop items while Agents are working.");
+            return;
+          }
           setArmedItemId(id);
           const item = paletteItemById(id);
           setDropHint(
@@ -1728,11 +2091,20 @@ export default function WarehouseScene() {
         <button
           type="button"
           onClick={reset}
-          disabled={busy}
+          disabled={!resetEnabled}
           className="rounded-md border border-[#474747] px-4 py-2 text-sm font-semibold text-zinc-300 transition enabled:hover:bg-[#474747]/40 disabled:opacity-50"
         >
           Reset
         </button>
+        {presenterMode && phase === "checkpoint" ? (
+          <button
+            type="button"
+            onClick={finishPresenterRehearsal}
+            className="rounded-md bg-[#1ABCBD] px-4 py-2 text-sm font-semibold text-[#0A0A0A] transition hover:bg-[#7de7df]"
+          >
+            Finish rehearsal
+          </button>
+        ) : null}
         <label className="ml-auto flex items-center gap-2 text-xs text-zinc-500">
           <input
             className="accent-[#3A7CA5]"
@@ -1746,12 +2118,38 @@ export default function WarehouseScene() {
           <input
             className="accent-[#3A7CA5]"
             type="checkbox"
-            checked={showJam}
-            onChange={(e) => setShowJam(e.target.checked)}
+            checked={presenterMode}
+            disabled={phase === "checkpoint"}
+            onChange={(e) => {
+              setPresenterMode(e.target.checked);
+              if (!e.target.checked) setShowJam(false);
+            }}
           />
-          Presenter tools
+          Presenter mode
         </label>
+        {presenterMode ? (
+          <label className="flex items-center gap-2 text-xs text-zinc-500">
+            <input
+              className="accent-[#3A7CA5]"
+              type="checkbox"
+              checked={showJam}
+              onChange={(e) => setShowJam(e.target.checked)}
+            />
+            Show Jam controls
+          </label>
+        ) : null}
       </form>
+
+      {presenterMode ? (
+        <div className="rounded-lg border border-[#1ABCBD]/50 bg-[#1ABCBD]/10 p-3 shadow-sm">
+          <p className="text-xs font-bold uppercase tracking-wide text-[#1ABCBD]">
+            Presenter cue
+          </p>
+          <p className="mt-1 text-base font-semibold text-[#F7F7F7]">
+            {activePresenterCue}
+          </p>
+        </div>
+      ) : null}
 
       {/* Boss panel */}
       <div className="rounded-lg border border-[#474747] bg-[#191919] p-4 shadow-sm">
@@ -1792,7 +2190,10 @@ export default function WarehouseScene() {
         ) : null}
 
         {zones.some((zone) => zone.assignment) ? (
-          <details className="mt-3 rounded-lg border border-[#474747] bg-[#0A0A0A] p-3">
+          <details
+            open={presenterMode || undefined}
+            className="mt-3 rounded-lg border border-[#474747] bg-[#0A0A0A] p-3"
+          >
             <summary className="cursor-pointer text-sm font-bold text-zinc-200">
               Boss decision: why each Manager got this work
             </summary>
@@ -1888,7 +2289,7 @@ export default function WarehouseScene() {
                   </div>
                 </div>
               </div>
-              {showJam ? (
+              {presenterMode && showJam ? (
                 <button
                   type="button"
                   onClick={() => triggerJam(zone.id)}
@@ -1903,7 +2304,16 @@ export default function WarehouseScene() {
             </div>
 
             <div className="min-h-[44px] rounded-lg border border-[#474747]/70 bg-[#0A0A0A] p-2 text-[12px] leading-snug text-zinc-300">
-              {zone.instruction ? (
+              {zone.assignment ? (
+                <span className="animate-fade-in">
+                  <span className="font-semibold text-[#F7F7F7]">
+                    Assigned work:
+                  </span>{" "}
+                  {presenterMode
+                    ? zone.assignment.workGroups.join(", ")
+                    : zone.instruction}
+                </span>
+              ) : zone.instruction ? (
                 <span className="animate-fade-in">{zone.instruction}</span>
               ) : (
                 <span className="italic text-zinc-500">
@@ -1918,12 +2328,26 @@ export default function WarehouseScene() {
               ))}
             </div>
 
-            <ReportPanel
-              title="Manager review log"
-              lines={zone.report}
-              emptyHint="No activity yet."
-              className="h-36"
-            />
+            {presenterMode ? (
+              <details className="rounded-lg border border-[#474747]/70 bg-[#0A0A0A] p-2">
+                <summary className="cursor-pointer text-xs font-bold uppercase tracking-wide text-zinc-400">
+                  Detailed activity log
+                </summary>
+                <ReportPanel
+                  title="Manager review log"
+                  lines={zone.report}
+                  emptyHint="No activity yet."
+                  className="mt-2 h-36"
+                />
+              </details>
+            ) : (
+              <ReportPanel
+                title="Manager review log"
+                lines={zone.report}
+                emptyHint="No activity yet."
+                className="h-36"
+              />
+            )}
           </div>
         ))}
       </div>
@@ -1950,10 +2374,12 @@ function StatusBadge({ zone }: { zone: ZoneRuntime }) {
 function ItemPalette({
   selectedId,
   hint,
+  disabled,
   onSelect,
 }: {
   selectedId: PaletteItemId | null;
   hint: string;
+  disabled: boolean;
   onSelect: (id: PaletteItemId) => void;
 }) {
   return (
@@ -1964,7 +2390,9 @@ function ItemPalette({
             Drop one item
           </p>
           <p className="text-sm text-zinc-300">
-            Pick an object once, then click anywhere in the house as many times as you want.
+            {disabled
+              ? "Start the swarm first, then drop items while Agents are working."
+              : "Pick an object once, then click anywhere in the house as many times as you want."}
           </p>
         </div>
         <p className="text-xs text-zinc-500">{hint}</p>
@@ -1975,11 +2403,14 @@ function ItemPalette({
             key={item.id}
             type="button"
             onClick={() => onSelect(item.id)}
+            disabled={disabled}
             aria-pressed={selectedId === item.id}
             className={`flex h-14 min-w-[76px] items-center justify-center gap-2 rounded-md border px-2 text-xs font-semibold transition ${
               selectedId === item.id
                 ? "border-[#1ABCBD] bg-[#3A7CA5]/30 text-[#F7F7F7] ring-2 ring-[#1ABCBD]/30"
-                : "border-[#474747] bg-[#0A0A0A] text-zinc-300 hover:border-[#3A7CA5]"
+                : disabled
+                  ? "cursor-not-allowed border-[#474747] bg-[#0A0A0A] text-zinc-600 opacity-60"
+                  : "border-[#474747] bg-[#0A0A0A] text-zinc-300 hover:border-[#3A7CA5]"
             }`}
           >
             <ItemSprite item={item.item as ItemKind} size={24} />
